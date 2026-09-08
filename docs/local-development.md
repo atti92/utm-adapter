@@ -25,7 +25,7 @@ The service listens on `http://127.0.0.1:8000`. OpenAPI is available at `/docs`,
 The connector can run one or more read-only MAVLink sessions in the background. Copy `.env.example` to `.env` and set the connection list to the URI exposed by your simulator or MAVLink router:
 
 ```dotenv
-UTM_CONNECTOR_MAVLINK_CONNECTIONS=[{"vehicle_id":"sitl-1","connection_uri":"udpin:127.0.0.1:14550"}]
+UTM_CONNECTOR_MAVLINK_CONNECTIONS=[{"vehicle_id":"sitl-1","connection_uri":"udpin:127.0.0.1:14551"}]
 UTM_CONNECTOR_MAVLINK_POLL_INTERVAL_S=0.2
 ```
 
@@ -36,6 +36,41 @@ curl http://127.0.0.1:8000/v1/vehicles/sitl-1/status
 ```
 
 Use a MAVLink router or separate simulator output port if QGroundControl or Mission Planner is also listening on the same UDP port. This path only reads MAVLink telemetry; it does not send vehicle commands.
+
+### ArduPilot SITL and QGroundControl
+
+The prepared macOS setup uses two simulator outputs so the GCS and connector can observe the same vehicle independently:
+
+```text
+ArduPilot SITL --UDP 14550--> QGroundControl
+                 --UDP 14551--> UTM connector
+```
+
+From `/Users/atti/repos/ardupilot`, start the prepared ArduCopter binary with:
+
+```sh
+PATH=/Users/atti/repos/ardupilot/.venv/bin:$PATH \
+  ./Tools/autotest/sim_vehicle.py \
+  -v ArduCopter -N \
+  --out=udpout:127.0.0.1:14550 \
+  --out=udpout:127.0.0.1:14551
+```
+
+Then start QGroundControl and the connector in separate terminals:
+
+```sh
+open -a QGroundControl
+cd /Users/atti/repos/utm-adapter
+make run
+```
+
+QGroundControl should show the SITL vehicle automatically. The connector state can be checked with:
+
+```sh
+curl http://127.0.0.1:8000/v1/vehicles/sitl-1/status
+```
+
+The current local UTM is the connector's in-memory backend, so no external UTM service or account is required for this test loop. The real Flight Blender adapter remains a later integration step.
 
 ## Run tests
 
