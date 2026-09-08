@@ -70,6 +70,14 @@ def create_app(
         except ConnectorError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
+    @app.post("/v1/vehicles/{vehicle_id}/onboard-mission/refresh", response_model=dict, status_code=202)
+    def refresh_onboard_mission(vehicle_id: str) -> dict:
+        try:
+            manager.request_mission(vehicle_id)
+        except (ConnectorError, KeyError, ValueError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return {"vehicle_id": vehicle_id, "status": "REQUESTED"}
+
     @app.put("/v1/vehicles/{vehicle_id}", response_model=VehicleTelemetry)
     def put_telemetry(vehicle_id: str, telemetry: VehicleTelemetry) -> VehicleTelemetry:
         try:

@@ -101,6 +101,11 @@ class MavlinkMissionReader:
         sender(self._target_system, self._target_component)
         self._requested = True
 
+    def refresh(self) -> None:
+        """Request a fresh onboard mission after a previous read completed."""
+
+        self.request_list()
+
     def ingest(self, message: Any, received_at: Optional[datetime] = None) -> Optional[MavlinkMissionRead]:
         received_at = received_at or self.clock()
         if received_at.tzinfo is None or received_at.utcoffset() is None:

@@ -8,6 +8,7 @@ from typing import Callable, Dict, List, Optional, Protocol
 from .config import MavlinkConnectionConfig
 from .domain import VehicleStateSnapshot
 from .mavlink import MavlinkVehicleSession
+from .mission_reader import MavlinkMissionRead
 
 
 class PollableSession(Protocol):
@@ -17,9 +18,17 @@ class PollableSession(Protocol):
     def snapshot(self) -> VehicleStateSnapshot:
         ...
 
+    @property
+    def onboard_mission(self) -> Optional[MavlinkMissionRead]:
+        ...
+
+    def request_mission(self) -> None:
+        ...
+
 
 SessionFactory = Callable[[str, str], PollableSession]
 SnapshotHandler = Callable[[VehicleStateSnapshot], None]
+MissionHandler = Callable[[MavlinkMissionRead], None]
 ErrorHandler = Callable[[str, Exception], None]
 
 
@@ -33,6 +42,7 @@ class MavlinkSessionManager:
         *,
         poll_interval_s: float = 0.2,
         session_factory: SessionFactory = MavlinkVehicleSession.connect,
+        on_mission: Optional[MissionHandler] = None,
         on_error: Optional[ErrorHandler] = None,
     ) -> None:
         if poll_interval_s <= 0:
@@ -41,11 +51,13 @@ class MavlinkSessionManager:
         self.on_snapshot = on_snapshot
         self.poll_interval_s = poll_interval_s
         self.session_factory = session_factory
+        self.on_mission = on_mission
         self.on_error = on_error
         self.sessions: Dict[str, PollableSession] = {}
         self._stop = threading.Event()
         self._threads: List[threading.Thread] = []
         self._lock = threading.Lock()
+        self._delivered_missions: Dict[str, MavlinkMissionRead] = {}
 
     def start(self) -> None:
         with self._lock:
@@ -74,6 +86,13 @@ class MavlinkSessionManager:
             thread.join(timeout=max(1.0, self.poll_interval_s * 5))
         self._threads = []
 
+    def request_mission(self, vehicle_id: str) -> None:
+        session = self.sessions.get(vehicle_id)
+        if session is None:
+            raise KeyError(f"MAVLink session not found for vehicle: {vehicle_id}")
+        session.request_mission()
+        self._delivered_missions.pop(vehicle_id, None)
+
     def poll_once(self) -> int:
         """Poll all sessions once; useful for deterministic tests and tools."""
 
@@ -82,7 +101,7 @@ class MavlinkSessionManager:
             try:
                 message = session.poll(timeout=0.0)
                 if message is not None:
-                    self.on_snapshot(session.snapshot())
+                    self._deliver(vehicle_id, session)
                     messages += 1
             except Exception as exc:
                 self._report_error(vehicle_id, exc)
@@ -93,7 +112,7 @@ class MavlinkSessionManager:
             try:
                 message = session.poll(timeout=self.poll_interval_s)
                 if message is not None:
-                    self.on_snapshot(session.snapshot())
+                    self._deliver(vehicle_id, session)
             except Exception as exc:
                 self._report_error(vehicle_id, exc)
                 self._stop.wait(self.poll_interval_s)
@@ -101,3 +120,11 @@ class MavlinkSessionManager:
     def _report_error(self, vehicle_id: str, error: Exception) -> None:
         if self.on_error:
             self.on_error(vehicle_id, error)
+
+    def _deliver(self, vehicle_id: str, session: PollableSession) -> None:
+        self.on_snapshot(session.snapshot())
+        mission = getattr(session, "onboard_mission", None)
+        if mission is not None and mission is not self._delivered_missions.get(vehicle_id):
+            self._delivered_missions[vehicle_id] = mission
+            if self.on_mission:
+                self.on_mission(mission)

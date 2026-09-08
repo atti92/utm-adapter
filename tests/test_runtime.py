@@ -16,6 +16,7 @@ from utm_connector.domain import (
     VehicleStateSnapshot,
     VehicleTelemetry,
 )
+from utm_connector.mission_reader import MavlinkMissionRead
 from utm_connector.runtime import MavlinkSessionManager
 from utm_connector.service import ConnectorService
 
@@ -33,6 +34,13 @@ class FakeSession:
 
     def snapshot(self) -> VehicleStateSnapshot:
         return self._snapshot
+
+    @property
+    def onboard_mission(self) -> MavlinkMissionRead | None:
+        return None
+
+    def request_mission(self) -> None:
+        return None
 
 
 def _snapshot() -> VehicleStateSnapshot:

@@ -85,3 +85,12 @@ def test_onboard_mission_drift_is_reported_in_vehicle_status() -> None:
     assert response.status_code == 200
     assert response.json()["classification"] == "NON_OPERATIONAL_CHANGE"
     assert response.json()["submitted_mission_hash"] == response.json()["current_mission_hash"]
+
+
+def test_onboard_mission_refresh_requires_a_configured_session() -> None:
+    app = create_app(ConnectorService(InMemoryBackend()))
+    client = TestClient(app)
+
+    response = client.post("/v1/vehicles/sitl-1/onboard-mission/refresh")
+
+    assert response.status_code == 409

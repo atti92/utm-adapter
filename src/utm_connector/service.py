@@ -22,6 +22,7 @@ from .domain import (
     VehicleTelemetry,
 )
 from .drift import compare_missions
+from .mission_reader import MavlinkMissionRead
 
 
 class ConnectorError(ValueError):
@@ -33,6 +34,7 @@ class ConnectorService:
         self.backend = backend
         self.missions: Dict[str, MissionSnapshot] = {}
         self.onboard_missions: Dict[str, MissionSnapshot] = {}
+        self.onboard_mission_reads: Dict[str, MavlinkMissionRead] = {}
         self.mission_drifts: Dict[str, MissionDriftReport] = {}
         self.vehicles: Dict[str, VehicleTelemetry] = {}
         self.vehicle_snapshots: Dict[str, VehicleStateSnapshot] = {}
@@ -69,6 +71,9 @@ class ConnectorService:
         snapshot = MissionSnapshot(mission=mission, mission_hash=mission.canonical_hash())
         self.missions[vehicle_id] = snapshot
         self._event("MISSION_UPDATED", vehicle_id=vehicle_id, details={"mission_hash": snapshot.mission_hash})
+        onboard_read = self.onboard_mission_reads.get(vehicle_id)
+        if onboard_read is not None:
+            self._record_onboard_mission(vehicle_id, onboard_read)
         return snapshot
 
     def put_onboard_mission(self, vehicle_id: str, mission: Mission) -> MissionDriftReport:
@@ -81,6 +86,33 @@ class ConnectorService:
         current = MissionSnapshot(mission=mission, mission_hash=mission.canonical_hash())
         report = compare_missions(submitted.mission, current.mission)
         self.onboard_missions[vehicle_id] = current
+        self.mission_drifts[vehicle_id] = report
+        self._event(
+            "MISSION_DRIFT_CHECKED",
+            vehicle_id=vehicle_id,
+            severity="WARNING" if report.classification.value != "NO_CHANGE" else "INFO",
+            details=report.model_dump(mode="json"),
+        )
+        return report
+
+    def ingest_onboard_mission(self, onboard_read: MavlinkMissionRead) -> Optional[MissionDriftReport]:
+        self.onboard_mission_reads[onboard_read.vehicle_id] = onboard_read
+        if onboard_read.vehicle_id not in self.missions:
+            self._event(
+                "ONBOARD_MISSION_RECEIVED_WITHOUT_SUBMISSION",
+                vehicle_id=onboard_read.vehicle_id,
+                severity="WARNING",
+                details={"mission_count": onboard_read.mission_count},
+            )
+            return None
+        return self._record_onboard_mission(onboard_read.vehicle_id, onboard_read)
+
+    def _record_onboard_mission(self, vehicle_id: str, onboard_read: MavlinkMissionRead) -> MissionDriftReport:
+        submitted = self.missions[vehicle_id]
+        current = onboard_read.to_mission(submitted.mission)
+        snapshot = MissionSnapshot(mission=current, mission_hash=current.canonical_hash())
+        report = compare_missions(submitted.mission, current)
+        self.onboard_missions[vehicle_id] = snapshot
         self.mission_drifts[vehicle_id] = report
         self._event(
             "MISSION_DRIFT_CHECKED",

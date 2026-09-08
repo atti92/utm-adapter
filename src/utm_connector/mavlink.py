@@ -266,3 +266,6 @@ class MavlinkVehicleSession(MavlinkMessageNormalizer):
     @property
     def onboard_mission(self) -> Optional[MavlinkMissionRead]:
         return self.mission_reader.completed
+
+    def request_mission(self) -> None:
+        self.mission_reader.refresh()
