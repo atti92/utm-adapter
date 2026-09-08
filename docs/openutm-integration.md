@@ -56,7 +56,8 @@ cd /Users/atti/repos/utm-adapter
 UTM_CONNECTOR_PORT=8001 \
 UTM_CONNECTOR_BACKEND=flight-blender \
 UTM_CONNECTOR_FLIGHT_BLENDER_BASE_URL=http://127.0.0.1:8000 \
-UTM_CONNECTOR_FLIGHT_BLENDER_BEARER_TOKEN=local-development-token \
+UTM_CONNECTOR_FLIGHT_BLENDER_BEARER_TOKEN="$(uv run python scripts/generate_flight_blender_dev_token.py)" \
+UTM_CONNECTOR_FLIGHT_BLENDER_SUBMITTED_BY=connector@example.invalid \
 UTM_CONNECTOR_RECORD_PATH=connector-events.jsonl \
 uv run utm-connector
 ```
@@ -71,7 +72,7 @@ curl http://127.0.0.1:8001/v1/vehicles/sitl-1/status
 
 ## Submit and activate a declaration
 
-Generate a future WGS84 mission. The WGS84 datum is intentional: the connector
+Generate an immediately active WGS84 mission. The WGS84 datum is intentional: the connector
 does not guess a conversion from QGroundControl's AGL/AMSL mission altitude.
 
 ```sh

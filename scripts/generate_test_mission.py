@@ -16,9 +16,15 @@ def main() -> None:
     parser.add_argument("--longitude", type=float, default=19.0402)
     parser.add_argument("--altitude-m", type=float, default=120)
     parser.add_argument("--duration-minutes", type=int, default=20)
+    parser.add_argument(
+        "--start-offset-minutes",
+        type=int,
+        default=-1,
+        help="Minutes from now when the mission starts; default -1 keeps it active immediately",
+    )
     args = parser.parse_args()
 
-    start = datetime.now(timezone.utc) + timedelta(minutes=5)
+    start = datetime.now(timezone.utc) + timedelta(minutes=args.start_offset_minutes)
     end = start + timedelta(minutes=args.duration_minutes)
     payload = {
         "vehicle_id": args.vehicle_id,
