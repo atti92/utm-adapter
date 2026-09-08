@@ -4,10 +4,10 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class StrictModel(BaseModel):
@@ -195,6 +195,44 @@ class MissionSnapshot(StrictModel):
     @classmethod
     def validate_timestamp(cls, value: datetime) -> datetime:
         return _aware_datetime(value)
+
+
+class OperationalVolume(StrictModel):
+    geometry_type: Literal["Polygon"] = "Polygon"
+    coordinates: List[List[List[float]]] = Field(min_length=1)
+    lower_altitude: Altitude
+    upper_altitude: Altitude
+
+    @field_validator("coordinates")
+    @classmethod
+    def validate_polygon_coordinates(cls, value: List[List[List[float]]]) -> List[List[List[float]]]:
+        if not value or len(value[0]) < 4:
+            raise ValueError("polygon outer ring must contain at least four positions")
+        for ring in value:
+            if len(ring) < 4 or ring[0] != ring[-1]:
+                raise ValueError("polygon rings must be closed and contain at least four positions")
+            for position in ring:
+                if len(position) != 2:
+                    raise ValueError("polygon positions must be [longitude, latitude]")
+                longitude, latitude = position
+                if not -180 <= longitude <= 180 or not -90 <= latitude <= 90:
+                    raise ValueError("polygon coordinates are outside WGS84 bounds")
+        return value
+
+    @model_validator(mode="after")
+    def validate_altitude_order(self) -> "OperationalVolume":
+        if self.lower_altitude.datum != self.upper_altitude.datum:
+            raise ValueError("operational volume altitude datums must match")
+        if self.lower_altitude.meters > self.upper_altitude.meters:
+            raise ValueError("lower_altitude must not exceed upper_altitude")
+        return self
+
+
+class CorridorGeometry(StrictModel):
+    mission_hash: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
+    projected_crs: str = Field(min_length=1, max_length=128)
+    corridor_radius_m: float = Field(gt=0, le=10000, allow_inf_nan=False)
+    volume: OperationalVolume
 
 
 class OperationState(StrictModel):

@@ -1,0 +1,91 @@
+"""Mission-source adapters that produce the canonical mission model."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any, Mapping
+
+from .domain import AltitudeDatum, Mission, Waypoint
+
+
+class MissionParseError(ValueError):
+    """Raised when a supported GCS mission cannot be normalized safely."""
+
+
+def parse_qgroundcontrol_plan(
+    payload: Mapping[str, Any],
+    *,
+    vehicle_id: str,
+    valid_from: datetime,
+    valid_until: datetime,
+    corridor_radius_m: float = 30,
+) -> Mission:
+    """Parse basic QGroundControl SimpleItems into a canonical mission.
+
+    QGC stores geographic coordinates in ``params[4:7]``.  The MAVLink frame
+    is used to determine altitude semantics; the parser never guesses a datum.
+    Complex items and unsupported command types are rejected for now so they
+    cannot silently become a different operation.
+    """
+
+    if payload.get("fileType") != "Plan":
+        raise MissionParseError("payload is not a QGroundControl Plan")
+    mission_section = payload.get("mission")
+    if not isinstance(mission_section, Mapping):
+        raise MissionParseError("QGroundControl Plan is missing mission data")
+    items = mission_section.get("items")
+    if not isinstance(items, list):
+        raise MissionParseError("QGroundControl Plan mission.items must be a list")
+
+    waypoints = []
+    for item in items:
+        if not isinstance(item, Mapping) or item.get("type") != "SimpleItem":
+            raise MissionParseError("only QGroundControl SimpleItem missions are supported")
+        command = _integer(item.get("command"), "command")
+        if command not in (16, 22):  # MAV_CMD_NAV_WAYPOINT / MAV_CMD_NAV_TAKEOFF
+            raise MissionParseError(f"unsupported QGroundControl mission command: {command}")
+        frame = _integer(item.get("frame"), "frame")
+        datum = _altitude_datum(frame)
+        params = item.get("params")
+        if not isinstance(params, list) or len(params) < 7:
+            raise MissionParseError("QGroundControl SimpleItem must contain seven params")
+        try:
+            latitude = float(params[4])
+            longitude = float(params[5])
+            altitude = float(params[6])
+        except (TypeError, ValueError) as exc:
+            raise MissionParseError("QGroundControl mission coordinates must be numeric") from exc
+        waypoints.append(
+            Waypoint(
+                latitude=latitude,
+                longitude=longitude,
+                altitude={"meters": altitude, "datum": datum},
+                sequence=len(waypoints),
+            )
+        )
+
+    if len(waypoints) < 2:
+        raise MissionParseError("QGroundControl mission must contain at least two navigable items")
+    return Mission(
+        vehicle_id=vehicle_id,
+        waypoints=waypoints,
+        corridor_radius_m=corridor_radius_m,
+        valid_from=valid_from,
+        valid_until=valid_until,
+        source="qgroundcontrol",
+    )
+
+
+def _integer(value: Any, field_name: str) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise MissionParseError(f"QGroundControl {field_name} must be an integer") from exc
+
+
+def _altitude_datum(frame: int) -> AltitudeDatum:
+    if frame in (0, 3):  # MAV_FRAME_GLOBAL / MAV_FRAME_GLOBAL_INT
+        return AltitudeDatum.AMSL
+    if frame == 6:  # MAV_FRAME_GLOBAL_RELATIVE_ALT_INT
+        return AltitudeDatum.AGL
+    raise MissionParseError(f"unsupported QGroundControl altitude frame: {frame}")

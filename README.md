@@ -2,7 +2,7 @@
 
 ## Local UTM Operations Connector
 
-The repository includes the first Phase 0 slice from [`utm_connector_plan.md`](utm_connector_plan.md): a provider-neutral canonical model, loopback FastAPI API, deterministic in-memory UTM backend, operation lifecycle, telemetry ingestion, event journal, and tests.
+The repository includes working Phase 0, Phase 1, and the first Phase 2 slices from [`utm_connector_plan.md`](utm_connector_plan.md): a provider-neutral canonical model, loopback FastAPI API, deterministic in-memory UTM backend, read-only MAVLink normalization, QGroundControl `.plan` parsing, metre-correct corridor generation, and tests.
 
 See [`docs/local-development.md`](docs/local-development.md) for setup and API examples.
 
@@ -11,6 +11,8 @@ uv sync
 uv run pytest
 uv run utm-connector
 ```
+
+`uv sync` installs the pinned geospatial dependencies used by the corridor engine. The project supports Python 3.9 through 3.13; pyproj resolution uses a compatible release for each supported Python version.
 
 ## Goal
 The goal of this work is to develop a UTM focused working group within Dronecode membership and build an open / configurable adapter for QGCS to enable it to exchange relevant data with a UTM system. The adapter would be configurable so that drone operators can specify what UTM system/service provider they want to use. The UTM system in turn must implement those APIs to exchange data with QGCS. 

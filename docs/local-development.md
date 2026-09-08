@@ -1,10 +1,10 @@
 # Local development environment
 
-The repository now contains a Phase 0 connector skeleton based on the implementation plan. It runs a loopback-only FastAPI service with an in-memory backend, so product behavior can be exercised without credentials or a deployed UTM provider.
+The repository contains a local connector based on the implementation plan. It runs a loopback-only FastAPI service with an in-memory backend, and includes read-only MAVLink normalization plus QGroundControl mission and corridor tests, so product behavior can be exercised without credentials or a deployed UTM provider.
 
 ## Requirements
 
-- Python 3.9 or newer
+- Python 3.9 through 3.13
 - [uv](https://docs.astral.sh/uv/)
 
 ## Start the local connector
@@ -39,3 +39,7 @@ curl -X POST 'http://127.0.0.1:8000/v1/operator-intents?vehicle_id=sitl-1' \
 ```
 
 The local backend accepts the declaration and marks it authorized to make the happy-path lifecycle testable. This is a development behavior; the backend adapter interface is deliberately separate so real authorization semantics can be implemented later.
+
+## Exercise the mission adapters
+
+QGroundControl `.plan` files can be passed to `parse_qgroundcontrol_plan` and become the same canonical `Mission` model used by the API. `build_corridor` then projects the WGS84 route to a local metre-based CRS before buffering it; altitude datums are required and are never inferred. The unit tests in `tests/test_missions.py` and `tests/test_geometry.py` provide offline examples of both boundaries.
