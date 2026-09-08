@@ -300,16 +300,18 @@ def _declaration_state(provider_state: int) -> DeclarationState:
 
 
 def _current_state(telemetry: VehicleTelemetry) -> dict:
-    reference = "GroundLevel" if telemetry.altitude.datum == AltitudeDatum.AGL else "TakeoffLocation"
     return {
-        "timestamp": {"value": _rfc3339(telemetry.observed_at), "format": "RFC3339"},
+        # Flight Blender defaults the omitted format to RFC3339. Keeping the
+        # nested value string-only also avoids its local serializer's handling
+        # of nested enum instances.
+        "timestamp": {"value": _rfc3339(telemetry.observed_at)},
         "timestamp_accuracy": 0.0,
         "position": {
             "lat": telemetry.latitude,
             "lng": telemetry.longitude,
             "accuracy_h": "HAUnknown",
             "accuracy_v": "VAUnknown",
-            "height": {"reference": reference, "distance": telemetry.altitude.meters},
+            "height": None,
             "alt": telemetry.altitude.meters,
             "pressure_altitude": -1000,
             "extrapolated": False,

@@ -80,6 +80,8 @@ def test_flight_blender_backend_submits_declaration_and_publishes_telemetry(tmp_
     assert requests[2].url.path == "/flight_stream/set_telemetry"
     telemetry = json.loads(requests[2].content)
     assert telemetry["observations"][0]["flight_details"]["id"] == provider_id
+    assert telemetry["observations"][0]["current_states"][0]["position"]["height"] is None
+    assert "format" not in telemetry["observations"][0]["current_states"][0]["timestamp"]
     recorder.close()
     recorded = (tmp_path / "connector-events.jsonl").read_text()
     assert "Bearer token" not in recorded
