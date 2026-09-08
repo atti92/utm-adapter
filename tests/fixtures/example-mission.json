@@ -1,0 +1,21 @@
+{
+  "vehicle_id": "sitl-1",
+  "valid_from": "2026-01-01T12:00:00Z",
+  "valid_until": "2026-01-01T12:30:00Z",
+  "source": "qgc.plan",
+  "corridor_radius_m": 30,
+  "waypoints": [
+    {
+      "sequence": 0,
+      "latitude": 47.5,
+      "longitude": 19.0,
+      "altitude": {"meters": 20, "datum": "AGL"}
+    },
+    {
+      "sequence": 1,
+      "latitude": 47.501,
+      "longitude": 19.001,
+      "altitude": {"meters": 25, "datum": "AGL"}
+    }
+  ]
+}

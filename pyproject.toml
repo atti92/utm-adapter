@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "utm-operations-connector"
+version = "0.1.0"
+description = "Provider-neutral local UTM operations connector"
+readme = "README.md"
+requires-python = ">=3.9,<3.14"
+dependencies = [
+    "fastapi==0.115.6",
+    "httpx==0.28.1",
+    "pydantic==2.10.5",
+    "pydantic-settings==2.7.1",
+    "uvicorn[standard]==0.34.0",
+]
+
+[project.optional-dependencies]
+geo = [
+    "pyproj>=3.6,<4",
+    "shapely>=2.0,<3",
+]
+test = [
+    "pytest==8.3.4",
+]
+
+[project.scripts]
+utm-connector = "utm_connector.main:run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/utm_connector"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[dependency-groups]
+test = [
+    "pytest==8.3.4",
+]
+
+[tool.uv]
+default-groups = ["test"]

@@ -1,4 +1,17 @@
 # QGCS UTM Adapter Project
+
+## Local UTM Operations Connector
+
+The repository includes the first Phase 0 slice from [`utm_connector_plan.md`](utm_connector_plan.md): a provider-neutral canonical model, loopback FastAPI API, deterministic in-memory UTM backend, operation lifecycle, telemetry ingestion, event journal, and tests.
+
+See [`docs/local-development.md`](docs/local-development.md) for setup and API examples.
+
+```sh
+uv sync
+uv run pytest
+uv run utm-connector
+```
+
 ## Goal
 The goal of this work is to develop a UTM focused working group within Dronecode membership and build an open / configurable adapter for QGCS to enable it to exchange relevant data with a UTM system. The adapter would be configurable so that drone operators can specify what UTM system/service provider they want to use. The UTM system in turn must implement those APIs to exchange data with QGCS. 
 ## Scope
