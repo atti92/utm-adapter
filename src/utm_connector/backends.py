@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
+from time import sleep
 from typing import Dict, List, Optional
 
 import httpx
@@ -63,6 +64,8 @@ class FlightBlenderBackend(UTMBackend):
         *,
         bearer_token: Optional[str] = None,
         timeout_s: float = 10.0,
+        max_retries: int = 3,
+        retry_backoff_s: float = 0.25,
         type_of_operation: int = 1,
         submitted_by: str = "utm-operations-connector",
         originating_party: str = "utm-operations-connector",
@@ -71,6 +74,8 @@ class FlightBlenderBackend(UTMBackend):
         self.base_url = base_url.rstrip("/")
         self.bearer_token = bearer_token
         self.type_of_operation = type_of_operation
+        self.max_retries = max_retries
+        self.retry_backoff_s = retry_backoff_s
         self.submitted_by = submitted_by
         self.originating_party = originating_party
         self._owns_client = client is None
@@ -192,15 +197,36 @@ class FlightBlenderBackend(UTMBackend):
         headers = {"Accept": "application/json"}
         if self.bearer_token:
             headers["Authorization"] = f"Bearer {self.bearer_token}"
-        try:
-            response = self.client.request(method, f"{self.base_url}{path}", json=json, headers=headers)
-            response.raise_for_status()
-            body = response.json()
-        except (httpx.HTTPError, ValueError) as exc:
-            raise BackendError(f"Flight Blender request {method} {path} failed: {exc}") from exc
-        if not isinstance(body, dict):
-            raise BackendError(f"Flight Blender request {method} {path} returned a non-object response")
-        return body
+        last_error: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = self.client.request(method, f"{self.base_url}{path}", json=json, headers=headers)
+                if response.status_code == 204:
+                    return {}
+                if response.status_code == 429 or response.status_code >= 500:
+                    response.raise_for_status()
+                response.raise_for_status()
+                body = response.json()
+                if not isinstance(body, dict):
+                    raise BackendError(f"Flight Blender request {method} {path} returned a non-object response")
+                return body
+            except BackendError:
+                raise
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code != 429 and exc.response.status_code < 500:
+                    raise BackendError(f"Flight Blender request {method} {path} failed: {exc}") from exc
+                last_error = exc
+                if attempt >= self.max_retries:
+                    break
+                sleep(self.retry_backoff_s * (2**attempt))
+            except httpx.RequestError as exc:
+                last_error = exc
+                if attempt >= self.max_retries:
+                    break
+                sleep(self.retry_backoff_s * (2**attempt))
+            except ValueError as exc:
+                raise BackendError(f"Flight Blender request {method} {path} returned invalid JSON: {exc}") from exc
+        raise BackendError(f"Flight Blender request {method} {path} failed after retries: {last_error}") from last_error
 
 
 def _rfc3339(value: datetime) -> str:

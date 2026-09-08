@@ -78,6 +78,8 @@ The default local UTM is the connector's in-memory backend, so no external UTM s
 UTM_CONNECTOR_BACKEND=flight-blender
 UTM_CONNECTOR_FLIGHT_BLENDER_BASE_URL=http://127.0.0.1:8989
 UTM_CONNECTOR_FLIGHT_BLENDER_BEARER_TOKEN=
+UTM_CONNECTOR_FLIGHT_BLENDER_MAX_RETRIES=3
+UTM_CONNECTOR_FLIGHT_BLENDER_RETRY_BACKOFF_S=0.25
 ```
 
 The adapter calls Flight Blender's `set_flight_declaration` endpoint with the generated WGS84 corridor and stores the provider declaration ID in the local operation record. It calls `set_telemetry` with the provider ID for subsequent telemetry. A mission whose altitude datum is AGL or AMSL is intentionally rejected for declaration submission because the connector does not have enough information to convert it to WGS84 safely; use WGS84 mission altitudes for this integration path.

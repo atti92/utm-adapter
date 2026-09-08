@@ -28,6 +28,8 @@ class ConnectorSettings(BaseSettings):
     flight_blender_base_url: str = "http://127.0.0.1:8989"
     flight_blender_bearer_token: str | None = None
     flight_blender_timeout_s: float = Field(default=10.0, gt=0, le=120)
+    flight_blender_max_retries: int = Field(default=3, ge=0, le=10)
+    flight_blender_retry_backoff_s: float = Field(default=0.25, ge=0, le=60)
     flight_blender_type_of_operation: int = Field(default=1, ge=1, le=3)
     flight_blender_submitted_by: str = "utm-operations-connector"
     flight_blender_originating_party: str = "utm-operations-connector"

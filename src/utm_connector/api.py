@@ -26,6 +26,8 @@ def create_app(
                 settings.flight_blender_base_url,
                 bearer_token=settings.flight_blender_bearer_token,
                 timeout_s=settings.flight_blender_timeout_s,
+                max_retries=settings.flight_blender_max_retries,
+                retry_backoff_s=settings.flight_blender_retry_backoff_s,
                 type_of_operation=settings.flight_blender_type_of_operation,
                 submitted_by=settings.flight_blender_submitted_by,
                 originating_party=settings.flight_blender_originating_party,

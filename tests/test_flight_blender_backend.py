@@ -104,3 +104,26 @@ def test_flight_blender_backend_requires_operation_for_telemetry() -> None:
                 altitude={"meters": 120, "datum": "WGS84"},
             )
         )
+
+
+def test_flight_blender_backend_retries_transient_provider_failure() -> None:
+    attempts = 0
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            return httpx.Response(503, json={"message": "temporary outage"})
+        return httpx.Response(200, json={"id": str(uuid4())})
+
+    backend = FlightBlenderBackend(
+        "http://flight-blender.test",
+        max_retries=2,
+        retry_backoff_s=0,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    mission = _mission()
+
+    backend.submit_operation(_operation(mission), mission)
+
+    assert attempts == 3
