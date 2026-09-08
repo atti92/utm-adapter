@@ -1,0 +1,163 @@
+openapi: 3.0.0
+info:
+  title: Flight Blender adapter contract
+  version: 1.0.0
+  description: >-
+    The provider contract used by utm-operations-connector. This is a curated,
+    checked-in subset of Flight Blender's resolved API definition. The complete
+    upstream document is identified by source-commit.txt and specification.sha256.
+servers:
+  - url: http://127.0.0.1:8000
+paths:
+  /flight_declaration_ops/set_flight_declaration:
+    post:
+      operationId: setFlightDeclaration
+      security:
+        - bearerAuth: [flightblender.write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PutFlightDeclarationRequest'
+      responses:
+        '200':
+          description: Declaration created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlightDeclarationCreationResponse'
+  /flight_declaration_ops/flight_declaration_state/{flight_declaration_id}:
+    put:
+      operationId: updateFlightDeclarationState
+      security:
+        - bearerAuth: [flightblender.write]
+      parameters:
+        - name: flight_declaration_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state]
+              properties:
+                state:
+                  type: integer
+                  enum: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+      responses:
+        '200':
+          description: Declaration state updated
+  /flight_declaration_ops/flight_declaration/{flight_declaration_id}:
+    get:
+      operationId: getFlightDeclaration
+      security:
+        - bearerAuth: [flightblender.read]
+      parameters:
+        - name: flight_declaration_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Declaration details
+  /flight_stream/set_telemetry:
+    put:
+      operationId: setTelemetry
+      security:
+        - bearerAuth: [flightblender.write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [observations]
+              properties:
+                observations:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TelemetryObservation'
+      responses:
+        '201':
+          description: Telemetry accepted
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    PutFlightDeclarationRequest:
+      type: object
+      required:
+        - originating_party
+        - start_datetime
+        - end_datetime
+        - flight_declaration_geo_json
+        - type_of_operation
+        - aircraft_id
+      properties:
+        originating_party:
+          type: string
+        submitted_by:
+          type: string
+        start_datetime:
+          type: string
+          format: date-time
+        end_datetime:
+          type: string
+          format: date-time
+        flight_declaration_geo_json:
+          type: object
+          required: [type, features]
+          properties:
+            type:
+              type: string
+              enum: [FeatureCollection]
+            features:
+              type: array
+              minItems: 1
+              items:
+                type: object
+        type_of_operation:
+          type: integer
+        aircraft_id:
+          type: string
+    FlightDeclarationCreationResponse:
+      type: object
+      required: [id, state]
+      properties:
+        id:
+          type: string
+          format: uuid
+        message:
+          type: string
+        is_approved:
+          type: integer
+        state:
+          type: integer
+    TelemetryObservation:
+      type: object
+      required: [current_states, flight_details]
+      properties:
+        current_states:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [timestamp, position, accuracy_h, accuracy_v, speed, vertical_speed, track]
+        flight_details:
+          type: object
+          required: [id]
+          properties:
+            id:
+              type: string
+              format: uuid
