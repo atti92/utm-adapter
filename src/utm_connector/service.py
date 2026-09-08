@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from uuid import UUID
 
-from .backends import UTMBackend
+from .backends import BackendError, UTMBackend
 from .conformance import assess_conformance
 from .domain import (
     AuthorizationState,
@@ -159,10 +159,21 @@ class ConnectorService:
     def put_telemetry(self, vehicle_id: str, telemetry: VehicleTelemetry) -> VehicleTelemetry:
         if telemetry.vehicle_id != vehicle_id:
             raise ConnectorError("telemetry vehicle_id does not match path")
-        self.backend.publish_telemetry(telemetry)
         self.vehicles[vehicle_id] = telemetry
         if self.state_store is not None:
             self.state_store.save_telemetry(telemetry)
+        active_operations = [
+            operation
+            for operation in self.operations.values()
+            if operation.vehicle_id == vehicle_id
+            and operation.state.telemetry_publication == TelemetryPublicationState.ACTIVE
+        ]
+        publication_error: BackendError | None = None
+        if active_operations:
+            try:
+                self.backend.publish_telemetry(telemetry)
+            except BackendError as exc:
+                publication_error = exc
         for operation in self.operations.values():
             if operation.vehicle_id == vehicle_id and operation.state.telemetry_publication == TelemetryPublicationState.ACTIVE:
                 mission_snapshot = self.missions.get(vehicle_id)
@@ -180,11 +191,27 @@ class ConnectorService:
                         } else "INFO",
                         details=assessment.model_dump(mode="json"),
                     )
-                operation.state.telemetry_publication = TelemetryPublicationState.ACTIVE
+                operation.state.telemetry_publication = (
+                    TelemetryPublicationState.FAILED
+                    if publication_error is not None
+                    else TelemetryPublicationState.ACTIVE
+                )
                 operation.updated_at = datetime.now(timezone.utc)
                 if self.state_store is not None:
                     self.state_store.save_operation(operation)
-        self._event("TELEMETRY_PUBLISHED", vehicle_id=vehicle_id, details={"quality": telemetry.quality})
+        if publication_error is not None:
+            self._event(
+                "TELEMETRY_PUBLICATION_FAILED",
+                vehicle_id=vehicle_id,
+                severity="ERROR",
+                details={"error": str(publication_error)},
+            )
+            raise publication_error
+        self._event(
+            "TELEMETRY_PUBLISHED" if active_operations else "TELEMETRY_RECEIVED",
+            vehicle_id=vehicle_id,
+            details={"quality": telemetry.quality},
+        )
         return telemetry
 
     def ingest_vehicle_snapshot(self, snapshot: VehicleStateSnapshot) -> VehicleStateSnapshot:
