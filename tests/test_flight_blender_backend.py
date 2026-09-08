@@ -7,6 +7,7 @@ import pytest
 
 from utm_connector.backends import BackendError, FlightBlenderBackend
 from utm_connector.domain import AltitudeDatum, Mission, Operation, OperationState, VehicleTelemetry
+from utm_connector.domain import OperationCommand
 
 
 def _mission(datum: AltitudeDatum = AltitudeDatum.WGS84) -> Mission:
@@ -40,6 +41,8 @@ def test_flight_blender_backend_submits_declaration_and_publishes_telemetry() ->
         requests.append(request)
         if request.url.path.endswith("set_flight_declaration"):
             return httpx.Response(200, json={"id": provider_id, "message": "Submitted"})
+        if request.url.path.endswith("flight_declaration_state/" + provider_id):
+            return httpx.Response(200, json={"state": 2})
         return httpx.Response(201, json={"message": "Telemetry data successfully submitted"})
 
     backend = FlightBlenderBackend(
@@ -49,6 +52,7 @@ def test_flight_blender_backend_submits_declaration_and_publishes_telemetry() ->
     )
     mission = _mission()
     operation = backend.submit_operation(_operation(mission), mission)
+    backend.update_operation(operation, OperationCommand.START_OPERATION)
     backend.publish_telemetry(
         VehicleTelemetry(
             vehicle_id="sitl-1",
@@ -67,8 +71,9 @@ def test_flight_blender_backend_submits_declaration_and_publishes_telemetry() ->
     assert declaration["flight_declaration_geo_json"]["type"] == "FeatureCollection"
     assert declaration["flight_declaration_geo_json"]["features"][0]["geometry"]["type"] == "Polygon"
     assert requests[0].headers["authorization"] == "Bearer token"
-    assert requests[1].url.path == "/flight_stream/set_telemetry"
-    telemetry = json.loads(requests[1].content)
+    assert requests[1].url.path.endswith(provider_id)
+    assert requests[2].url.path == "/flight_stream/set_telemetry"
+    telemetry = json.loads(requests[2].content)
     assert telemetry["observations"][0]["flight_details"]["id"] == provider_id
 
 

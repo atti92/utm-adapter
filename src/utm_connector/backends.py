@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 
 import httpx
 
-from .domain import AltitudeDatum, Mission, Operation, VehicleTelemetry
+from .domain import AltitudeDatum, Mission, Operation, OperationCommand, VehicleTelemetry
 from .geometry import GeometryError, build_corridor
 
 
@@ -20,6 +20,10 @@ class UTMBackend(ABC):
     @abstractmethod
     def publish_telemetry(self, telemetry: VehicleTelemetry) -> None:
         """Publish one canonical telemetry observation."""
+
+    @abstractmethod
+    def update_operation(self, operation: Operation, command: OperationCommand) -> Operation:
+        """Apply an operator intent to a provider operation."""
 
 
 class InMemoryBackend(UTMBackend):
@@ -39,6 +43,9 @@ class InMemoryBackend(UTMBackend):
 
     def publish_telemetry(self, telemetry: VehicleTelemetry) -> None:
         self.telemetry.append(telemetry)
+
+    def update_operation(self, operation: Operation, command: OperationCommand) -> Operation:
+        return operation
 
 
 class BackendError(RuntimeError):
@@ -143,6 +150,35 @@ class FlightBlenderBackend(UTMBackend):
             },
         )
 
+    def update_operation(self, operation: Operation, command: OperationCommand) -> Operation:
+        provider_operation_id = operation.provider_operation_id
+        if provider_operation_id is None:
+            raise BackendError("cannot update a Flight Blender operation without a provider declaration id")
+        provider_state = {
+            OperationCommand.START_OPERATION: 2,
+            OperationCommand.CANCEL_OPERATION: 7,
+            OperationCommand.COMPLETE_OPERATION: 5,
+        }.get(command)
+        if provider_state is None:
+            raise BackendError(f"unsupported provider operation command: {command.value}")
+        self._request(
+            "PUT",
+            f"/flight_declaration_ops/flight_declaration_state/{provider_operation_id}",
+            json={"state": provider_state},
+        )
+        return operation
+
+    def fetch_operation(self, operation: Operation) -> dict:
+        """Fetch the provider declaration for diagnostics and state reconciliation."""
+        provider_operation_id = operation.provider_operation_id
+        if provider_operation_id is None:
+            raise BackendError("cannot fetch a Flight Blender operation without a provider declaration id")
+        return self._request(
+            "GET",
+            f"/flight_declaration_ops/flight_declaration/{provider_operation_id}",
+            json=None,
+        )
+
     def register_operation(self, operation: Operation) -> None:
         """Restore a provider operation mapping loaded from persistent state."""
         if operation.provider_operation_id:
@@ -152,7 +188,7 @@ class FlightBlenderBackend(UTMBackend):
         if self._owns_client:
             self.client.close()
 
-    def _request(self, method: str, path: str, *, json: dict) -> dict:
+    def _request(self, method: str, path: str, *, json: Optional[dict]) -> dict:
         headers = {"Accept": "application/json"}
         if self.bearer_token:
             headers["Authorization"] = f"Bearer {self.bearer_token}"

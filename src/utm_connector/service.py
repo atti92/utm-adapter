@@ -182,7 +182,8 @@ class ConnectorService:
         if operation is None:
             raise ConnectorError("operation not found")
 
-        state = operation.state
+        candidate = operation.model_copy(deep=True)
+        state = candidate.state
         if intent.command == OperationCommand.START_OPERATION:
             if state.declaration != DeclarationState.ACCEPTED:
                 raise ConnectorError("operation must be accepted before it can start")
@@ -201,18 +202,19 @@ class ConnectorService:
         else:
             raise ConnectorError("unsupported command for existing operation")
 
-        operation.updated_at = datetime.now(timezone.utc)
-        self.operations[operation.operation_id] = operation
+        candidate = self.backend.update_operation(candidate, intent.command)
+        candidate.updated_at = datetime.now(timezone.utc)
+        self.operations[candidate.operation_id] = candidate
         if self.state_store is not None:
-            self.state_store.save_operation(operation)
+            self.state_store.save_operation(candidate)
         self._event(
             "OPERATION_STATE_CHANGED",
             intent=intent,
-            vehicle_id=operation.vehicle_id,
-            operation_id=operation.operation_id,
+            vehicle_id=candidate.vehicle_id,
+            operation_id=candidate.operation_id,
             details={"command": intent.command.value, "state": state.model_dump(mode="json")},
         )
-        return operation
+        return candidate
 
     def submit_operation(self, intent: OperationIntent, vehicle_id: str) -> Operation:
         if intent.command != OperationCommand.SUBMIT_OPERATION:
