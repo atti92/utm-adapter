@@ -56,6 +56,22 @@ class ConformanceState(str, Enum):
     TELEMETRY_UNRELIABLE = "TELEMETRY_UNRELIABLE"
 
 
+class TelemetryQuality(str, Enum):
+    UNKNOWN = "UNKNOWN"
+    GOOD = "GOOD"
+    DEGRADED = "DEGRADED"
+    STALE = "STALE"
+    INVALID = "INVALID"
+    LOST = "LOST"
+
+
+class VehicleConnectionState(str, Enum):
+    UNKNOWN = "UNKNOWN"
+    CONNECTED = "CONNECTED"
+    DEGRADED = "DEGRADED"
+    LOST = "LOST"
+
+
 class OperationCommand(str, Enum):
     SUBMIT_OPERATION = "SUBMIT_OPERATION"
     START_OPERATION = "START_OPERATION"
@@ -125,12 +141,49 @@ class VehicleTelemetry(StrictModel):
     altitude: Altitude
     heading_deg: Optional[float] = Field(default=None, ge=0, lt=360, allow_inf_nan=False)
     groundspeed_mps: Optional[float] = Field(default=None, ge=0, le=1000, allow_inf_nan=False)
-    quality: str = Field(default="UNKNOWN", min_length=1, max_length=32)
+    quality: TelemetryQuality = TelemetryQuality.UNKNOWN
 
     @field_validator("observed_at")
     @classmethod
     def validate_timestamp(cls, value: datetime) -> datetime:
         return _aware_datetime(value)
+
+
+class VehicleIdentity(StrictModel):
+    connector_vehicle_id: str = Field(min_length=1, max_length=128)
+    mavlink_system_id: int = Field(ge=1, le=255)
+    mavlink_component_ids: List[int] = Field(default_factory=list)
+    autopilot_type: Optional[str] = Field(default=None, max_length=64)
+    vehicle_type: Optional[str] = Field(default=None, max_length=64)
+    firmware_version: Optional[str] = Field(default=None, max_length=128)
+
+    @field_validator("mavlink_component_ids")
+    @classmethod
+    def validate_component_ids(cls, value: List[int]) -> List[int]:
+        if any(component_id < 1 or component_id > 255 for component_id in value):
+            raise ValueError("MAVLink component IDs must be between 1 and 255")
+        return sorted(set(value))
+
+
+class VehicleHealth(StrictModel):
+    heartbeat_age_s: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
+    position_age_s: Optional[float] = Field(default=None, ge=0, allow_inf_nan=False)
+    gps_fix_type: Optional[int] = Field(default=None, ge=0, le=6)
+    satellites_visible: Optional[int] = Field(default=None, ge=0, le=255)
+    battery_remaining_pct: Optional[float] = Field(default=None, ge=0, le=100, allow_inf_nan=False)
+    battery_voltage_v: Optional[float] = Field(default=None, ge=0, le=1000, allow_inf_nan=False)
+    armed: Optional[bool] = None
+
+
+class VehicleStateSnapshot(StrictModel):
+    identity: VehicleIdentity
+    connection_state: VehicleConnectionState
+    telemetry: Optional[VehicleTelemetry] = None
+    quality: TelemetryQuality = TelemetryQuality.UNKNOWN
+    health: VehicleHealth = Field(default_factory=VehicleHealth)
+    mission_current: Optional[int] = Field(default=None, ge=0)
+    mission_count: Optional[int] = Field(default=None, ge=0)
+    diagnostics: List[str] = Field(default_factory=list)
 
 
 class MissionSnapshot(StrictModel):
