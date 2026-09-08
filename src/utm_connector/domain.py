@@ -128,7 +128,14 @@ class Mission(StrictModel):
         return value
 
     def canonical_hash(self) -> str:
-        payload = self.model_dump(mode="json", exclude={"mission_id"})
+        """Hash operation semantics while excluding identity and provenance.
+
+        ``mission_id`` identifies a submitted record and ``source`` records
+        where the snapshot came from (for example QGC or MAVLink). Neither
+        should make equivalent missions from different GCSs drift apart.
+        """
+
+        payload = self.model_dump(mode="json", exclude={"mission_id", "source"})
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
         return hashlib.sha256(encoded).hexdigest()
 
@@ -192,6 +199,29 @@ class MissionSnapshot(StrictModel):
     mission_hash: str
 
     @field_validator("received_at")
+    @classmethod
+    def validate_timestamp(cls, value: datetime) -> datetime:
+        return _aware_datetime(value)
+
+
+class MissionDriftClassification(str, Enum):
+    NO_CHANGE = "NO_CHANGE"
+    NON_OPERATIONAL_CHANGE = "NON_OPERATIONAL_CHANGE"
+    ROUTE_CHANGED = "ROUTE_CHANGED"
+    ALTITUDE_CHANGED = "ALTITUDE_CHANGED"
+    TIME_CHANGED = "TIME_CHANGED"
+    UNKNOWN_CHANGE = "UNKNOWN_CHANGE"
+
+
+class MissionDriftReport(StrictModel):
+    vehicle_id: str = Field(min_length=1, max_length=128)
+    classification: MissionDriftClassification
+    submitted_mission_hash: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
+    current_mission_hash: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
+    changed_fields: List[str] = Field(default_factory=list)
+    checked_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @field_validator("checked_at")
     @classmethod
     def validate_timestamp(cls, value: datetime) -> datetime:
         return _aware_datetime(value)

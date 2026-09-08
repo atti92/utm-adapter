@@ -12,6 +12,7 @@ from .domain import (
     Event,
     Mission,
     MissionSnapshot,
+    MissionDriftReport,
     Operation,
     OperationCommand,
     OperationIntent,
@@ -20,6 +21,7 @@ from .domain import (
     VehicleStateSnapshot,
     VehicleTelemetry,
 )
+from .drift import compare_missions
 
 
 class ConnectorError(ValueError):
@@ -30,6 +32,8 @@ class ConnectorService:
     def __init__(self, backend: UTMBackend) -> None:
         self.backend = backend
         self.missions: Dict[str, MissionSnapshot] = {}
+        self.onboard_missions: Dict[str, MissionSnapshot] = {}
+        self.mission_drifts: Dict[str, MissionDriftReport] = {}
         self.vehicles: Dict[str, VehicleTelemetry] = {}
         self.vehicle_snapshots: Dict[str, VehicleStateSnapshot] = {}
         self.operations: Dict[UUID, Operation] = {}
@@ -66,6 +70,25 @@ class ConnectorService:
         self.missions[vehicle_id] = snapshot
         self._event("MISSION_UPDATED", vehicle_id=vehicle_id, details={"mission_hash": snapshot.mission_hash})
         return snapshot
+
+    def put_onboard_mission(self, vehicle_id: str, mission: Mission) -> MissionDriftReport:
+        if mission.vehicle_id != vehicle_id:
+            raise ConnectorError("onboard mission vehicle_id does not match path")
+        submitted = self.missions.get(vehicle_id)
+        if submitted is None:
+            raise ConnectorError("mission not found for vehicle")
+
+        current = MissionSnapshot(mission=mission, mission_hash=mission.canonical_hash())
+        report = compare_missions(submitted.mission, current.mission)
+        self.onboard_missions[vehicle_id] = current
+        self.mission_drifts[vehicle_id] = report
+        self._event(
+            "MISSION_DRIFT_CHECKED",
+            vehicle_id=vehicle_id,
+            severity="WARNING" if report.classification.value != "NO_CHANGE" else "INFO",
+            details=report.model_dump(mode="json"),
+        )
+        return report
 
     def put_telemetry(self, vehicle_id: str, telemetry: VehicleTelemetry) -> VehicleTelemetry:
         if telemetry.vehicle_id != vehicle_id:

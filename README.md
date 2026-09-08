@@ -2,7 +2,7 @@
 
 ## Local UTM Operations Connector
 
-The repository includes working Phase 0, Phase 1, and the first Phase 2 slices from [`utm_connector_plan.md`](utm_connector_plan.md): a provider-neutral canonical model, loopback FastAPI API, deterministic in-memory UTM backend, read-only MAVLink normalization, QGroundControl `.plan` parsing, metre-correct corridor generation, and tests.
+The repository includes working Phase 0, Phase 1, and the first Phase 2 slices from [`utm_connector_plan.md`](utm_connector_plan.md): a provider-neutral canonical model, loopback FastAPI API, deterministic in-memory UTM backend, read-only MAVLink normalization, QGroundControl `.plan` parsing, metre-correct corridor generation, mission drift classification, and tests.
 
 See [`docs/local-development.md`](docs/local-development.md) for setup and API examples.
 

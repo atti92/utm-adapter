@@ -70,3 +70,18 @@ def test_mission_and_telemetry_path_ids_are_checked() -> None:
     payload = _mission()
     payload["vehicle_id"] = "other"
     assert client.put("/v1/missions/sitl-1", json=payload).status_code == 422
+
+
+def test_onboard_mission_drift_is_reported_in_vehicle_status() -> None:
+    app = create_app(ConnectorService(InMemoryBackend()))
+    client = TestClient(app)
+    submitted = _mission()
+    assert client.put("/v1/missions/sitl-1", json=submitted).status_code == 200
+
+    onboard = dict(submitted)
+    onboard["source"] = "mavlink"
+    response = client.put("/v1/vehicles/sitl-1/onboard-mission", json=onboard)
+
+    assert response.status_code == 200
+    assert response.json()["classification"] == "NON_OPERATIONAL_CHANGE"
+    assert response.json()["submitted_mission_hash"] == response.json()["current_mission_hash"]

@@ -63,6 +63,13 @@ def create_app(
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return snapshot.model_dump(mode="json")
 
+    @app.put("/v1/vehicles/{vehicle_id}/onboard-mission", response_model=dict)
+    def put_onboard_mission(vehicle_id: str, mission: Mission) -> dict:
+        try:
+            return service.put_onboard_mission(vehicle_id, mission).model_dump(mode="json")
+        except ConnectorError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
     @app.put("/v1/vehicles/{vehicle_id}", response_model=VehicleTelemetry)
     def put_telemetry(vehicle_id: str, telemetry: VehicleTelemetry) -> VehicleTelemetry:
         try:
@@ -103,6 +110,11 @@ def create_app(
             "vehicle_id": vehicle_id,
             "vehicle_state": vehicle_snapshot.model_dump(mode="json") if vehicle_snapshot else None,
             "latest_telemetry": telemetry.model_dump(mode="json") if telemetry else None,
+            "mission_drift": (
+                service.mission_drifts[vehicle_id].model_dump(mode="json")
+                if vehicle_id in service.mission_drifts
+                else None
+            ),
             "operations": operations,
         }
 

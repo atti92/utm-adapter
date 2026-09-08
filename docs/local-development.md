@@ -96,6 +96,24 @@ curl -X POST 'http://127.0.0.1:8000/v1/operator-intents?vehicle_id=sitl-1' \
 
 The local backend accepts the declaration and marks it authorized to make the happy-path lifecycle testable. This is a development behavior; the backend adapter interface is deliberately separate so real authorization semantics can be implemented later.
 
+### Check onboard mission drift
+
+The connector can compare the submitted canonical mission with a mission snapshot
+read from a GCS or simulator. This local endpoint stands in for the future
+MAVLink mission reader:
+
+```sh
+curl -X PUT http://127.0.0.1:8000/v1/vehicles/sitl-1/onboard-mission \
+  -H 'content-type: application/json' \
+  -d @tests/fixtures/example-mission.json
+```
+
+The response contains `classification`, both canonical hashes, and the changed
+field paths. An unchanged mission returns `NO_CHANGE`; route, altitude, or time
+changes return the corresponding classification. A change spanning multiple
+operational categories is conservatively reported as `UNKNOWN_CHANGE`. The
+latest report is also included in `/v1/vehicles/sitl-1/status`.
+
 ## Exercise the mission adapters
 
 QGroundControl `.plan` files can be passed to `parse_qgroundcontrol_plan` and become the same canonical `Mission` model used by the API. `build_corridor` then projects the WGS84 route to a local metre-based CRS before buffering it; altitude datums are required and are never inferred. The unit tests in `tests/test_missions.py` and `tests/test_geometry.py` provide offline examples of both boundaries.
