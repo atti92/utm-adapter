@@ -46,10 +46,12 @@ ArduPilot SITL --UDP 14550--> QGroundControl
                  --UDP 14551--> UTM connector
 ```
 
-From `/Users/atti/repos/ardupilot`, start the prepared ArduCopter binary with:
+From the ArduPilot checkout, start the prepared ArduCopter binary with (replace the placeholder path):
 
 ```sh
-PATH=/Users/atti/repos/ardupilot/.venv/bin:$PATH \
+ARDUPILOT_ROOT=/path/to/ardupilot
+cd "$ARDUPILOT_ROOT"
+PATH="$ARDUPILOT_ROOT/.venv/bin:$PATH" \
   ./Tools/autotest/sim_vehicle.py \
   -v ArduCopter -N \
   --out=udpout:127.0.0.1:14550 \
@@ -60,7 +62,7 @@ Then start QGroundControl and the connector in separate terminals:
 
 ```sh
 open -a QGroundControl
-cd /Users/atti/repos/utm-adapter
+cd /path/to/utm-adapter
 make run
 ```
 
