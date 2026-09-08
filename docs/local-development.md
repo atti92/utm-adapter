@@ -136,3 +136,17 @@ latest report is also included in `/v1/vehicles/sitl-1/status`.
 ## Exercise the mission adapters
 
 QGroundControl `.plan` files can be passed to `parse_qgroundcontrol_plan` and become the same canonical `Mission` model used by the API. `build_corridor` then projects the WGS84 route to a local metre-based CRS before buffering it; altitude datums are required and are never inferred. The unit tests in `tests/test_missions.py` and `tests/test_geometry.py` provide offline examples of both boundaries.
+
+For a zero-fork QGroundControl integration, send the plan with explicit UTM
+validity metadata:
+
+```sh
+curl -X PUT http://127.0.0.1:8000/v1/missions/sitl-1/qgroundcontrol \
+  -H 'content-type: application/json' \
+  -d '{"valid_from":"2030-01-01T12:00:00Z","valid_until":"2030-01-01T12:30:00Z","corridor_radius_m":30,"plan":{"fileType":"Plan","mission":{"items":[]}}}'
+```
+
+Replace the empty `items` list with the exported QGC `SimpleItem` entries. The
+endpoint rejects unsupported mission items and requires the caller to provide
+the validity window because a `.plan` file does not define the UTM declaration
+window.

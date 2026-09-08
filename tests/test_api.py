@@ -74,6 +74,43 @@ def test_mission_and_telemetry_path_ids_are_checked() -> None:
     assert client.put("/v1/missions/sitl-1", json=payload).status_code == 422
 
 
+def test_qgroundcontrol_plan_endpoint_normalizes_explicit_metadata() -> None:
+    app = create_app(ConnectorService(InMemoryBackend()))
+    client = TestClient(app)
+    now = datetime.now(timezone.utc)
+    response = client.put(
+        "/v1/missions/sitl-1/qgroundcontrol",
+        json={
+            "valid_from": now.isoformat(),
+            "valid_until": (now + timedelta(minutes=30)).isoformat(),
+            "corridor_radius_m": 40,
+            "plan": {
+                "fileType": "Plan",
+                "mission": {
+                    "items": [
+                        {"type": "SimpleItem", "command": 22, "frame": 3, "params": [0, 0, 0, 0, 47.5, 19.0, 20]},
+                        {"type": "SimpleItem", "command": 16, "frame": 3, "params": [0, 0, 0, 0, 47.501, 19.001, 25]},
+                    ]
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["mission"]["source"] == "qgroundcontrol"
+    assert response.json()["mission"]["corridor_radius_m"] == 40
+
+
+def test_qgroundcontrol_plan_endpoint_rejects_missing_metadata() -> None:
+    client = TestClient(create_app(ConnectorService(InMemoryBackend())))
+    response = client.put(
+        "/v1/missions/sitl-1/qgroundcontrol",
+        json={"plan": {"fileType": "Plan", "mission": {"items": []}}},
+    )
+
+    assert response.status_code == 422
+
+
 def test_onboard_mission_drift_is_reported_in_vehicle_status() -> None:
     app = create_app(ConnectorService(InMemoryBackend()))
     client = TestClient(app)
