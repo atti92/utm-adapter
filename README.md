@@ -16,6 +16,8 @@ uv run utm-connector
 
 `uv sync` installs the pinned geospatial dependencies used by the corridor engine. The project supports Python 3.10 through 3.13. Python 3.10 is a transitional compatibility target only and should be removed when its upstream security-support window closes in October 2026.
 
+CI exercises Python 3.11–3.13 on Linux and Python 3.13 on macOS and Windows. The connector uses loopback networking, SQLite, `httpx`, and `pymavlink` without OS-specific code paths; simulator/GCS binaries remain platform-specific test dependencies.
+
 ## Goal
 The goal of this work is to develop a UTM focused working group within Dronecode membership and build an open / configurable adapter for QGCS to enable it to exchange relevant data with a UTM system. The adapter would be configurable so that drone operators can specify what UTM system/service provider they want to use. The UTM system in turn must implement those APIs to exchange data with QGCS. 
 ## Scope

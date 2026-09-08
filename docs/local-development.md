@@ -7,7 +7,7 @@ The repository contains a local connector based on the implementation plan. It r
 - Python 3.10 through 3.13
 - [uv](https://docs.astral.sh/uv/)
 
-Python 3.10 is retained temporarily for compatibility, but is scheduled for removal after its upstream security-support window closes in October 2026. New development and CI should prefer Python 3.11–3.13.
+Python 3.10 is retained temporarily for compatibility, but is scheduled for removal after its upstream security-support window closes in October 2026. New development and CI should prefer Python 3.11–3.13. The CI matrix covers Linux, macOS, and Windows.
 
 ## Start the local connector
 
