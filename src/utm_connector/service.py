@@ -273,3 +273,46 @@ class ConnectorService:
             details={"mission_hash": operation.mission_hash},
         )
         return operation
+
+    def refresh_operation(self, operation_id: UUID) -> Operation:
+        """Reconcile one operation with provider-owned state."""
+
+        operation = self.operations.get(operation_id)
+        if operation is None:
+            raise ConnectorError("operation not found")
+        fetch_operation = getattr(self.backend, "fetch_operation", None)
+        if fetch_operation is None:
+            raise ConnectorError("backend does not support operation refresh")
+        provider = fetch_operation(operation)
+        provider_state = provider.get("state")
+        if not isinstance(provider_state, int):
+            raise ConnectorError("provider operation response did not include an integer state")
+
+        candidate = operation.model_copy(deep=True)
+        if provider_state == 8:
+            candidate.state.declaration = DeclarationState.REJECTED
+        elif provider_state in (6, 7):
+            candidate.state.declaration = DeclarationState.CANCELLED
+            candidate.state.telemetry_publication = TelemetryPublicationState.STOPPED
+        elif provider_state in (1, 2, 3, 4, 5):
+            candidate.state.declaration = DeclarationState.ACCEPTED
+        else:
+            candidate.state.declaration = DeclarationState.SUBMITTED
+        approved = provider.get("is_approved")
+        if isinstance(approved, bool) or isinstance(approved, int):
+            candidate.state.authorization = (
+                AuthorizationState.AUTHORIZED if bool(approved) else AuthorizationState.PENDING
+            )
+        if provider_state == 3:
+            candidate.state.conformance = ConformanceState.NON_CONFORMING
+        candidate.updated_at = datetime.now(timezone.utc)
+        self.operations[operation_id] = candidate
+        if self.state_store is not None:
+            self.state_store.save_operation(candidate)
+        self._event(
+            "OPERATION_REFRESHED",
+            vehicle_id=candidate.vehicle_id,
+            operation_id=candidate.operation_id,
+            details={"provider_state": provider_state, "provider": provider},
+        )
+        return candidate

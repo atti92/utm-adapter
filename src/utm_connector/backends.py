@@ -7,7 +7,15 @@ from typing import Dict, List, Optional
 
 import httpx
 
-from .domain import AltitudeDatum, Mission, Operation, OperationCommand, VehicleTelemetry
+from .domain import (
+    AltitudeDatum,
+    AuthorizationState,
+    DeclarationState,
+    Mission,
+    Operation,
+    OperationCommand,
+    VehicleTelemetry,
+)
 from .geometry import GeometryError, build_corridor
 from .recording import JsonlRecorder
 
@@ -26,6 +34,10 @@ class UTMBackend(ABC):
     @abstractmethod
     def update_operation(self, operation: Operation, command: OperationCommand) -> Operation:
         """Apply an operator intent to a provider operation."""
+
+    @abstractmethod
+    def fetch_operation(self, operation: Operation) -> dict:
+        """Fetch provider-owned state for an operation."""
 
 
 class InMemoryBackend(UTMBackend):
@@ -48,6 +60,19 @@ class InMemoryBackend(UTMBackend):
 
     def update_operation(self, operation: Operation, command: OperationCommand) -> Operation:
         return operation
+
+    def fetch_operation(self, operation: Operation) -> dict:
+        provider_state = {
+            DeclarationState.SUBMITTED: 0,
+            DeclarationState.ACCEPTED: 1,
+            DeclarationState.REJECTED: 8,
+            DeclarationState.CANCELLED: 7,
+        }.get(operation.state.declaration, 0)
+        return {
+            "id": str(operation.operation_id),
+            "state": provider_state,
+            "is_approved": operation.state.authorization == AuthorizationState.AUTHORIZED,
+        }
 
 
 class BackendError(RuntimeError):
@@ -132,7 +157,25 @@ class FlightBlenderBackend(UTMBackend):
         if not isinstance(provider_operation_id, str) or not provider_operation_id:
             raise BackendError("Flight Blender response did not include a declaration id")
         self._provider_operation_ids[operation.vehicle_id] = provider_operation_id
-        return operation.model_copy(update={"provider_operation_id": provider_operation_id})
+        updated = operation.model_copy(update={"provider_operation_id": provider_operation_id})
+        provider_state = response.get("state")
+        approved = response.get("is_approved")
+        if isinstance(provider_state, int):
+            updated = updated.model_copy(
+                update={
+                    "state": updated.state.model_copy(
+                        update={"declaration": _declaration_state(provider_state)}
+                    )
+                }
+            )
+        if isinstance(approved, bool) or isinstance(approved, int):
+            authorization = (
+                AuthorizationState.AUTHORIZED if bool(approved) else AuthorizationState.PENDING
+            )
+            updated = updated.model_copy(
+                update={"state": updated.state.model_copy(update={"authorization": authorization})}
+            )
+        return updated
 
     def publish_telemetry(self, telemetry: VehicleTelemetry) -> None:
         operation_id = self._provider_operation_ids.get(telemetry.vehicle_id)
@@ -244,6 +287,16 @@ class FlightBlenderBackend(UTMBackend):
 
 def _rfc3339(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _declaration_state(provider_state: int) -> DeclarationState:
+    if provider_state == 8:
+        return DeclarationState.REJECTED
+    if provider_state in (6, 7):
+        return DeclarationState.CANCELLED
+    if provider_state in (1, 2, 3, 4, 5):
+        return DeclarationState.ACCEPTED
+    return DeclarationState.SUBMITTED
 
 
 def _current_state(telemetry: VehicleTelemetry) -> dict:

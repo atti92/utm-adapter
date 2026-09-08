@@ -132,6 +132,16 @@ def create_app(
             raise HTTPException(status_code=404, detail="operation not found")
         return operation.model_dump(mode="json")
 
+    @app.post("/v1/operations/{operation_id}/refresh", response_model=dict)
+    def refresh_operation(operation_id: UUID) -> dict:
+        try:
+            return service.refresh_operation(operation_id).model_dump(mode="json")
+        except BackendError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        except ConnectorError as exc:
+            status_code = 404 if str(exc) == "operation not found" else 409
+            raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+
     @app.get("/v1/vehicles/{vehicle_id}/status", response_model=dict)
     def vehicle_status(vehicle_id: str) -> dict:
         telemetry = service.vehicles.get(vehicle_id)

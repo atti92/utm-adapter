@@ -41,7 +41,7 @@ def test_flight_blender_backend_submits_declaration_and_publishes_telemetry(tmp_
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
         if request.url.path.endswith("set_flight_declaration"):
-            return httpx.Response(200, json={"id": provider_id, "message": "Submitted"})
+            return httpx.Response(200, json={"id": provider_id, "message": "Submitted", "state": 1, "is_approved": 1})
         if request.url.path.endswith("flight_declaration_state/" + provider_id):
             return httpx.Response(200, json={"state": 2})
         return httpx.Response(201, json={"message": "Telemetry data successfully submitted"})
@@ -69,6 +69,8 @@ def test_flight_blender_backend_submits_declaration_and_publishes_telemetry(tmp_
     )
 
     assert operation.provider_operation_id == provider_id
+    assert operation.state.declaration.value == "ACCEPTED"
+    assert operation.state.authorization.value == "AUTHORIZED"
     assert requests[0].url.path == "/flight_declaration_ops/set_flight_declaration"
     declaration = json.loads(requests[0].content)
     assert declaration["flight_declaration_geo_json"]["type"] == "FeatureCollection"

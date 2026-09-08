@@ -96,3 +96,20 @@ def test_onboard_mission_refresh_requires_a_configured_session() -> None:
     response = client.post("/v1/vehicles/sitl-1/onboard-mission/refresh")
 
     assert response.status_code == 409
+
+
+def test_operation_refresh_reconciles_provider_state() -> None:
+    service = ConnectorService(InMemoryBackend())
+    client = TestClient(create_app(service))
+    mission = _mission()
+    assert client.put("/v1/missions/sitl-1", json=mission).status_code == 200
+    operation_id = uuid4()
+    created = client.post(
+        "/v1/operator-intents?vehicle_id=sitl-1",
+        json={"schema_version": "1.0", "command": "SUBMIT_OPERATION", "operation_id": str(operation_id)},
+    )
+    assert created.status_code == 201
+
+    refreshed = client.post(f"/v1/operations/{operation_id}/refresh")
+    assert refreshed.status_code == 200
+    assert refreshed.json()["state"]["declaration"] == "ACCEPTED"
