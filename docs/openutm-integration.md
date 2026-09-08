@@ -72,8 +72,10 @@ curl http://127.0.0.1:8001/v1/vehicles/sitl-1/status
 
 ## Submit and activate a declaration
 
-Generate an immediately active WGS84 mission. The WGS84 datum is intentional: the connector
-does not guess a conversion from QGroundControl's AGL/AMSL mission altitude.
+Generate an immediately active WGS84 mission and submit it immediately. The WGS84
+datum is intentional: the connector does not guess a conversion from
+QGroundControl's AGL/AMSL mission altitude. Flight Blender rejects declarations
+whose start time is already in the past.
 
 ```sh
 uv run python scripts/generate_test_mission.py \

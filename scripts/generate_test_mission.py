@@ -19,8 +19,8 @@ def main() -> None:
     parser.add_argument(
         "--start-offset-minutes",
         type=int,
-        default=-1,
-        help="Minutes from now when the mission starts; default -1 keeps it active immediately",
+        default=0,
+        help="Minutes from now when the mission starts; default 0 starts it immediately",
     )
     args = parser.parse_args()
 
