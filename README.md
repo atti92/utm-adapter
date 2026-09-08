@@ -6,6 +6,8 @@ The repository includes working Phase 0, Phase 1, and the first Phase 2 slices f
 
 See [`docs/local-development.md`](docs/local-development.md) for setup and API examples.
 
+The local runtime can also consume read-only MAVLink telemetry from a configured simulator or MAVLink router; see the simulator setup section in the local-development guide.
+
 ```sh
 uv sync
 uv run pytest

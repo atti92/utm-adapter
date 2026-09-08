@@ -1,24 +1,53 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from typing import List, Optional
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Query
 
 from .backends import InMemoryBackend
+from .config import ConnectorSettings
 from .domain import DeclarationState, Event, HealthResponse, Mission, OperationCommand, OperationIntent, VehicleTelemetry
+from .runtime import MavlinkSessionManager
 from .service import ConnectorError, ConnectorService
 
 
-def create_app(service: Optional[ConnectorService] = None) -> FastAPI:
+def create_app(
+    service: Optional[ConnectorService] = None,
+    settings: Optional[ConnectorSettings] = None,
+    session_manager: Optional[MavlinkSessionManager] = None,
+) -> FastAPI:
     service = service or ConnectorService(InMemoryBackend())
-    app = FastAPI(title="UTM Operations Connector", version="0.1.0")
+    settings = settings or ConnectorSettings()
+    manager = session_manager or MavlinkSessionManager(
+        settings.mavlink_connections,
+        service.ingest_vehicle_snapshot,
+        poll_interval_s=settings.mavlink_poll_interval_s,
+        on_error=lambda vehicle_id, error: service.record_event(
+            "MAVLINK_SESSION_ERROR",
+            vehicle_id=vehicle_id,
+            severity="ERROR",
+            details={"error": str(error)},
+        ),
+    )
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        manager.start()
+        try:
+            yield
+        finally:
+            manager.stop()
+
+    app = FastAPI(title="UTM Operations Connector", version="0.1.0", lifespan=lifespan)
     app.state.connector_service = service
+    app.state.mavlink_session_manager = manager
 
     @app.get("/v1/health", response_model=HealthResponse)
     def health() -> HealthResponse:
         return HealthResponse(
-            active_vehicles=len(service.vehicles),
+            active_vehicles=len(set(service.vehicles) | set(service.vehicle_snapshots)),
             active_operations=sum(
                 operation.state.declaration != DeclarationState.CANCELLED
                 for operation in service.operations.values()
@@ -62,14 +91,20 @@ def create_app(service: Optional[ConnectorService] = None) -> FastAPI:
     @app.get("/v1/vehicles/{vehicle_id}/status", response_model=dict)
     def vehicle_status(vehicle_id: str) -> dict:
         telemetry = service.vehicles.get(vehicle_id)
-        if telemetry is None:
+        vehicle_snapshot = service.vehicle_snapshots.get(vehicle_id)
+        if telemetry is None and vehicle_snapshot is None:
             raise HTTPException(status_code=404, detail="vehicle not found")
         operations = [
             operation.model_dump(mode="json")
             for operation in service.operations.values()
             if operation.vehicle_id == vehicle_id
         ]
-        return {"vehicle_id": vehicle_id, "latest_telemetry": telemetry.model_dump(mode="json"), "operations": operations}
+        return {
+            "vehicle_id": vehicle_id,
+            "vehicle_state": vehicle_snapshot.model_dump(mode="json") if vehicle_snapshot else None,
+            "latest_telemetry": telemetry.model_dump(mode="json") if telemetry else None,
+            "operations": operations,
+        }
 
     @app.get("/v1/events", response_model=List[Event])
     def events(limit: int = Query(default=100, ge=1, le=1000)) -> List[Event]:

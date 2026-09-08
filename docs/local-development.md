@@ -20,6 +20,23 @@ Convenience targets are also available: `make setup`, `make test`, and `make run
 
 The service listens on `http://127.0.0.1:8000`. OpenAPI is available at `/docs`, and the health endpoint is `/v1/health`.
 
+## Connect a simulator over MAVLink
+
+The connector can run one or more read-only MAVLink sessions in the background. Copy `.env.example` to `.env` and set the connection list to the URI exposed by your simulator or MAVLink router:
+
+```dotenv
+UTM_CONNECTOR_MAVLINK_CONNECTIONS=[{"vehicle_id":"sitl-1","connection_uri":"udpin:127.0.0.1:14550"}]
+UTM_CONNECTOR_MAVLINK_POLL_INTERVAL_S=0.2
+```
+
+Then start the connector with `make run` and inspect live state at:
+
+```sh
+curl http://127.0.0.1:8000/v1/vehicles/sitl-1/status
+```
+
+Use a MAVLink router or separate simulator output port if QGroundControl or Mission Planner is also listening on the same UDP port. This path only reads MAVLink telemetry; it does not send vehicle commands.
+
 ## Run tests
 
 ```sh

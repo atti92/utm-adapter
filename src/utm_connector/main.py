@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-import os
-
 import uvicorn
+
+from .config import ConnectorSettings
 
 
 def run() -> None:
+    settings = ConnectorSettings()
     uvicorn.run(
         "utm_connector.api:app",
-        host=os.getenv("UTM_CONNECTOR_HOST", "127.0.0.1"),
-        port=int(os.getenv("UTM_CONNECTOR_PORT", "8000")),
-        log_level=os.getenv("UTM_CONNECTOR_LOG_LEVEL", "info"),
+        host=settings.host,
+        port=settings.port,
+        log_level=settings.log_level,
     )
 
 
 if __name__ == "__main__":
     run()
-

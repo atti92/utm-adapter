@@ -17,6 +17,7 @@ from .domain import (
     OperationIntent,
     OperationState,
     TelemetryPublicationState,
+    VehicleStateSnapshot,
     VehicleTelemetry,
 )
 
@@ -30,6 +31,7 @@ class ConnectorService:
         self.backend = backend
         self.missions: Dict[str, MissionSnapshot] = {}
         self.vehicles: Dict[str, VehicleTelemetry] = {}
+        self.vehicle_snapshots: Dict[str, VehicleStateSnapshot] = {}
         self.operations: Dict[UUID, Operation] = {}
         self.events: List[Event] = []
 
@@ -40,6 +42,21 @@ class ConnectorService:
                 correlation_id=intent.correlation_id if intent else None,
                 **kwargs,
             )
+        )
+
+    def record_event(
+        self,
+        event_type: str,
+        *,
+        vehicle_id: Optional[str] = None,
+        severity: str = "INFO",
+        details: Optional[Dict[str, object]] = None,
+    ) -> None:
+        self._event(
+            event_type,
+            vehicle_id=vehicle_id,
+            severity=severity,
+            details=details or {},
         )
 
     def put_mission(self, vehicle_id: str, mission: Mission) -> MissionSnapshot:
@@ -61,6 +78,21 @@ class ConnectorService:
                 operation.updated_at = datetime.now(timezone.utc)
         self._event("TELEMETRY_PUBLISHED", vehicle_id=vehicle_id, details={"quality": telemetry.quality})
         return telemetry
+
+    def ingest_vehicle_snapshot(self, snapshot: VehicleStateSnapshot) -> VehicleStateSnapshot:
+        vehicle_id = snapshot.identity.connector_vehicle_id
+        self.vehicle_snapshots[vehicle_id] = snapshot
+        if snapshot.telemetry is not None:
+            self.put_telemetry(vehicle_id, snapshot.telemetry)
+        self._event(
+            "VEHICLE_STATE_UPDATED",
+            vehicle_id=vehicle_id,
+            details={
+                "connection_state": snapshot.connection_state,
+                "quality": snapshot.quality,
+            },
+        )
+        return snapshot
 
     def apply_intent(self, intent: OperationIntent) -> Operation:
         operation = self.operations.get(intent.operation_id)
