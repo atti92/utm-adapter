@@ -9,6 +9,7 @@ import httpx
 
 from .domain import AltitudeDatum, Mission, Operation, OperationCommand, VehicleTelemetry
 from .geometry import GeometryError, build_corridor
+from .recording import JsonlRecorder
 
 
 class UTMBackend(ABC):
@@ -70,6 +71,7 @@ class FlightBlenderBackend(UTMBackend):
         submitted_by: str = "utm-operations-connector",
         originating_party: str = "utm-operations-connector",
         client: Optional[httpx.Client] = None,
+        recorder: Optional[JsonlRecorder] = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.bearer_token = bearer_token
@@ -81,6 +83,7 @@ class FlightBlenderBackend(UTMBackend):
         self._owns_client = client is None
         self.client = client or httpx.Client(timeout=timeout_s)
         self._provider_operation_ids: Dict[str, str] = {}
+        self.recorder = recorder
 
     def submit_operation(self, operation: Operation, mission: Mission) -> Operation:
         try:
@@ -200,7 +203,17 @@ class FlightBlenderBackend(UTMBackend):
         last_error: Exception | None = None
         for attempt in range(self.max_retries + 1):
             try:
+                if self.recorder is not None:
+                    self.recorder.record(
+                        "backend_request",
+                        {"method": method, "path": path, "headers": _safe_headers(headers), "json": json},
+                    )
                 response = self.client.request(method, f"{self.base_url}{path}", json=json, headers=headers)
+                if self.recorder is not None:
+                    self.recorder.record(
+                        "backend_response",
+                        {"method": method, "path": path, "status_code": response.status_code, "body": _response_body(response)},
+                    )
                 if response.status_code == 204:
                     return {}
                 if response.status_code == 429 or response.status_code >= 500:
@@ -254,3 +267,14 @@ def _current_state(telemetry: VehicleTelemetry) -> dict:
         "track": telemetry.heading_deg if telemetry.heading_deg is not None else 361,
         "vertical_speed": 63,
     }
+
+
+def _safe_headers(headers: Dict[str, str]) -> Dict[str, str]:
+    return {key: "<redacted>" if key.lower() == "authorization" else value for key, value in headers.items()}
+
+
+def _response_body(response: httpx.Response) -> object:
+    try:
+        return response.json()
+    except ValueError:
+        return response.text[:2000]

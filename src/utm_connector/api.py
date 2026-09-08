@@ -12,6 +12,7 @@ from .domain import DeclarationState, Event, HealthResponse, Mission, OperationC
 from .runtime import MavlinkSessionManager
 from .service import ConnectorError, ConnectorService
 from .persistence import SQLiteStateStore
+from .recording import JsonlRecorder
 
 
 def create_app(
@@ -20,7 +21,9 @@ def create_app(
     session_manager: Optional[MavlinkSessionManager] = None,
 ) -> FastAPI:
     settings = settings or ConnectorSettings()
+    recorder = None
     if service is None:
+        recorder = JsonlRecorder(settings.record_path) if settings.record_path else None
         backend = (
             FlightBlenderBackend(
                 settings.flight_blender_base_url,
@@ -31,11 +34,12 @@ def create_app(
                 type_of_operation=settings.flight_blender_type_of_operation,
                 submitted_by=settings.flight_blender_submitted_by,
                 originating_party=settings.flight_blender_originating_party,
+                recorder=recorder,
             )
             if settings.backend == "flight-blender"
             else InMemoryBackend()
         )
-        service = ConnectorService(backend, SQLiteStateStore(settings.state_db_path))
+        service = ConnectorService(backend, SQLiteStateStore(settings.state_db_path), recorder=recorder)
     manager = session_manager or MavlinkSessionManager(
         settings.mavlink_connections,
         service.ingest_vehicle_snapshot,
@@ -58,6 +62,8 @@ def create_app(
             close_backend = getattr(service.backend, "close", None)
             if close_backend is not None:
                 close_backend()
+            if recorder is not None:
+                recorder.close()
 
     app = FastAPI(title="UTM Operations Connector", version="0.1.0", lifespan=lifespan)
     app.state.connector_service = service

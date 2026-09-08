@@ -24,6 +24,7 @@ class ConnectorSettings(BaseSettings):
     port: int = Field(default=8000, ge=1, le=65535)
     log_level: str = "info"
     state_db_path: str = "connector-state.sqlite3"
+    record_path: str | None = None
     backend: str = Field(default="in-memory", pattern=r"^(in-memory|flight-blender)$")
     flight_blender_base_url: str = "http://127.0.0.1:8989"
     flight_blender_bearer_token: str | None = None

@@ -24,6 +24,7 @@ from .domain import (
 from .drift import compare_missions
 from .mission_reader import MavlinkMissionRead
 from .persistence import SQLiteStateStore
+from .recording import JsonlRecorder
 
 
 class ConnectorError(ValueError):
@@ -31,9 +32,15 @@ class ConnectorError(ValueError):
 
 
 class ConnectorService:
-    def __init__(self, backend: UTMBackend, state_store: Optional[SQLiteStateStore] = None) -> None:
+    def __init__(
+        self,
+        backend: UTMBackend,
+        state_store: Optional[SQLiteStateStore] = None,
+        recorder: Optional[JsonlRecorder] = None,
+    ) -> None:
         self.backend = backend
         self.state_store = state_store
+        self.recorder = recorder
         self.missions: Dict[str, MissionSnapshot] = {}
         self.onboard_missions: Dict[str, MissionSnapshot] = {}
         self.onboard_mission_reads: Dict[str, MavlinkMissionRead] = {}
@@ -67,6 +74,8 @@ class ConnectorService:
         self.events.append(event)
         if self.state_store is not None:
             self.state_store.append_event(event)
+        if self.recorder is not None:
+            self.recorder.record("connector_event", event.model_dump(mode="json"))
 
     def record_event(
         self,

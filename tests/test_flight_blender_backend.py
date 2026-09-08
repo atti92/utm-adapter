@@ -8,6 +8,7 @@ import pytest
 from utm_connector.backends import BackendError, FlightBlenderBackend
 from utm_connector.domain import AltitudeDatum, Mission, Operation, OperationState, VehicleTelemetry
 from utm_connector.domain import OperationCommand
+from utm_connector.recording import JsonlRecorder
 
 
 def _mission(datum: AltitudeDatum = AltitudeDatum.WGS84) -> Mission:
@@ -33,7 +34,7 @@ def _operation(mission: Mission) -> Operation:
     )
 
 
-def test_flight_blender_backend_submits_declaration_and_publishes_telemetry() -> None:
+def test_flight_blender_backend_submits_declaration_and_publishes_telemetry(tmp_path) -> None:
     requests: list[httpx.Request] = []
     provider_id = str(uuid4())
 
@@ -45,10 +46,12 @@ def test_flight_blender_backend_submits_declaration_and_publishes_telemetry() ->
             return httpx.Response(200, json={"state": 2})
         return httpx.Response(201, json={"message": "Telemetry data successfully submitted"})
 
+    recorder = JsonlRecorder(str(tmp_path / "connector-events.jsonl"))
     backend = FlightBlenderBackend(
         "http://flight-blender.test",
         bearer_token="token",
         client=httpx.Client(transport=httpx.MockTransport(handler)),
+        recorder=recorder,
     )
     mission = _mission()
     operation = backend.submit_operation(_operation(mission), mission)
@@ -75,6 +78,10 @@ def test_flight_blender_backend_submits_declaration_and_publishes_telemetry() ->
     assert requests[2].url.path == "/flight_stream/set_telemetry"
     telemetry = json.loads(requests[2].content)
     assert telemetry["observations"][0]["flight_details"]["id"] == provider_id
+    recorder.close()
+    recorded = (tmp_path / "connector-events.jsonl").read_text()
+    assert "Bearer token" not in recorded
+    assert '"Authorization":"<redacted>"' in recorded
 
 
 def test_flight_blender_backend_rejects_non_wgs84_declaration_altitude() -> None:

@@ -80,9 +80,18 @@ UTM_CONNECTOR_FLIGHT_BLENDER_BASE_URL=http://127.0.0.1:8989
 UTM_CONNECTOR_FLIGHT_BLENDER_BEARER_TOKEN=
 UTM_CONNECTOR_FLIGHT_BLENDER_MAX_RETRIES=3
 UTM_CONNECTOR_FLIGHT_BLENDER_RETRY_BACKOFF_S=0.25
+UTM_CONNECTOR_RECORD_PATH=connector-events.jsonl
 ```
 
 The adapter calls Flight Blender's `set_flight_declaration` endpoint with the generated WGS84 corridor and stores the provider declaration ID in the local operation record. It calls `set_telemetry` with the provider ID for subsequent telemetry. A mission whose altitude datum is AGL or AMSL is intentionally rejected for declaration submission because the connector does not have enough information to convert it to WGS84 safely; use WGS84 mission altitudes for this integration path.
+
+When `UTM_CONNECTOR_RECORD_PATH` is set, connector events and backend request/response envelopes are appended as JSONL. Authorization headers are redacted. Replay the file in a diagnostic tool with `JsonlReplay`:
+
+```python
+from utm_connector.recording import JsonlReplay
+
+JsonlReplay("connector-events.jsonl").replay(lambda kind, payload: print(kind, payload))
+```
 
 ## Run tests
 
