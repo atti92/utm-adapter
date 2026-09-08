@@ -1,0 +1,110 @@
+from datetime import datetime, timezone
+
+import pytest
+
+from utm_connector.domain import AltitudeDatum, Mission
+from utm_connector.mission_reader import MavlinkMissionReader
+from utm_connector.missions import MissionParseError
+
+
+class FakeMessage:
+    def __init__(self, message_type: str, *, system_id: int = 1, component_id: int = 1, **fields: object) -> None:
+        self._type = message_type
+        self._system_id = system_id
+        self._component_id = component_id
+        for name, value in fields.items():
+            setattr(self, name, value)
+
+    def get_type(self) -> str:
+        return self._type
+
+    def get_srcSystem(self) -> int:
+        return self._system_id
+
+    def get_srcComponent(self) -> int:
+        return self._component_id
+
+
+class FakeMav:
+    def __init__(self) -> None:
+        self.sent: list[tuple[str, tuple[int, ...]]] = []
+
+    def mission_request_list_send(self, system_id: int, component_id: int) -> None:
+        self.sent.append(("MISSION_REQUEST_LIST", (system_id, component_id)))
+
+    def mission_request_int_send(self, system_id: int, component_id: int, sequence: int) -> None:
+        self.sent.append(("MISSION_REQUEST_INT", (system_id, component_id, sequence)))
+
+    def mission_ack_send(self, system_id: int, component_id: int, ack_type: int) -> None:
+        self.sent.append(("MISSION_ACK", (system_id, component_id, ack_type)))
+
+
+class FakeConnection:
+    def __init__(self) -> None:
+        self.mav = FakeMav()
+
+
+def _item(sequence: int, *, frame: int = 6, command: int = 16) -> FakeMessage:
+    return FakeMessage(
+        "MISSION_ITEM_INT",
+        seq=sequence,
+        frame=frame,
+        command=command,
+        x=475000000 + sequence * 10000,
+        y=190000000 + sequence * 10000,
+        z=20 + sequence * 5,
+    )
+
+
+def _template() -> Mission:
+    return Mission(
+        vehicle_id="sitl-1",
+        valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        valid_until=datetime(2026, 1, 1, 1, tzinfo=timezone.utc),
+        source="qgroundcontrol",
+        waypoints=[
+            {"sequence": 0, "latitude": 47.5, "longitude": 19.0, "altitude": {"meters": 20, "datum": "AGL"}},
+            {"sequence": 1, "latitude": 47.501, "longitude": 19.001, "altitude": {"meters": 25, "datum": "AGL"}},
+        ],
+    )
+
+
+def test_reader_requests_items_in_order_and_builds_canonical_mission() -> None:
+    connection = FakeConnection()
+    reader = MavlinkMissionReader("sitl-1", connection)
+    reader.ingest(FakeMessage("HEARTBEAT"))
+    reader.request_list()
+    reader.ingest(FakeMessage("MISSION_COUNT", count=2))
+    reader.ingest(_item(0))
+    completed = reader.ingest(_item(1, command=16), datetime(2026, 1, 1, tzinfo=timezone.utc))
+
+    assert completed is not None
+    assert [entry[0] for entry in connection.mav.sent] == [
+        "MISSION_REQUEST_LIST",
+        "MISSION_REQUEST_INT",
+        "MISSION_REQUEST_INT",
+        "MISSION_ACK",
+    ]
+    assert completed.to_mission(_template()).source == "mavlink"
+    assert completed.waypoints[1].altitude.datum == AltitudeDatum.AGL
+
+
+def test_reader_rejects_unknown_altitude_frame() -> None:
+    connection = FakeConnection()
+    reader = MavlinkMissionReader("sitl-1", connection)
+    reader.ingest(FakeMessage("HEARTBEAT"))
+    reader.request_list()
+    reader.ingest(FakeMessage("MISSION_COUNT", count=2))
+
+    with pytest.raises(MissionParseError, match="altitude frame"):
+        reader.ingest(_item(0, frame=10))
+
+
+def test_reader_rejects_empty_mission() -> None:
+    connection = FakeConnection()
+    reader = MavlinkMissionReader("sitl-1", connection)
+    reader.ingest(FakeMessage("HEARTBEAT"))
+    reader.request_list()
+
+    with pytest.raises(MissionParseError, match="empty mission"):
+        reader.ingest(FakeMessage("MISSION_COUNT", count=0))

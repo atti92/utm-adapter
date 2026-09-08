@@ -84,8 +84,17 @@ def _integer(value: Any, field_name: str) -> int:
 
 
 def _altitude_datum(frame: int) -> AltitudeDatum:
-    if frame in (0, 3):  # MAV_FRAME_GLOBAL / MAV_FRAME_GLOBAL_INT
+    if frame in (0, 5):  # MAV_FRAME_GLOBAL / MAV_FRAME_GLOBAL_INT
         return AltitudeDatum.AMSL
-    if frame == 6:  # MAV_FRAME_GLOBAL_RELATIVE_ALT_INT
+    if frame in (3, 6):  # MAV_FRAME_GLOBAL_RELATIVE_ALT(_INT)
         return AltitudeDatum.AGL
     raise MissionParseError(f"unsupported QGroundControl altitude frame: {frame}")
+
+
+def mavlink_altitude_datum(frame: int) -> AltitudeDatum:
+    """Map a MAVLink global mission frame to an explicit altitude datum."""
+
+    try:
+        return _altitude_datum(frame)
+    except MissionParseError as exc:
+        raise MissionParseError(f"unsupported MAVLink mission altitude frame: {frame}") from exc

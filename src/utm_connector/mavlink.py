@@ -21,6 +21,7 @@ from .domain import (
     VehicleStateSnapshot,
     VehicleTelemetry,
 )
+from .mission_reader import MavlinkMissionRead, MavlinkMissionReader
 
 
 def _utc_now() -> datetime:
@@ -240,6 +241,7 @@ class MavlinkVehicleSession(MavlinkMessageNormalizer):
     def __init__(self, vehicle_id: str, connection: Any, **kwargs: Any) -> None:
         super().__init__(vehicle_id, **kwargs)
         self.connection = connection
+        self.mission_reader = MavlinkMissionReader(vehicle_id, connection, clock=self.clock)
 
     @classmethod
     def connect(cls, vehicle_id: str, connection_uri: str, **kwargs: Any) -> "MavlinkVehicleSession":
@@ -250,4 +252,17 @@ class MavlinkVehicleSession(MavlinkMessageNormalizer):
         message = self.connection.recv_match(blocking=timeout > 0, timeout=timeout or None)
         if message is not None:
             self.ingest(message)
+            if self._system_id is not None and not self.mission_reader.requested:
+                self.mission_reader.request_list(
+                    system_id=self._system_id,
+                    component_id=min(self._component_ids) if self._component_ids else 1,
+                )
         return message
+
+    def ingest(self, message: Any, received_at: Optional[datetime] = None) -> None:
+        super().ingest(message, received_at)
+        self.mission_reader.ingest(message, received_at)
+
+    @property
+    def onboard_mission(self) -> Optional[MavlinkMissionRead]:
+        return self.mission_reader.completed
