@@ -60,8 +60,10 @@ def test_local_operation_lifecycle() -> None:
         },
     )
     assert telemetry_response.status_code == 200
+    status = client.get("/v1/vehicles/sitl-1/status").json()
+    assert status["operations"][0]["state"]["conformance"] == "CONFORMING"
     assert client.get("/v1/health").json()["active_vehicles"] == 1
-    assert len(client.get("/v1/events").json()) >= 4
+    assert len(client.get("/v1/events").json()) >= 5
 
 
 def test_mission_and_telemetry_path_ids_are_checked() -> None:

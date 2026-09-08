@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 from uuid import UUID
 
 from .backends import UTMBackend
+from .conformance import assess_conformance
 from .domain import (
     AuthorizationState,
     ConformanceState,
@@ -158,14 +159,31 @@ class ConnectorService:
     def put_telemetry(self, vehicle_id: str, telemetry: VehicleTelemetry) -> VehicleTelemetry:
         if telemetry.vehicle_id != vehicle_id:
             raise ConnectorError("telemetry vehicle_id does not match path")
+        self.backend.publish_telemetry(telemetry)
         self.vehicles[vehicle_id] = telemetry
         if self.state_store is not None:
             self.state_store.save_telemetry(telemetry)
-        self.backend.publish_telemetry(telemetry)
         for operation in self.operations.values():
             if operation.vehicle_id == vehicle_id and operation.state.telemetry_publication == TelemetryPublicationState.ACTIVE:
+                mission_snapshot = self.missions.get(vehicle_id)
+                if mission_snapshot is not None:
+                    assessment = assess_conformance(mission_snapshot.mission, telemetry)
+                    operation.state.conformance = assessment.state
+                    self._event(
+                        "CONFORMANCE_ASSESSED",
+                        vehicle_id=vehicle_id,
+                        operation_id=operation.operation_id,
+                        severity="WARNING" if assessment.state in {
+                            ConformanceState.NEAR_BOUNDARY,
+                            ConformanceState.NON_CONFORMING,
+                            ConformanceState.TELEMETRY_UNRELIABLE,
+                        } else "INFO",
+                        details=assessment.model_dump(mode="json"),
+                    )
                 operation.state.telemetry_publication = TelemetryPublicationState.ACTIVE
                 operation.updated_at = datetime.now(timezone.utc)
+                if self.state_store is not None:
+                    self.state_store.save_operation(operation)
         self._event("TELEMETRY_PUBLISHED", vehicle_id=vehicle_id, details={"quality": telemetry.quality})
         return telemetry
 
