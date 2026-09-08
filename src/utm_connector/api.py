@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Query
 
-from .backends import InMemoryBackend
+from .backends import BackendError, FlightBlenderBackend, InMemoryBackend
 from .config import ConnectorSettings
 from .domain import DeclarationState, Event, HealthResponse, Mission, OperationCommand, OperationIntent, VehicleTelemetry
 from .runtime import MavlinkSessionManager
@@ -20,7 +20,20 @@ def create_app(
     session_manager: Optional[MavlinkSessionManager] = None,
 ) -> FastAPI:
     settings = settings or ConnectorSettings()
-    service = service or ConnectorService(InMemoryBackend(), SQLiteStateStore(settings.state_db_path))
+    if service is None:
+        backend = (
+            FlightBlenderBackend(
+                settings.flight_blender_base_url,
+                bearer_token=settings.flight_blender_bearer_token,
+                timeout_s=settings.flight_blender_timeout_s,
+                type_of_operation=settings.flight_blender_type_of_operation,
+                submitted_by=settings.flight_blender_submitted_by,
+                originating_party=settings.flight_blender_originating_party,
+            )
+            if settings.backend == "flight-blender"
+            else InMemoryBackend()
+        )
+        service = ConnectorService(backend, SQLiteStateStore(settings.state_db_path))
     manager = session_manager or MavlinkSessionManager(
         settings.mavlink_connections,
         service.ingest_vehicle_snapshot,
@@ -40,6 +53,9 @@ def create_app(
             yield
         finally:
             manager.stop()
+            close_backend = getattr(service.backend, "close", None)
+            if close_backend is not None:
+                close_backend()
 
     app = FastAPI(title="UTM Operations Connector", version="0.1.0", lifespan=lifespan)
     app.state.connector_service = service
@@ -83,6 +99,8 @@ def create_app(
     def put_telemetry(vehicle_id: str, telemetry: VehicleTelemetry) -> VehicleTelemetry:
         try:
             return service.put_telemetry(vehicle_id, telemetry)
+        except BackendError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
         except ConnectorError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -93,6 +111,8 @@ def create_app(
                 operation = service.submit_operation(intent, vehicle_id)
             else:
                 operation = service.apply_intent(intent)
+        except BackendError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
         except ConnectorError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         return operation.model_dump(mode="json")

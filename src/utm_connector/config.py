@@ -24,5 +24,12 @@ class ConnectorSettings(BaseSettings):
     port: int = Field(default=8000, ge=1, le=65535)
     log_level: str = "info"
     state_db_path: str = "connector-state.sqlite3"
+    backend: str = Field(default="in-memory", pattern=r"^(in-memory|flight-blender)$")
+    flight_blender_base_url: str = "http://127.0.0.1:8989"
+    flight_blender_bearer_token: str | None = None
+    flight_blender_timeout_s: float = Field(default=10.0, gt=0, le=120)
+    flight_blender_type_of_operation: int = Field(default=1, ge=1, le=3)
+    flight_blender_submitted_by: str = "utm-operations-connector"
+    flight_blender_originating_party: str = "utm-operations-connector"
     mavlink_connections: List[MavlinkConnectionConfig] = Field(default_factory=list)
     mavlink_poll_interval_s: float = Field(default=0.2, gt=0, le=10)

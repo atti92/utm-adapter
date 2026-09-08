@@ -1,6 +1,6 @@
 # Local development environment
 
-The repository contains a local connector based on the implementation plan. It runs a loopback-only FastAPI service with an in-memory backend, and includes read-only MAVLink normalization plus QGroundControl mission and corridor tests, so product behavior can be exercised without credentials or a deployed UTM provider.
+The repository contains a local connector based on the implementation plan. It runs a loopback-only FastAPI service with an in-memory backend by default, and includes read-only MAVLink normalization plus QGroundControl mission and corridor tests, so product behavior can be exercised without credentials or a deployed UTM provider. It can also submit declarations and RID telemetry to a local or remote Flight Blender instance.
 
 ## Requirements
 
@@ -72,7 +72,15 @@ QGroundControl should show the SITL vehicle automatically. The connector state c
 curl http://127.0.0.1:8000/v1/vehicles/sitl-1/status
 ```
 
-The current local UTM is the connector's in-memory backend, so no external UTM service or account is required for this test loop. The real Flight Blender adapter remains a later integration step.
+The default local UTM is the connector's in-memory backend, so no external UTM service or account is required for the basic test loop. To use Flight Blender, set these values in `.env`:
+
+```dotenv
+UTM_CONNECTOR_BACKEND=flight-blender
+UTM_CONNECTOR_FLIGHT_BLENDER_BASE_URL=http://127.0.0.1:8989
+UTM_CONNECTOR_FLIGHT_BLENDER_BEARER_TOKEN=
+```
+
+The adapter calls Flight Blender's `set_flight_declaration` endpoint with the generated WGS84 corridor and stores the provider declaration ID in the local operation record. It calls `set_telemetry` with the provider ID for subsequent telemetry. A mission whose altitude datum is AGL or AMSL is intentionally rejected for declaration submission because the connector does not have enough information to convert it to WGS84 safely; use WGS84 mission altitudes for this integration path.
 
 ## Run tests
 
@@ -94,7 +102,7 @@ curl -X POST 'http://127.0.0.1:8000/v1/operator-intents?vehicle_id=sitl-1' \
   -d '{"schema_version":"1.0","command":"SUBMIT_OPERATION","operation_id":"00000000-0000-0000-0000-000000000001"}'
 ```
 
-The local backend accepts the declaration and marks it authorized to make the happy-path lifecycle testable. This is a development behavior; the backend adapter interface is deliberately separate so real authorization semantics can be implemented later.
+The local backend accepts the declaration and marks it authorized to make the happy-path lifecycle testable. This is a development behavior. Flight Blender authorization and state transitions remain provider-owned; inspect the provider response and Flight Blender UI/API when using the real adapter.
 
 ### Check onboard mission drift
 

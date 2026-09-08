@@ -277,6 +277,7 @@ class Operation(StrictModel):
     vehicle_id: str = Field(min_length=1, max_length=128)
     mission_id: UUID
     mission_hash: str
+    provider_operation_id: Optional[str] = Field(default=None, max_length=128)
     state: OperationState = Field(default_factory=OperationState)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

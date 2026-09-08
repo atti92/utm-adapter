@@ -48,6 +48,10 @@ class ConnectorService:
             self.vehicles = state_store.load_telemetry()
             self.vehicle_snapshots = state_store.load_vehicle_snapshots()
             self.operations = state_store.load_operations()
+            register_operation = getattr(self.backend, "register_operation", None)
+            if register_operation is not None:
+                for operation in self.operations.values():
+                    register_operation(operation)
             self.events = state_store.load_events()
             for vehicle_id, submitted in self.missions.items():
                 onboard = self.onboard_missions.get(vehicle_id)
@@ -228,7 +232,8 @@ class ConnectorService:
                 authorization=AuthorizationState.AUTHORIZED,
             ),
         )
-        self.operations[operation.operation_id] = self.backend.submit_operation(operation)
+        operation = self.backend.submit_operation(operation, snapshot.mission)
+        self.operations[operation.operation_id] = operation
         if self.state_store is not None:
             self.state_store.save_operation(operation)
         self._event(
