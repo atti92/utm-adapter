@@ -23,5 +23,6 @@ class ConnectorSettings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = Field(default=8000, ge=1, le=65535)
     log_level: str = "info"
+    state_db_path: str = "connector-state.sqlite3"
     mavlink_connections: List[MavlinkConnectionConfig] = Field(default_factory=list)
     mavlink_poll_interval_s: float = Field(default=0.2, gt=0, le=10)

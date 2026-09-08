@@ -11,6 +11,7 @@ from .config import ConnectorSettings
 from .domain import DeclarationState, Event, HealthResponse, Mission, OperationCommand, OperationIntent, VehicleTelemetry
 from .runtime import MavlinkSessionManager
 from .service import ConnectorError, ConnectorService
+from .persistence import SQLiteStateStore
 
 
 def create_app(
@@ -18,8 +19,8 @@ def create_app(
     settings: Optional[ConnectorSettings] = None,
     session_manager: Optional[MavlinkSessionManager] = None,
 ) -> FastAPI:
-    service = service or ConnectorService(InMemoryBackend())
     settings = settings or ConnectorSettings()
+    service = service or ConnectorService(InMemoryBackend(), SQLiteStateStore(settings.state_db_path))
     manager = session_manager or MavlinkSessionManager(
         settings.mavlink_connections,
         service.ingest_vehicle_snapshot,

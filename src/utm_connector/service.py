@@ -23,6 +23,7 @@ from .domain import (
 )
 from .drift import compare_missions
 from .mission_reader import MavlinkMissionRead
+from .persistence import SQLiteStateStore
 
 
 class ConnectorError(ValueError):
@@ -30,8 +31,9 @@ class ConnectorError(ValueError):
 
 
 class ConnectorService:
-    def __init__(self, backend: UTMBackend) -> None:
+    def __init__(self, backend: UTMBackend, state_store: Optional[SQLiteStateStore] = None) -> None:
         self.backend = backend
+        self.state_store = state_store
         self.missions: Dict[str, MissionSnapshot] = {}
         self.onboard_missions: Dict[str, MissionSnapshot] = {}
         self.onboard_mission_reads: Dict[str, MavlinkMissionRead] = {}
@@ -40,15 +42,27 @@ class ConnectorService:
         self.vehicle_snapshots: Dict[str, VehicleStateSnapshot] = {}
         self.operations: Dict[UUID, Operation] = {}
         self.events: List[Event] = []
+        if state_store is not None:
+            self.missions = state_store.load_missions(kind="submitted")
+            self.onboard_missions = state_store.load_missions(kind="onboard")
+            self.vehicles = state_store.load_telemetry()
+            self.vehicle_snapshots = state_store.load_vehicle_snapshots()
+            self.operations = state_store.load_operations()
+            self.events = state_store.load_events()
+            for vehicle_id, submitted in self.missions.items():
+                onboard = self.onboard_missions.get(vehicle_id)
+                if onboard is not None:
+                    self.mission_drifts[vehicle_id] = compare_missions(submitted.mission, onboard.mission)
 
     def _event(self, event_type: str, *, intent: Optional[OperationIntent] = None, **kwargs: object) -> None:
-        self.events.append(
-            Event(
-                event_type=event_type,
-                correlation_id=intent.correlation_id if intent else None,
-                **kwargs,
-            )
+        event = Event(
+            event_type=event_type,
+            correlation_id=intent.correlation_id if intent else None,
+            **kwargs,
         )
+        self.events.append(event)
+        if self.state_store is not None:
+            self.state_store.append_event(event)
 
     def record_event(
         self,
@@ -70,6 +84,8 @@ class ConnectorService:
             raise ConnectorError("mission vehicle_id does not match path")
         snapshot = MissionSnapshot(mission=mission, mission_hash=mission.canonical_hash())
         self.missions[vehicle_id] = snapshot
+        if self.state_store is not None:
+            self.state_store.save_mission(vehicle_id, snapshot, kind="submitted")
         self._event("MISSION_UPDATED", vehicle_id=vehicle_id, details={"mission_hash": snapshot.mission_hash})
         onboard_read = self.onboard_mission_reads.get(vehicle_id)
         if onboard_read is not None:
@@ -84,6 +100,8 @@ class ConnectorService:
             raise ConnectorError("mission not found for vehicle")
 
         current = MissionSnapshot(mission=mission, mission_hash=mission.canonical_hash())
+        if self.state_store is not None:
+            self.state_store.save_mission(vehicle_id, current, kind="onboard")
         report = compare_missions(submitted.mission, current.mission)
         self.onboard_missions[vehicle_id] = current
         self.mission_drifts[vehicle_id] = report
@@ -114,6 +132,8 @@ class ConnectorService:
         report = compare_missions(submitted.mission, current)
         self.onboard_missions[vehicle_id] = snapshot
         self.mission_drifts[vehicle_id] = report
+        if self.state_store is not None:
+            self.state_store.save_mission(vehicle_id, snapshot, kind="onboard")
         self._event(
             "MISSION_DRIFT_CHECKED",
             vehicle_id=vehicle_id,
@@ -126,6 +146,8 @@ class ConnectorService:
         if telemetry.vehicle_id != vehicle_id:
             raise ConnectorError("telemetry vehicle_id does not match path")
         self.vehicles[vehicle_id] = telemetry
+        if self.state_store is not None:
+            self.state_store.save_telemetry(telemetry)
         self.backend.publish_telemetry(telemetry)
         for operation in self.operations.values():
             if operation.vehicle_id == vehicle_id and operation.state.telemetry_publication == TelemetryPublicationState.ACTIVE:
@@ -137,6 +159,8 @@ class ConnectorService:
     def ingest_vehicle_snapshot(self, snapshot: VehicleStateSnapshot) -> VehicleStateSnapshot:
         vehicle_id = snapshot.identity.connector_vehicle_id
         self.vehicle_snapshots[vehicle_id] = snapshot
+        if self.state_store is not None:
+            self.state_store.save_vehicle_snapshot(snapshot)
         if snapshot.telemetry is not None:
             self.put_telemetry(vehicle_id, snapshot.telemetry)
         self._event(
@@ -175,6 +199,8 @@ class ConnectorService:
 
         operation.updated_at = datetime.now(timezone.utc)
         self.operations[operation.operation_id] = operation
+        if self.state_store is not None:
+            self.state_store.save_operation(operation)
         self._event(
             "OPERATION_STATE_CHANGED",
             intent=intent,
@@ -203,6 +229,8 @@ class ConnectorService:
             ),
         )
         self.operations[operation.operation_id] = self.backend.submit_operation(operation)
+        if self.state_store is not None:
+            self.state_store.save_operation(operation)
         self._event(
             "OPERATION_SUBMITTED",
             intent=intent,
