@@ -18,9 +18,9 @@ def main() -> None:
     parser.add_argument("--duration-minutes", type=int, default=20)
     parser.add_argument(
         "--start-offset-minutes",
-        type=int,
-        default=0,
-        help="Minutes from now when the mission starts; default 0 starts it immediately",
+        type=float,
+        default=0.1,
+        help="Minutes from now when the mission starts; default 0.1 avoids clock skew",
     )
     args = parser.parse_args()
 

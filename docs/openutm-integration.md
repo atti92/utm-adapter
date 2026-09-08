@@ -94,6 +94,8 @@ curl -X POST 'http://127.0.0.1:8001/v1/operator-intents?vehicle_id=sitl-1' \
   -H 'content-type: application/json' \
   -d '{"schema_version":"1.0","command":"SUBMIT_OPERATION","operation_id":"00000000-0000-0000-0000-000000000001"}'
 
+sleep 7
+
 curl -X POST 'http://127.0.0.1:8001/v1/operator-intents?vehicle_id=sitl-1' \
   -H 'content-type: application/json' \
   -d '{"schema_version":"1.0","command":"START_OPERATION","operation_id":"00000000-0000-0000-0000-000000000001"}'
