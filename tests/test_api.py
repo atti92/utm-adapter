@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from utm_connector.api import create_app
 from utm_connector.backends import InMemoryBackend
+from utm_connector.config import ConnectorSettings
 from utm_connector.service import ConnectorService
 
 
@@ -64,6 +65,48 @@ def test_local_operation_lifecycle() -> None:
     assert status["operations"][0]["state"]["conformance"] == "CONFORMING"
     assert client.get("/v1/health").json()["active_vehicles"] == 1
     assert len(client.get("/v1/events").json()) >= 5
+
+
+def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
+    client = TestClient(
+        create_app(
+            ConnectorService(InMemoryBackend()),
+            ConnectorSettings(mavlink_connections=[]),
+        )
+    )
+    capabilities = client.get("/v1/capabilities")
+
+    assert capabilities.status_code == 200
+    assert capabilities.json()["mavlink"] == {
+        "configured": False,
+        "read_only": True,
+        "mission_download": True,
+    }
+    assert "qgroundcontrol" in capabilities.json()["mission_formats"]
+
+    telemetry = {
+        "vehicle_id": "sitl-1",
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "latitude": 47.5,
+        "longitude": 19.0,
+        "altitude": {"meters": 20, "datum": "AGL"},
+        "quality": "GOOD",
+    }
+    assert client.put("/v1/vehicles/sitl-1", json=telemetry).status_code == 200
+
+    vehicles = client.get("/v1/vehicles")
+    assert vehicles.status_code == 200
+    assert vehicles.json() == [
+        {
+            "vehicle_id": "sitl-1",
+            "connection_state": "UNKNOWN",
+            "quality": "GOOD",
+            "mavlink_system_id": None,
+            "latest_telemetry_at": telemetry["observed_at"],
+            "active_operation_count": 0,
+            "last_error": None,
+        }
+    ]
 
 
 def test_mission_and_telemetry_path_ids_are_checked() -> None:

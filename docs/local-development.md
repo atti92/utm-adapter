@@ -43,6 +43,20 @@ the Unix-specific `.venv/bin` layout.
 The service listens on `http://127.0.0.1:8000`. OpenAPI is available at `/docs`,
 and the health endpoint is `/v1/health`.
 
+For GCS integration, start with the discovery endpoints:
+
+```sh
+curl http://127.0.0.1:8000/v1/capabilities
+curl http://127.0.0.1:8000/v1/health
+curl http://127.0.0.1:8000/v1/vehicles
+```
+
+`/v1/capabilities` describes supported mission formats, operator commands, and
+the read-only MAVLink behavior. `/v1/vehicles` lists discovered vehicles,
+telemetry freshness, active operation count, and the last session error when a
+simulator or router cannot be reached. A `degraded` health status means at least
+one configured MAVLink session currently has an error.
+
 For a clean disposable run, use this in `.env`:
 
 ```dotenv

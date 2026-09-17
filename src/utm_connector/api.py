@@ -79,9 +79,23 @@ def create_app(
     app.state.connector_service = service
     app.state.mavlink_session_manager = manager
 
+    @app.get("/v1/capabilities", response_model=dict)
+    def capabilities() -> dict:
+        return {
+            "backend": service.backend.name,
+            "mission_formats": ["canonical", "qgroundcontrol"],
+            "mavlink": {
+                "configured": bool(manager.connections),
+                "read_only": True,
+                "mission_download": True,
+            },
+            "operator_commands": [command.value for command in OperationCommand],
+        }
+
     @app.get("/v1/health", response_model=HealthResponse)
     def health() -> HealthResponse:
         return HealthResponse(
+            status="degraded" if manager.last_errors else "ok",
             active_vehicles=len(set(service.vehicles) | set(service.vehicle_snapshots)),
             active_operations=sum(
                 operation.state.declaration in {
@@ -92,6 +106,45 @@ def create_app(
             ),
             backend=service.backend.name,
         )
+
+    @app.get("/v1/vehicles", response_model=List[dict])
+    def vehicles() -> List[dict]:
+        vehicle_ids = sorted(set(service.vehicles) | set(service.vehicle_snapshots))
+        active_declarations = {DeclarationState.SUBMITTED, DeclarationState.ACCEPTED}
+        result = []
+        for vehicle_id in vehicle_ids:
+            telemetry = service.vehicles.get(vehicle_id)
+            snapshot = service.vehicle_snapshots.get(vehicle_id)
+            operations = [
+                operation
+                for operation in service.operations.values()
+                if operation.vehicle_id == vehicle_id
+            ]
+            result.append(
+                {
+                    "vehicle_id": vehicle_id,
+                    "connection_state": (
+                        snapshot.connection_state.value if snapshot else "UNKNOWN"
+                    ),
+                    "quality": (
+                        snapshot.quality.value
+                        if snapshot
+                        else telemetry.quality.value if telemetry else "UNKNOWN"
+                    ),
+                    "mavlink_system_id": (
+                        snapshot.identity.mavlink_system_id if snapshot else None
+                    ),
+                    "latest_telemetry_at": (
+                        telemetry.observed_at.isoformat() if telemetry else None
+                    ),
+                    "active_operation_count": sum(
+                        operation.state.declaration in active_declarations
+                        for operation in operations
+                    ),
+                    "last_error": manager.last_errors.get(vehicle_id),
+                }
+            )
+        return result
 
     @app.put("/v1/missions/{vehicle_id}", response_model=dict)
     def put_mission(vehicle_id: str, mission: Mission) -> dict:

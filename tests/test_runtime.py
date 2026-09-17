@@ -120,3 +120,21 @@ def test_session_manager_closes_sessions_and_can_restart() -> None:
     manager.stop()
     assert len(sessions) == 2
     assert sessions[1].closed is True
+
+
+def test_session_manager_keeps_last_connection_error_for_diagnostics() -> None:
+    errors: list[tuple[str, str]] = []
+
+    def factory(_vehicle_id: str, _uri: str) -> FakeSession:
+        raise RuntimeError("simulator is offline")
+
+    manager = MavlinkSessionManager(
+        [MavlinkConnectionConfig(vehicle_id="sitl-1", connection_uri="udp:127.0.0.1:14550")],
+        lambda _snapshot: None,
+        session_factory=factory,
+        on_error=lambda vehicle_id, error: errors.append((vehicle_id, str(error))),
+    )
+    manager.start()
+
+    assert manager.last_errors == {"sitl-1": "simulator is offline"}
+    assert errors == [("sitl-1", "simulator is offline")]

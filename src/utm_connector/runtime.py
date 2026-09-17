@@ -59,8 +59,9 @@ class MavlinkSessionManager:
         self.sessions: Dict[str, PollableSession] = {}
         self._stop = threading.Event()
         self._threads: List[threading.Thread] = []
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._delivered_missions: Dict[str, MavlinkMissionRead] = {}
+        self.last_errors: Dict[str, str] = {}
 
     def start(self) -> None:
         with self._lock:
@@ -73,6 +74,7 @@ class MavlinkSessionManager:
                 except Exception as exc:
                     self._report_error(connection.vehicle_id, exc)
                     continue
+                self.last_errors.pop(connection.vehicle_id, None)
                 self.sessions[connection.vehicle_id] = session
                 thread = threading.Thread(
                     target=self._run_session,
@@ -125,6 +127,7 @@ class MavlinkSessionManager:
         for vehicle_id, session in list(self.sessions.items()):
             try:
                 message = session.poll(timeout=0.0)
+                self.last_errors.pop(vehicle_id, None)
                 if message is not None:
                     self._deliver(vehicle_id, session)
                     messages += 1
@@ -136,6 +139,7 @@ class MavlinkSessionManager:
         while not self._stop.is_set():
             try:
                 message = session.poll(timeout=self.poll_interval_s)
+                self.last_errors.pop(vehicle_id, None)
                 if message is not None:
                     self._deliver(vehicle_id, session)
             except Exception as exc:
@@ -145,6 +149,8 @@ class MavlinkSessionManager:
                 self._stop.wait(self.poll_interval_s)
 
     def _report_error(self, vehicle_id: str, error: Exception) -> None:
+        with self._lock:
+            self.last_errors[vehicle_id] = str(error)
         if self.on_error:
             self.on_error(vehicle_id, error)
 
