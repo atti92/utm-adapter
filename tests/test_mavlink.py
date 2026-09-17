@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from utm_connector.domain import TelemetryQuality, VehicleConnectionState
-from utm_connector.mavlink import MavlinkMessageNormalizer
+from utm_connector.mavlink import MavlinkMessageNormalizer, MavlinkVehicleSession
 
 
 class FakeMessage:
@@ -22,6 +22,11 @@ class FakeMessage:
 
     def get_srcComponent(self) -> int:
         return self._component_id
+
+
+class FakeConnection:
+    def __init__(self) -> None:
+        self.mav = object()
 
 
 def test_mavlink_messages_become_one_canonical_snapshot() -> None:
@@ -86,3 +91,18 @@ def test_heading_sentinels_are_normalized_to_unknown() -> None:
     assert MavlinkMessageNormalizer._heading(65535) is None
     assert MavlinkMessageNormalizer._heading(36000) is None
     assert MavlinkMessageNormalizer._heading(9000) == 90
+
+
+def test_empty_onboard_mission_does_not_interrupt_telemetry() -> None:
+    session = MavlinkVehicleSession("sitl-1", FakeConnection())
+    now = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+
+    session.ingest(FakeMessage("HEARTBEAT"), now)
+    session.ingest(FakeMessage("MISSION_COUNT", count=0), now)
+
+    snapshot = session.snapshot(now)
+    assert snapshot.connection_state == VehicleConnectionState.CONNECTED
+    assert snapshot.mission_count == 0
+    assert snapshot.diagnostics == [
+        "MAVLink mission unavailable: MAVLink vehicle reported an empty mission"
+    ]

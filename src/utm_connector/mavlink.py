@@ -23,6 +23,7 @@ from .domain import (
     VehicleTelemetry,
 )
 from .mission_reader import MavlinkMissionRead, MavlinkMissionReader
+from .missions import MissionParseError
 
 
 def _utc_now() -> datetime:
@@ -138,8 +139,7 @@ class MavlinkMessageNormalizer:
             if isinstance(text, bytes):
                 text = text.decode("utf-8", errors="replace")
             if text:
-                self._diagnostics.append(str(text).rstrip("\x00"))
-                self._diagnostics = self._diagnostics[-20:]
+                self._add_diagnostic(str(text).rstrip("\x00"))
 
         self._refresh_quality(received_at)
 
@@ -186,6 +186,10 @@ class MavlinkMessageNormalizer:
     def _refresh_quality(self, now: datetime) -> None:
         if self._last_telemetry:
             self._last_telemetry = self._last_telemetry.model_copy(update={"quality": self._quality(now)})
+
+    def _add_diagnostic(self, message: str) -> None:
+        self._diagnostics.append(message)
+        self._diagnostics = self._diagnostics[-20:]
 
     def snapshot(self, now: Optional[datetime] = None) -> VehicleStateSnapshot:
         now = now or self.clock()
@@ -269,7 +273,13 @@ class MavlinkVehicleSession(MavlinkMessageNormalizer):
 
     def ingest(self, message: Any, received_at: Optional[datetime] = None) -> None:
         super().ingest(message, received_at)
-        self.mission_reader.ingest(message, received_at)
+        try:
+            self.mission_reader.ingest(message, received_at)
+        except MissionParseError as exc:
+            # A malformed or empty onboard mission must not interrupt the
+            # independent telemetry stream. The diagnostic remains visible in
+            # the canonical vehicle snapshot and an explicit refresh can retry.
+            self._add_diagnostic(f"MAVLink mission unavailable: {exc}")
 
     @property
     def onboard_mission(self) -> Optional[MavlinkMissionRead]:
