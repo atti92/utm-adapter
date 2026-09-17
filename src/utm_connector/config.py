@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -37,3 +37,10 @@ class ConnectorSettings(BaseSettings):
     flight_blender_originating_party: str = "utm-operations-connector"
     mavlink_connections: List[MavlinkConnectionConfig] = Field(default_factory=list)
     mavlink_poll_interval_s: float = Field(default=0.2, gt=0, le=10)
+
+    @model_validator(mode="after")
+    def validate_unique_vehicle_ids(self) -> "ConnectorSettings":
+        vehicle_ids = [connection.vehicle_id for connection in self.mavlink_connections]
+        if len(vehicle_ids) != len(set(vehicle_ids)):
+            raise ValueError("MAVLink vehicle_id values must be unique")
+        return self
