@@ -261,6 +261,7 @@ class ConnectorService:
         elif intent.command == OperationCommand.COMPLETE_OPERATION:
             if state.declaration != DeclarationState.ACCEPTED:
                 raise ConnectorError("only an accepted operation can be completed")
+            state.declaration = DeclarationState.COMPLETED
             state.telemetry_publication = TelemetryPublicationState.STOPPED
         else:
             raise ConnectorError("unsupported command for existing operation")
@@ -330,7 +331,10 @@ class ConnectorService:
         elif provider_state in (6, 7):
             candidate.state.declaration = DeclarationState.CANCELLED
             candidate.state.telemetry_publication = TelemetryPublicationState.STOPPED
-        elif provider_state in (1, 2, 3, 4, 5):
+        elif provider_state == 5:
+            candidate.state.declaration = DeclarationState.COMPLETED
+            candidate.state.telemetry_publication = TelemetryPublicationState.STOPPED
+        elif provider_state in (1, 2, 3, 4):
             candidate.state.declaration = DeclarationState.ACCEPTED
         else:
             candidate.state.declaration = DeclarationState.SUBMITTED

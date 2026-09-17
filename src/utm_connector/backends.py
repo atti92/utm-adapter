@@ -69,6 +69,7 @@ class InMemoryBackend(UTMBackend):
         provider_state = {
             DeclarationState.SUBMITTED: 0,
             DeclarationState.ACCEPTED: 1,
+            DeclarationState.COMPLETED: 5,
             DeclarationState.REJECTED: 8,
             DeclarationState.CANCELLED: 7,
         }.get(operation.state.declaration, 0)
@@ -111,6 +112,7 @@ class FlightBlenderBackend(UTMBackend):
         self.originating_party = originating_party
         self._owns_client = client is None
         self.client = client or httpx.Client(timeout=timeout_s)
+        self._closed = False
         self._provider_operation_ids: Dict[str, str] = {}
         # Kept only for callers of the historical telemetry-only method. A
         # vehicle can have multiple operations, so connector service calls
@@ -256,8 +258,9 @@ class FlightBlenderBackend(UTMBackend):
             self._legacy_provider_operation_ids[operation.vehicle_id] = operation.provider_operation_id
 
     def close(self) -> None:
-        if self._owns_client:
+        if not self._closed and self._owns_client:
             self.client.close()
+        self._closed = True
 
     def _request(self, method: str, path: str, *, json: Optional[dict]) -> dict:
         headers = {"Accept": "application/json"}
@@ -279,8 +282,6 @@ class FlightBlenderBackend(UTMBackend):
                     )
                 if response.status_code == 204:
                     return {}
-                if response.status_code == 429 or response.status_code >= 500:
-                    response.raise_for_status()
                 response.raise_for_status()
                 body = response.json()
                 if not isinstance(body, dict):
@@ -314,7 +315,9 @@ def _declaration_state(provider_state: int) -> DeclarationState:
         return DeclarationState.REJECTED
     if provider_state in (6, 7):
         return DeclarationState.CANCELLED
-    if provider_state in (1, 2, 3, 4, 5):
+    if provider_state == 5:
+        return DeclarationState.COMPLETED
+    if provider_state in (1, 2, 3, 4):
         return DeclarationState.ACCEPTED
     return DeclarationState.SUBMITTED
 

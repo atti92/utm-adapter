@@ -26,6 +26,7 @@ class DeclarationState(str, Enum):
     DRAFT = "DRAFT"
     SUBMITTED = "SUBMITTED"
     ACCEPTED = "ACCEPTED"
+    COMPLETED = "COMPLETED"
     REJECTED = "REJECTED"
     CANCELLED = "CANCELLED"
 

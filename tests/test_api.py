@@ -171,3 +171,22 @@ def test_operation_refresh_reconciles_provider_state() -> None:
     refreshed = client.post(f"/v1/operations/{operation_id}/refresh")
     assert refreshed.status_code == 200
     assert refreshed.json()["state"]["declaration"] == "ACCEPTED"
+
+
+def test_completed_operation_is_terminal_and_not_active() -> None:
+    client = TestClient(create_app(ConnectorService(InMemoryBackend())))
+    assert client.put("/v1/missions/sitl-1", json=_mission()).status_code == 200
+    operation_id = uuid4()
+    assert client.post(
+        "/v1/operator-intents?vehicle_id=sitl-1",
+        json={"command": "SUBMIT_OPERATION", "operation_id": str(operation_id)},
+    ).status_code == 201
+
+    response = client.post(
+        "/v1/operator-intents?vehicle_id=sitl-1",
+        json={"command": "COMPLETE_OPERATION", "operation_id": str(operation_id)},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["state"]["declaration"] == "COMPLETED"
+    assert client.get("/v1/health").json()["active_operations"] == 0
