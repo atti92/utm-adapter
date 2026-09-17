@@ -32,7 +32,8 @@ def create_app(
 ) -> FastAPI:
     settings = settings or ConnectorSettings()
     recorder = None
-    if service is None:
+    owns_service = service is None
+    if owns_service:
         recorder = JsonlRecorder(settings.record_path) if settings.record_path else None
         backend = (
             FlightBlenderBackend(
@@ -79,6 +80,10 @@ def create_app(
                 close_backend()
             if recorder is not None:
                 recorder.close()
+            if owns_service:
+                close_state_store = getattr(service.state_store, "close", None)
+                if close_state_store is not None:
+                    close_state_store()
 
     app = FastAPI(title="UTM Operations Connector", version="0.1.0", lifespan=lifespan)
     app.state.connector_service = service

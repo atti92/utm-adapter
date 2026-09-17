@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -7,6 +8,7 @@ from utm_connector.api import create_app
 from utm_connector.backends import InMemoryBackend
 from utm_connector.config import ConnectorSettings, MavlinkConnectionConfig
 from utm_connector.runtime import MavlinkSessionManager
+from utm_connector.persistence import SQLiteStateStore
 from utm_connector.service import ConnectorService
 
 
@@ -66,6 +68,17 @@ def test_local_operation_lifecycle() -> None:
     assert status["operations"][0]["state"]["conformance"] == "CONFORMING"
     assert client.get("/v1/health").json()["active_vehicles"] == 1
     assert len(client.get("/v1/events").json()) >= 5
+
+
+def test_default_app_closes_owned_state_store_on_shutdown(tmp_path) -> None:
+    state_store = SQLiteStateStore(str(tmp_path / "state.sqlite3"))
+    settings = ConnectorSettings(state_db_path=str(tmp_path / "state.sqlite3"))
+
+    with patch("utm_connector.api.SQLiteStateStore", return_value=state_store):
+        with TestClient(create_app(settings=settings)) as client:
+            assert client.get("/v1/health").status_code == 200
+
+    assert state_store._closed is True
 
 
 def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
