@@ -201,6 +201,3 @@ def create_app(
         return list(reversed(service.events[-limit:]))
 
     return app
-
-
-app = create_app()

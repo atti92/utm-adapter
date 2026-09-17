@@ -1,11 +1,16 @@
-.PHONY: setup test run
+.PHONY: setup doctor smoke test run
 
 setup:
 	uv sync
 
+doctor:
+	uv run python scripts/doctor.py
+
+smoke:
+	uv run python scripts/local_smoke.py
+
 test:
-	.venv/bin/python -m pytest
+	uv run pytest
 
 run:
-	.venv/bin/utm-connector
-
+	uv run utm-connector

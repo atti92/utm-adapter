@@ -9,16 +9,51 @@ The repository contains a local connector based on the implementation plan. It r
 
 Python 3.10 is retained temporarily for compatibility, but is scheduled for removal after its upstream security-support window closes in October 2026. New development and CI should prefer Python 3.11–3.13. The CI matrix covers Linux, macOS, and Windows.
 
-## Start the local connector
+## Fastest setup check
 
 ```sh
 uv sync
+uv run python scripts/doctor.py
+uv run python scripts/local_smoke.py
+```
+
+The doctor validates configuration and writable local state. The smoke test
+uses a temporary SQLite database and an in-memory UTM backend, then exercises
+the complete local lifecycle without starting a simulator or contacting a
+provider. It is the quickest way to tell whether the installation is usable.
+
+## Start the local connector
+
+```sh
 uv run utm-connector
 ```
 
-Convenience targets are also available: `make setup`, `make test`, and `make run`.
+The command uses an application factory, so importing connector code for tests
+or diagnostics does not open the persistent SQLite database. The equivalent
+direct Uvicorn command is:
 
-The service listens on `http://127.0.0.1:8000`. OpenAPI is available at `/docs`, and the health endpoint is `/v1/health`.
+```sh
+uv run uvicorn 'utm_connector.api:create_app' --factory
+```
+
+Convenience targets are also available: `make setup`, `make doctor`, `make smoke`,
+`make test`, and `make run`. They delegate to `uv run`, so they do not depend on
+the Unix-specific `.venv/bin` layout.
+
+The service listens on `http://127.0.0.1:8000`. OpenAPI is available at `/docs`,
+and the health endpoint is `/v1/health`.
+
+For a clean disposable run, use this in `.env`:
+
+```dotenv
+UTM_CONNECTOR_STATE_DB_PATH=:memory:
+UTM_CONNECTOR_MAVLINK_CONNECTIONS=[]
+```
+
+For a normal local run, keep the default SQLite path so operations and recent
+telemetry survive a restart. If an old test operation makes the state confusing,
+stop the connector and switch temporarily to `:memory:` rather than deleting
+state while diagnosing the workflow.
 
 ## Connect a simulator over MAVLink
 
@@ -29,7 +64,7 @@ UTM_CONNECTOR_MAVLINK_CONNECTIONS=[{"vehicle_id":"sitl-1","connection_uri":"udpi
 UTM_CONNECTOR_MAVLINK_POLL_INTERVAL_S=0.2
 ```
 
-Then start the connector with `make run` and inspect live state at:
+Then start the connector with `uv run utm-connector` (or `make run`) and inspect live state at:
 
 ```sh
 curl http://127.0.0.1:8000/v1/vehicles/sitl-1/status

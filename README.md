@@ -10,8 +10,33 @@ The local runtime can also consume read-only MAVLink telemetry from a configured
 
 ```sh
 uv sync
+uv run python scripts/doctor.py
+uv run python scripts/local_smoke.py
 uv run pytest
 uv run utm-connector
+```
+
+The doctor checks the active Python/configuration and writable local state. The
+smoke test exercises mission upload, operation submission, start, telemetry,
+conformance, and completion entirely in-process. Neither command starts a
+background simulator or requires Flight Blender credentials. These commands
+work on Linux, macOS, and Windows when run from a shell with `uv` installed.
+
+The `utm-connector` command starts the API through an application factory, so
+persistent state is opened only when the service is actually started. If you
+run Uvicorn directly, use the equivalent factory form:
+
+```sh
+uv run uvicorn 'utm_connector.api:create_app' --factory
+```
+
+For a disposable configuration that cannot reuse old local state, set
+`UTM_CONNECTOR_STATE_DB_PATH=:memory:` in `.env`. For persistent local state,
+copy the tracked template first:
+
+```sh
+cp .env.example .env       # macOS/Linux
+copy .env.example .env     # Windows Command Prompt
 ```
 
 `uv sync` installs the pinned geospatial dependencies used by the corridor engine. The project supports Python 3.10 through 3.13. Python 3.10 is a transitional compatibility target only and should be removed when its upstream security-support window closes in October 2026.

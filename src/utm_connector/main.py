@@ -8,7 +8,8 @@ from .config import ConnectorSettings
 def run() -> None:
     settings = ConnectorSettings()
     uvicorn.run(
-        "utm_connector.api:app",
+        "utm_connector.api:create_app",
+        factory=True,
         host=settings.host,
         port=settings.port,
         log_level=settings.log_level,
