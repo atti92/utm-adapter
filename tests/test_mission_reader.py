@@ -35,6 +35,9 @@ class FakeMav:
     def mission_request_int_send(self, system_id: int, component_id: int, sequence: int) -> None:
         self.sent.append(("MISSION_REQUEST_INT", (system_id, component_id, sequence)))
 
+    def mission_request_send(self, system_id: int, component_id: int, sequence: int) -> None:
+        self.sent.append(("MISSION_REQUEST", (system_id, component_id, sequence)))
+
     def mission_ack_send(self, system_id: int, component_id: int, ack_type: int) -> None:
         self.sent.append(("MISSION_ACK", (system_id, component_id, ack_type)))
 
@@ -42,6 +45,25 @@ class FakeMav:
 class FakeConnection:
     def __init__(self) -> None:
         self.mav = FakeMav()
+
+
+class LegacyFakeMav:
+    def __init__(self) -> None:
+        self.sent: list[tuple[str, tuple[int, ...]]] = []
+
+    def mission_request_list_send(self, system_id: int, component_id: int) -> None:
+        self.sent.append(("MISSION_REQUEST_LIST", (system_id, component_id)))
+
+    def mission_request_send(self, system_id: int, component_id: int, sequence: int) -> None:
+        self.sent.append(("MISSION_REQUEST", (system_id, component_id, sequence)))
+
+    def mission_ack_send(self, system_id: int, component_id: int, ack_type: int) -> None:
+        self.sent.append(("MISSION_ACK", (system_id, component_id, ack_type)))
+
+
+class LegacyFakeConnection:
+    def __init__(self) -> None:
+        self.mav = LegacyFakeMav()
 
 
 def _item(sequence: int, *, frame: int = 6, command: int = 16) -> FakeMessage:
@@ -52,6 +74,18 @@ def _item(sequence: int, *, frame: int = 6, command: int = 16) -> FakeMessage:
         command=command,
         x=475000000 + sequence * 10000,
         y=190000000 + sequence * 10000,
+        z=20 + sequence * 5,
+    )
+
+
+def _legacy_item(sequence: int, *, frame: int = 6, command: int = 16) -> FakeMessage:
+    return FakeMessage(
+        "MISSION_ITEM",
+        seq=sequence,
+        frame=frame,
+        command=command,
+        x=47.5 + sequence * 0.001,
+        y=19.0 + sequence * 0.001,
         z=20 + sequence * 5,
     )
 
@@ -108,3 +142,25 @@ def test_reader_rejects_empty_mission() -> None:
 
     with pytest.raises(MissionParseError, match="empty mission"):
         reader.ingest(FakeMessage("MISSION_COUNT", count=0))
+
+
+def test_reader_supports_legacy_float_items_and_request_fallback() -> None:
+    connection = LegacyFakeConnection()
+    reader = MavlinkMissionReader("sitl-1", connection)
+    reader.ingest(FakeMessage("HEARTBEAT"))
+    reader.request_list()
+    reader.ingest(FakeMessage("MISSION_COUNT", count=2))
+    reader.ingest(_legacy_item(0))
+    completed = reader.ingest(
+        _legacy_item(1), datetime(2026, 1, 1, tzinfo=timezone.utc)
+    )
+
+    assert completed is not None
+    assert completed.waypoints[0].latitude == pytest.approx(47.5)
+    assert completed.waypoints[1].longitude == pytest.approx(19.001)
+    assert [entry[0] for entry in connection.mav.sent] == [
+        "MISSION_REQUEST_LIST",
+        "MISSION_REQUEST",
+        "MISSION_REQUEST",
+        "MISSION_ACK",
+    ]

@@ -117,8 +117,8 @@ class MavlinkMissionReader:
             return None
         if message_type == "MISSION_COUNT":
             return self._ingest_count(message)
-        if message_type == "MISSION_ITEM_INT":
-            return self._ingest_item(message, received_at)
+        if message_type in {"MISSION_ITEM", "MISSION_ITEM_INT"}:
+            return self._ingest_item(message, received_at, message_type)
         if message_type == "MISSION_ACK":
             self._last_ack = int(getattr(message, "type", -1))
         return None
@@ -136,7 +136,9 @@ class MavlinkMissionReader:
         self._request_item(0)
         return None
 
-    def _ingest_item(self, message: Any, received_at: datetime) -> Optional[MavlinkMissionRead]:
+    def _ingest_item(
+        self, message: Any, received_at: datetime, message_type: str
+    ) -> Optional[MavlinkMissionRead]:
         if self._expected_count is None:
             return None
         sequence = int(getattr(message, "seq", -1))
@@ -144,7 +146,7 @@ class MavlinkMissionReader:
             raise MissionParseError(f"MAVLink mission item sequence is invalid: {sequence}")
         if sequence in self._items:
             return self._completed
-        self._items[sequence] = _waypoint_from_item(message)
+        self._items[sequence] = _waypoint_from_item(message, message_type)
         if len(self._items) < self._expected_count:
             self._request_item(_next_missing_sequence(self._items, self._expected_count))
             return None
@@ -163,7 +165,12 @@ class MavlinkMissionReader:
     def _request_item(self, sequence: int) -> None:
         if self._target_system is None or self._target_component is None:
             raise MissionParseError("cannot request mission item before discovering a MAVLink target")
-        sender = getattr(getattr(self.connection, "mav", None), "mission_request_int_send", None)
+        mav = getattr(self.connection, "mav", None)
+        sender = getattr(mav, "mission_request_int_send", None)
+        if callable(sender):
+            sender(self._target_system, self._target_component, sequence)
+            return
+        sender = getattr(mav, "mission_request_send", None)
         if not callable(sender):
             raise MissionParseError("MAVLink connection cannot request mission items")
         sender(self._target_system, self._target_component, sequence)
@@ -188,15 +195,18 @@ def _source_id(message: Any, name: str, default: int = 0) -> int:
     return int(getattr(message, name.replace("get_", ""), default))
 
 
-def _waypoint_from_item(message: Any) -> Waypoint:
+def _waypoint_from_item(message: Any, message_type: str = "MISSION_ITEM_INT") -> Waypoint:
     command = int(getattr(message, "command", -1))
     if command not in (16, 22):
         raise MissionParseError(f"unsupported MAVLink mission command: {command}")
     frame = int(getattr(message, "frame", -1))
     datum = mavlink_altitude_datum(frame)
     try:
-        latitude = float(getattr(message, "x")) / 10_000_000
-        longitude = float(getattr(message, "y")) / 10_000_000
+        latitude = float(getattr(message, "x"))
+        longitude = float(getattr(message, "y"))
+        if message_type == "MISSION_ITEM_INT":
+            latitude /= 10_000_000
+            longitude /= 10_000_000
         altitude = float(getattr(message, "z"))
     except (TypeError, ValueError, AttributeError) as exc:
         raise MissionParseError("MAVLink mission coordinates must be numeric") from exc

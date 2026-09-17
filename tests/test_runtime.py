@@ -25,6 +25,7 @@ class FakeSession:
     def __init__(self, snapshot: VehicleStateSnapshot) -> None:
         self._snapshot = snapshot
         self._sent = False
+        self.closed = False
 
     def poll(self, timeout: float = 0.0) -> object:
         if self._sent:
@@ -41,6 +42,9 @@ class FakeSession:
 
     def request_mission(self) -> None:
         return None
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def _snapshot() -> VehicleStateSnapshot:
@@ -89,3 +93,30 @@ def test_configured_session_publishes_live_status() -> None:
     assert response.status_code == 200
     assert response.json()["vehicle_state"]["connection_state"] == "CONNECTED"
     assert response.json()["latest_telemetry"]["latitude"] == 47.5
+
+
+def test_session_manager_closes_sessions_and_can_restart() -> None:
+    service = ConnectorService(InMemoryBackend())
+    sessions: list[FakeSession] = []
+
+    def factory(_vehicle_id: str, _uri: str) -> FakeSession:
+        session = FakeSession(_snapshot())
+        sessions.append(session)
+        return session
+
+    manager = MavlinkSessionManager(
+        [MavlinkConnectionConfig(vehicle_id="sitl-1", connection_uri="udp:127.0.0.1:14550")],
+        lambda snapshot: service.ingest_vehicle_snapshot(snapshot),
+        poll_interval_s=0.01,
+        session_factory=factory,
+    )
+    manager.start()
+    manager.stop()
+
+    assert sessions[0].closed is True
+    assert manager.sessions == {}
+
+    manager.start()
+    manager.stop()
+    assert len(sessions) == 2
+    assert sessions[1].closed is True

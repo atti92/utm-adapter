@@ -80,3 +80,9 @@ def test_message_timestamps_must_be_timezone_aware() -> None:
     normalizer = MavlinkMessageNormalizer("sitl-1")
     with pytest.raises(ValueError, match="timezone"):
         normalizer.ingest(FakeMessage("HEARTBEAT"), datetime(2026, 1, 1, 12, 0))
+
+
+def test_heading_sentinels_are_normalized_to_unknown() -> None:
+    assert MavlinkMessageNormalizer._heading(65535) is None
+    assert MavlinkMessageNormalizer._heading(36000) is None
+    assert MavlinkMessageNormalizer._heading(9000) == 90

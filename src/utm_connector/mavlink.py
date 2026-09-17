@@ -7,6 +7,7 @@ not depend on pymavlink message classes or MAVLink dialect details.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import math
 from typing import Any, Callable, Optional
 
 from pymavlink import mavutil
@@ -155,6 +156,12 @@ class MavlinkMessageNormalizer:
         if value is None:
             return None
         heading = float(value)
+        if not math.isfinite(heading) or heading < 0:
+            return None
+        # MAVLink uses 36000 (centidegrees) and 65535 as unavailable heading
+        # sentinels in different message dialects.
+        if heading in {36000, 65535}:
+            return None
         if heading > 360:
             heading /= 100
         if 0 <= heading < 360:
@@ -241,6 +248,7 @@ class MavlinkVehicleSession(MavlinkMessageNormalizer):
     def __init__(self, vehicle_id: str, connection: Any, **kwargs: Any) -> None:
         super().__init__(vehicle_id, **kwargs)
         self.connection = connection
+        self._closed = False
         self.mission_reader = MavlinkMissionReader(vehicle_id, connection, clock=self.clock)
 
     @classmethod
@@ -269,3 +277,11 @@ class MavlinkVehicleSession(MavlinkMessageNormalizer):
 
     def request_mission(self) -> None:
         self.mission_reader.refresh()
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        close = getattr(self.connection, "close", None)
+        if callable(close):
+            close()

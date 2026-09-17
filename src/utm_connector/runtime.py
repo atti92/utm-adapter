@@ -25,6 +25,9 @@ class PollableSession(Protocol):
     def request_mission(self) -> None:
         ...
 
+    def close(self) -> None:
+        ...
+
 
 SessionFactory = Callable[[str, str], PollableSession]
 SnapshotHandler = Callable[[VehicleStateSnapshot], None]
@@ -81,10 +84,32 @@ class MavlinkSessionManager:
                 thread.start()
 
     def stop(self) -> None:
-        self._stop.set()
-        for thread in self._threads:
+        with self._lock:
+            threads = list(self._threads)
+            sessions = list(self.sessions.values())
+            self._stop.set()
+
+        # Closing the underlying transport is important for real pymavlink
+        # connections: recv_match() may otherwise keep a worker alive until
+        # its socket timeout expires, and a subsequent start() would leak the
+        # old connection.
+        for session in sessions:
+            close = getattr(session, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception:
+                    # Shutdown must remain best-effort. The worker join below
+                    # still gives sessions without a cooperative close method
+                    # a bounded opportunity to finish.
+                    pass
+
+        for thread in threads:
             thread.join(timeout=max(1.0, self.poll_interval_s * 5))
-        self._threads = []
+        with self._lock:
+            self._threads = []
+            self.sessions.clear()
+            self._delivered_missions.clear()
 
     def request_mission(self, vehicle_id: str) -> None:
         session = self.sessions.get(vehicle_id)
@@ -114,6 +139,8 @@ class MavlinkSessionManager:
                 if message is not None:
                     self._deliver(vehicle_id, session)
             except Exception as exc:
+                if self._stop.is_set():
+                    break
                 self._report_error(vehicle_id, exc)
                 self._stop.wait(self.poll_interval_s)
 
