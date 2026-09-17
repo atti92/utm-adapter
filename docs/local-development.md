@@ -67,7 +67,9 @@ UTM_CONNECTOR_MAVLINK_CONNECTIONS=[]
 For a normal local run, keep the default SQLite path so operations and recent
 telemetry survive a restart. If an old test operation makes the state confusing,
 stop the connector and switch temporarily to `:memory:` rather than deleting
-state while diagnosing the workflow.
+state while diagnosing the workflow. The API keeps the latest 1,000 events in
+memory by default; the full event history remains in SQLite. Change
+`UTM_CONNECTOR_EVENT_HISTORY_LIMIT` if a larger in-process window is needed.
 
 ## Connect a simulator over MAVLink
 

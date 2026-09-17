@@ -49,7 +49,12 @@ def create_app(
             if settings.backend == "flight-blender"
             else InMemoryBackend()
         )
-        service = ConnectorService(backend, SQLiteStateStore(settings.state_db_path), recorder=recorder)
+        service = ConnectorService(
+            backend,
+            SQLiteStateStore(settings.state_db_path),
+            recorder=recorder,
+            event_history_limit=settings.event_history_limit,
+        )
     manager = session_manager or MavlinkSessionManager(
         settings.mavlink_connections,
         service.ingest_vehicle_snapshot,

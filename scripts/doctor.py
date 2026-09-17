@@ -39,6 +39,7 @@ def main() -> int:
         return 1
 
     _check("configuration", f"backend={settings.backend}, listen={settings.host}:{settings.port}")
+    _check("event history", f"keeping the latest {settings.event_history_limit} events in memory")
 
     if Path(".env").exists():
         _check("environment file", ".env found")

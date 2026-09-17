@@ -44,11 +44,12 @@ def test_connector_state_survives_service_restart(tmp_path) -> None:
     store.close()
 
     restarted_store = SQLiteStateStore(str(tmp_path / "state.sqlite3"))
-    second = ConnectorService(InMemoryBackend(), restarted_store)
+    second = ConnectorService(InMemoryBackend(), restarted_store, event_history_limit=2)
 
     assert "sitl-1" in second.missions
     assert operation_id in second.operations
     assert second.vehicles["sitl-1"].latitude == 47.5
     assert any(event.event_type == "TEST_EVENT" for event in second.events)
+    assert len(second.events) == 2
     restarted_store.close()
     restarted_store.close()

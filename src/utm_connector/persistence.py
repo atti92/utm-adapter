@@ -107,11 +107,20 @@ class SQLiteStateStore:
             (str(event.event_id), event.timestamp.isoformat(), event.model_dump_json()),
         )
 
-    def load_events(self) -> List[Event]:
+    def load_events(self, *, limit: int | None = None) -> List[Event]:
+        if limit is not None and limit < 1:
+            raise ValueError("event history limit must be greater than zero")
         with self._lock:
-            rows = self._connection.execute(
-                "SELECT payload FROM events ORDER BY timestamp, event_id"
-            ).fetchall()
+            if limit is None:
+                rows = self._connection.execute(
+                    "SELECT payload FROM events ORDER BY timestamp, event_id"
+                ).fetchall()
+            else:
+                rows = self._connection.execute(
+                    "SELECT payload FROM events ORDER BY timestamp DESC, event_id DESC LIMIT ?",
+                    (limit,),
+                ).fetchall()
+                rows.reverse()
         return [Event.model_validate_json(payload) for (payload,) in rows]
 
     def close(self) -> None:

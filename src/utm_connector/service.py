@@ -38,10 +38,14 @@ class ConnectorService:
         backend: UTMBackend,
         state_store: Optional[SQLiteStateStore] = None,
         recorder: Optional[JsonlRecorder] = None,
+        event_history_limit: int = 1000,
     ) -> None:
+        if event_history_limit < 1:
+            raise ValueError("event_history_limit must be greater than zero")
         self.backend = backend
         self.state_store = state_store
         self.recorder = recorder
+        self.event_history_limit = event_history_limit
         self.missions: Dict[str, MissionSnapshot] = {}
         self.onboard_missions: Dict[str, MissionSnapshot] = {}
         self.onboard_mission_reads: Dict[str, MavlinkMissionRead] = {}
@@ -60,7 +64,7 @@ class ConnectorService:
             if register_operation is not None:
                 for operation in self.operations.values():
                     register_operation(operation)
-            self.events = state_store.load_events()
+            self.events = state_store.load_events(limit=event_history_limit)
             for vehicle_id, submitted in self.missions.items():
                 onboard = self.onboard_missions.get(vehicle_id)
                 if onboard is not None:
@@ -73,6 +77,8 @@ class ConnectorService:
             **kwargs,
         )
         self.events.append(event)
+        if len(self.events) > self.event_history_limit:
+            del self.events[: len(self.events) - self.event_history_limit]
         if self.state_store is not None:
             self.state_store.append_event(event)
         if self.recorder is not None:
