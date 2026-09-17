@@ -5,7 +5,8 @@ from fastapi.testclient import TestClient
 
 from utm_connector.api import create_app
 from utm_connector.backends import InMemoryBackend
-from utm_connector.config import ConnectorSettings
+from utm_connector.config import ConnectorSettings, MavlinkConnectionConfig
+from utm_connector.runtime import MavlinkSessionManager
 from utm_connector.service import ConnectorService
 
 
@@ -107,6 +108,38 @@ def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
             "last_error": None,
         }
     ]
+
+
+def test_vehicle_directory_reports_configured_session_before_first_heartbeat() -> None:
+    service = ConnectorService(InMemoryBackend())
+
+    def offline_factory(_vehicle_id: str, _uri: str) -> object:
+        raise RuntimeError("simulator is offline")
+
+    manager = MavlinkSessionManager(
+        [
+            MavlinkConnectionConfig(
+                vehicle_id="sitl-1",
+                connection_uri="udpin:127.0.0.1:14551",
+            )
+        ],
+        lambda _snapshot: None,
+        session_factory=offline_factory,
+    )
+
+    with TestClient(create_app(service, ConnectorSettings(mavlink_connections=[]), manager)) as client:
+        assert client.get("/v1/health").json()["status"] == "degraded"
+        assert client.get("/v1/vehicles").json() == [
+            {
+                "vehicle_id": "sitl-1",
+                "connection_state": "UNKNOWN",
+                "quality": "UNKNOWN",
+                "mavlink_system_id": None,
+                "latest_telemetry_at": None,
+                "active_operation_count": 0,
+                "last_error": "simulator is offline",
+            }
+        ]
 
 
 def test_mission_and_telemetry_path_ids_are_checked() -> None:

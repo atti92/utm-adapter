@@ -109,7 +109,10 @@ def create_app(
 
     @app.get("/v1/vehicles", response_model=List[dict])
     def vehicles() -> List[dict]:
-        vehicle_ids = sorted(set(service.vehicles) | set(service.vehicle_snapshots))
+        configured_vehicle_ids = {connection.vehicle_id for connection in manager.connections}
+        vehicle_ids = sorted(
+            configured_vehicle_ids | set(service.vehicles) | set(service.vehicle_snapshots)
+        )
         active_declarations = {DeclarationState.SUBMITTED, DeclarationState.ACCEPTED}
         result = []
         for vehicle_id in vehicle_ids:
