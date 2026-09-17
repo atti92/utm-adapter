@@ -168,45 +168,54 @@ class ConnectorService:
             if operation.vehicle_id == vehicle_id
             and operation.state.telemetry_publication == TelemetryPublicationState.ACTIVE
         ]
-        publication_error: BackendError | None = None
-        if active_operations:
+        publication_errors: Dict[UUID, BackendError] = {}
+        for operation in active_operations:
             try:
-                self.backend.publish_telemetry(telemetry)
+                self.backend.publish_telemetry(telemetry, operation)
             except BackendError as exc:
-                publication_error = exc
-        for operation in self.operations.values():
-            if operation.vehicle_id == vehicle_id and operation.state.telemetry_publication == TelemetryPublicationState.ACTIVE:
-                mission_snapshot = self.missions.get(vehicle_id)
-                if mission_snapshot is not None:
-                    assessment = assess_conformance(mission_snapshot.mission, telemetry)
-                    operation.state.conformance = assessment.state
+                publication_errors[operation.operation_id] = exc
+
+        for operation in active_operations:
+            mission_snapshot = self.missions.get(vehicle_id)
+            if mission_snapshot is not None:
+                assessment = assess_conformance(mission_snapshot.mission, telemetry)
+                operation.state.conformance = assessment.state
+                self._event(
+                    "CONFORMANCE_ASSESSED",
+                    vehicle_id=vehicle_id,
+                    operation_id=operation.operation_id,
+                    severity="WARNING" if assessment.state in {
+                        ConformanceState.NEAR_BOUNDARY,
+                        ConformanceState.NON_CONFORMING,
+                        ConformanceState.TELEMETRY_UNRELIABLE,
+                    } else "INFO",
+                    details=assessment.model_dump(mode="json"),
+                )
+            publication_error = publication_errors.get(operation.operation_id)
+            operation.state.telemetry_publication = (
+                TelemetryPublicationState.FAILED
+                if publication_error is not None
+                else TelemetryPublicationState.ACTIVE
+            )
+            operation.updated_at = datetime.now(timezone.utc)
+            if self.state_store is not None:
+                self.state_store.save_operation(operation)
+
+        if publication_errors:
+            for operation in active_operations:
+                publication_error = publication_errors.get(operation.operation_id)
+                if publication_error is not None:
                     self._event(
-                        "CONFORMANCE_ASSESSED",
+                        "TELEMETRY_PUBLICATION_FAILED",
                         vehicle_id=vehicle_id,
                         operation_id=operation.operation_id,
-                        severity="WARNING" if assessment.state in {
-                            ConformanceState.NEAR_BOUNDARY,
-                            ConformanceState.NON_CONFORMING,
-                            ConformanceState.TELEMETRY_UNRELIABLE,
-                        } else "INFO",
-                        details=assessment.model_dump(mode="json"),
+                        severity="ERROR",
+                        details={
+                            "provider_operation_id": operation.provider_operation_id,
+                            "error": str(publication_error),
+                        },
                     )
-                operation.state.telemetry_publication = (
-                    TelemetryPublicationState.FAILED
-                    if publication_error is not None
-                    else TelemetryPublicationState.ACTIVE
-                )
-                operation.updated_at = datetime.now(timezone.utc)
-                if self.state_store is not None:
-                    self.state_store.save_operation(operation)
-        if publication_error is not None:
-            self._event(
-                "TELEMETRY_PUBLICATION_FAILED",
-                vehicle_id=vehicle_id,
-                severity="ERROR",
-                details={"error": str(publication_error)},
-            )
-            raise publication_error
+            raise next(iter(publication_errors.values()))
         self._event(
             "TELEMETRY_PUBLISHED" if active_operations else "TELEMETRY_RECEIVED",
             vehicle_id=vehicle_id,

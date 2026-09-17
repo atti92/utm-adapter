@@ -117,6 +117,41 @@ def test_flight_blender_backend_requires_operation_for_telemetry() -> None:
         )
 
 
+def test_flight_blender_backend_keeps_same_vehicle_operations_separate() -> None:
+    requests: list[httpx.Request] = []
+    provider_ids = iter(["provider-one", "provider-two"])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path.endswith("set_flight_declaration"):
+            return httpx.Response(200, json={"id": next(provider_ids), "state": 1, "is_approved": 1})
+        return httpx.Response(201, json={"message": "Telemetry data successfully submitted"})
+
+    backend = FlightBlenderBackend(
+        "http://flight-blender.test",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    mission = _mission()
+    first = backend.submit_operation(_operation(mission), mission)
+    second = backend.submit_operation(_operation(mission), mission)
+    telemetry = VehicleTelemetry(
+        vehicle_id="sitl-1",
+        observed_at=datetime.now(timezone.utc),
+        latitude=47.4979,
+        longitude=19.0402,
+        altitude={"meters": 120, "datum": "WGS84"},
+    )
+
+    backend.publish_telemetry(telemetry, first)
+    backend.publish_telemetry(telemetry, second)
+
+    telemetry_requests = [request for request in requests if request.url.path.endswith("set_telemetry")]
+    assert [json.loads(request.content)["observations"][0]["flight_details"]["id"] for request in telemetry_requests] == [
+        "provider-one",
+        "provider-two",
+    ]
+
+
 def test_flight_blender_backend_retries_transient_provider_failure() -> None:
     attempts = 0
 

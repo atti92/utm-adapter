@@ -28,8 +28,10 @@ class UTMBackend(ABC):
         """Submit an operation and return the provider-normalized result."""
 
     @abstractmethod
-    def publish_telemetry(self, telemetry: VehicleTelemetry) -> None:
-        """Publish one canonical telemetry observation."""
+    def publish_telemetry(
+        self, telemetry: VehicleTelemetry, operation: Optional[Operation] = None
+    ) -> None:
+        """Publish one canonical telemetry observation for an operation."""
 
     @abstractmethod
     def update_operation(self, operation: Operation, command: OperationCommand) -> Operation:
@@ -55,7 +57,9 @@ class InMemoryBackend(UTMBackend):
         self.missions[str(operation.operation_id)] = mission
         return operation
 
-    def publish_telemetry(self, telemetry: VehicleTelemetry) -> None:
+    def publish_telemetry(
+        self, telemetry: VehicleTelemetry, operation: Optional[Operation] = None
+    ) -> None:
         self.telemetry.append(telemetry)
 
     def update_operation(self, operation: Operation, command: OperationCommand) -> Operation:
@@ -108,6 +112,10 @@ class FlightBlenderBackend(UTMBackend):
         self._owns_client = client is None
         self.client = client or httpx.Client(timeout=timeout_s)
         self._provider_operation_ids: Dict[str, str] = {}
+        # Kept only for callers of the historical telemetry-only method. A
+        # vehicle can have multiple operations, so connector service calls
+        # always resolve through the operation-specific map above.
+        self._legacy_provider_operation_ids: Dict[str, str] = {}
         self.recorder = recorder
 
     def submit_operation(self, operation: Operation, mission: Mission) -> Operation:
@@ -156,7 +164,8 @@ class FlightBlenderBackend(UTMBackend):
         provider_operation_id = response.get("id")
         if not isinstance(provider_operation_id, str) or not provider_operation_id:
             raise BackendError("Flight Blender response did not include a declaration id")
-        self._provider_operation_ids[operation.vehicle_id] = provider_operation_id
+        self._provider_operation_ids[str(operation.operation_id)] = provider_operation_id
+        self._legacy_provider_operation_ids[operation.vehicle_id] = provider_operation_id
         updated = operation.model_copy(update={"provider_operation_id": provider_operation_id})
         provider_state = response.get("state")
         approved = response.get("is_approved")
@@ -177,8 +186,18 @@ class FlightBlenderBackend(UTMBackend):
             )
         return updated
 
-    def publish_telemetry(self, telemetry: VehicleTelemetry) -> None:
-        operation_id = self._provider_operation_ids.get(telemetry.vehicle_id)
+    def publish_telemetry(
+        self, telemetry: VehicleTelemetry, operation: Optional[Operation] = None
+    ) -> None:
+        if operation is not None and operation.vehicle_id != telemetry.vehicle_id:
+            raise BackendError("telemetry vehicle_id does not match the operation vehicle_id")
+        operation_id = None
+        if operation is not None:
+            operation_id = operation.provider_operation_id or self._provider_operation_ids.get(
+                str(operation.operation_id)
+            )
+        else:
+            operation_id = self._legacy_provider_operation_ids.get(telemetry.vehicle_id)
         if operation_id is None:
             raise BackendError(
                 f"cannot publish telemetry for {telemetry.vehicle_id}: no submitted operation is known"
@@ -233,7 +252,8 @@ class FlightBlenderBackend(UTMBackend):
     def register_operation(self, operation: Operation) -> None:
         """Restore a provider operation mapping loaded from persistent state."""
         if operation.provider_operation_id:
-            self._provider_operation_ids[operation.vehicle_id] = operation.provider_operation_id
+            self._provider_operation_ids[str(operation.operation_id)] = operation.provider_operation_id
+            self._legacy_provider_operation_ids[operation.vehicle_id] = operation.provider_operation_id
 
     def close(self) -> None:
         if self._owns_client:
