@@ -17,7 +17,8 @@ uv run python scripts/doctor.py
 uv run python scripts/local_smoke.py
 ```
 
-The doctor validates configuration and writable local state. The smoke test
+The doctor validates configuration, writable local state, and whether the API
+port already has a listener. The smoke test
 uses a temporary SQLite database and an in-memory UTM backend, then exercises
 the complete local lifecycle without starting a simulator or contacting a
 provider. It is the quickest way to tell whether the installation is usable.

@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from utm_connector.config import ConnectorSettings
+from utm_connector.diagnostics import port_is_reachable
 
 
 def _check(label: str, detail: str) -> None:
@@ -40,6 +41,13 @@ def main() -> int:
 
     _check("configuration", f"backend={settings.backend}, listen={settings.host}:{settings.port}")
     _check("event history", f"keeping the latest {settings.event_history_limit} events in memory")
+    if port_is_reachable(settings.host, settings.port):
+        _info(
+            "listen port",
+            f"{settings.host}:{settings.port} already has a listener; stop it or choose another port",
+        )
+    else:
+        _check("listen port", f"{settings.host}:{settings.port} is available")
 
     if Path(".env").exists():
         _check("environment file", ".env found")
