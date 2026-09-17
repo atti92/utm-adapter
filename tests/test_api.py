@@ -111,6 +111,27 @@ def test_qgroundcontrol_plan_endpoint_rejects_missing_metadata() -> None:
     assert response.status_code == 422
 
 
+def test_qgroundcontrol_plan_endpoint_validates_metadata_types_and_order() -> None:
+    client = TestClient(create_app(ConnectorService(InMemoryBackend())))
+    plan = {"fileType": "Plan", "mission": {"items": []}}
+    missing_timestamp = client.put(
+        "/v1/missions/sitl-1/qgroundcontrol",
+        json={"valid_until": datetime.now(timezone.utc).isoformat(), "plan": plan},
+    )
+    assert missing_timestamp.status_code == 422
+
+    now = datetime.now(timezone.utc)
+    reversed_window = client.put(
+        "/v1/missions/sitl-1/qgroundcontrol",
+        json={
+            "valid_from": (now + timedelta(minutes=30)).isoformat(),
+            "valid_until": now.isoformat(),
+            "plan": plan,
+        },
+    )
+    assert reversed_window.status_code == 422
+
+
 def test_onboard_mission_drift_is_reported_in_vehicle_status() -> None:
     app = create_app(ConnectorService(InMemoryBackend()))
     client = TestClient(app)

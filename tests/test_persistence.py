@@ -51,3 +51,4 @@ def test_connector_state_survives_service_restart(tmp_path) -> None:
     assert second.vehicles["sitl-1"].latitude == 47.5
     assert any(event.event_type == "TEST_EVENT" for event in second.events)
     restarted_store.close()
+    restarted_store.close()

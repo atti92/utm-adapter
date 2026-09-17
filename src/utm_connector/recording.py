@@ -18,6 +18,7 @@ class JsonlRecorder:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._lock = RLock()
         self._file = open(path, "a", encoding="utf-8")
+        self._closed = False
 
     def record(self, record_type: str, payload: Mapping[str, Any]) -> None:
         record = {
@@ -32,7 +33,9 @@ class JsonlRecorder:
 
     def close(self) -> None:
         with self._lock:
-            self._file.close()
+            if not self._closed:
+                self._file.close()
+                self._closed = True
 
 
 class JsonlReplay:

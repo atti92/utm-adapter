@@ -19,8 +19,13 @@ class SQLiteStateStore:
         if path != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         self._lock = RLock()
-        self._connection = sqlite3.connect(path, check_same_thread=False)
+        self._connection = sqlite3.connect(path, timeout=30.0, check_same_thread=False)
+        self._closed = False
         self._connection.execute("PRAGMA foreign_keys = ON")
+        self._connection.execute("PRAGMA busy_timeout = 30000")
+        if path != ":memory:":
+            self._connection.execute("PRAGMA journal_mode = WAL")
+            self._connection.execute("PRAGMA synchronous = NORMAL")
         self._create_schema()
 
     def _create_schema(self) -> None:
@@ -111,7 +116,9 @@ class SQLiteStateStore:
 
     def close(self) -> None:
         with self._lock:
-            self._connection.close()
+            if not self._closed:
+                self._connection.close()
+                self._closed = True
 
     def _upsert(self, table: str, values: tuple[str, ...]) -> None:
         statements = {

@@ -1,15 +1,23 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Query
 
 from .backends import BackendError, FlightBlenderBackend, InMemoryBackend
 from .config import ConnectorSettings
-from .domain import DeclarationState, Event, HealthResponse, Mission, OperationCommand, OperationIntent, VehicleTelemetry
+from .domain import (
+    DeclarationState,
+    Event,
+    HealthResponse,
+    Mission,
+    OperationCommand,
+    OperationIntent,
+    QGroundControlMissionRequest,
+    VehicleTelemetry,
+)
 from .runtime import MavlinkSessionManager
 from .missions import MissionParseError, parse_qgroundcontrol_plan
 from .service import ConnectorError, ConnectorService
@@ -76,7 +84,10 @@ def create_app(
         return HealthResponse(
             active_vehicles=len(set(service.vehicles) | set(service.vehicle_snapshots)),
             active_operations=sum(
-                operation.state.declaration != DeclarationState.CANCELLED
+                operation.state.declaration in {
+                    DeclarationState.SUBMITTED,
+                    DeclarationState.ACCEPTED,
+                }
                 for operation in service.operations.values()
             ),
             backend=service.backend.name,
@@ -91,23 +102,21 @@ def create_app(
         return snapshot.model_dump(mode="json")
 
     @app.put("/v1/missions/{vehicle_id}/qgroundcontrol", response_model=dict)
-    def put_qgroundcontrol_mission(vehicle_id: str, request: Dict[str, Any]) -> dict:
+    def put_qgroundcontrol_mission(
+        vehicle_id: str, request: QGroundControlMissionRequest
+    ) -> dict:
         """Normalize a QGroundControl Plan with explicit UTM metadata."""
 
         try:
-            plan = request["plan"]
-            valid_from = datetime.fromisoformat(request["valid_from"].replace("Z", "+00:00"))
-            valid_until = datetime.fromisoformat(request["valid_until"].replace("Z", "+00:00"))
-            corridor_radius_m = float(request.get("corridor_radius_m", 30))
             mission = parse_qgroundcontrol_plan(
-                plan,
+                request.plan,
                 vehicle_id=vehicle_id,
-                valid_from=valid_from,
-                valid_until=valid_until,
-                corridor_radius_m=corridor_radius_m,
+                valid_from=request.valid_from,
+                valid_until=request.valid_until,
+                corridor_radius_m=request.corridor_radius_m,
             )
             return service.put_mission(vehicle_id, mission).model_dump(mode="json")
-        except (KeyError, TypeError, ValueError, MissionParseError) as exc:
+        except (ConnectorError, MissionParseError, ValueError) as exc:
             raise HTTPException(status_code=422, detail=f"invalid QGroundControl mission: {exc}") from exc
 
     @app.put("/v1/vehicles/{vehicle_id}/onboard-mission", response_model=dict)
