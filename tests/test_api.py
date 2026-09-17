@@ -140,6 +140,16 @@ def test_vehicle_directory_reports_configured_session_before_first_heartbeat() -
                 "last_error": "simulator is offline",
             }
         ]
+        status = client.get("/v1/vehicles/sitl-1/status")
+        assert status.status_code == 200
+        assert status.json() == {
+            "vehicle_id": "sitl-1",
+            "vehicle_state": None,
+            "latest_telemetry": None,
+            "mission_drift": None,
+            "operations": [],
+            "last_error": "simulator is offline",
+        }
 
 
 def test_mission_and_telemetry_path_ids_are_checked() -> None:

@@ -238,7 +238,8 @@ def create_app(
     def vehicle_status(vehicle_id: str) -> dict:
         telemetry = service.vehicles.get(vehicle_id)
         vehicle_snapshot = service.vehicle_snapshots.get(vehicle_id)
-        if telemetry is None and vehicle_snapshot is None:
+        configured = any(connection.vehicle_id == vehicle_id for connection in manager.connections)
+        if telemetry is None and vehicle_snapshot is None and not configured:
             raise HTTPException(status_code=404, detail="vehicle not found")
         operations = [
             operation.model_dump(mode="json")
@@ -255,6 +256,7 @@ def create_app(
                 else None
             ),
             "operations": operations,
+            "last_error": manager.last_errors.get(vehicle_id),
         }
 
     @app.get("/v1/events", response_model=List[Event])
