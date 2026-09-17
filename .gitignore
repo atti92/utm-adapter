@@ -5,6 +5,7 @@ __pycache__/
 .coverage
 coverage.xml
 .env
+.local/
 *.sqlite3
 connector-state.sqlite3-shm
 connector-state.sqlite3-wal

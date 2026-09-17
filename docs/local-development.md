@@ -107,13 +107,16 @@ PATH="$ARDUPILOT_ROOT/.venv/bin:$PATH" \
   --out=udpout:127.0.0.1:14551
 ```
 
-Then start QGroundControl and the connector in separate terminals:
+Then start one GCS and the connector in separate terminals. Launch
+QGroundControl or Mission Planner from the application menu; on macOS,
+QGroundControl can also be started with:
 
 ```sh
 open -a QGroundControl
-cd /path/to/utm-adapter
-make run
 ```
+
+From the connector checkout, use `uv run utm-connector` (or `make run` on
+systems with `make`).
 
 QGroundControl should show the SITL vehicle automatically. The connector state can be checked with:
 

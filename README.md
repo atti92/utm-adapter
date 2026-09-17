@@ -5,6 +5,8 @@
 The repository includes working Phase 0, Phase 1, and the first Phase 2 slices from [`utm_connector_plan.md`](utm_connector_plan.md): a provider-neutral canonical model, loopback FastAPI API, deterministic in-memory UTM backend, Flight Blender HTTP adapter, read-only MAVLink normalization, QGroundControl `.plan` parsing, metre-correct corridor generation, mission drift classification, and tests.
 
 See [`docs/local-development.md`](docs/local-development.md) for setup and API examples.
+For the complete Flight Blender + SITL + QGroundControl/Mission Planner path,
+see [`docs/openutm-integration.md`](docs/openutm-integration.md).
 
 The local runtime can also consume read-only MAVLink telemetry from a configured simulator or MAVLink router; see the simulator setup section in the local-development guide.
 
