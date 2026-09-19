@@ -99,6 +99,7 @@ def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
         "read_only": True,
         "mission_download": True,
         "recommended_topology": "single_router_endpoint",
+        "telemetry_publish_interval_s": 1.0,
     }
     assert "qgroundcontrol" in capabilities.json()["mission_formats"]
 

@@ -42,14 +42,18 @@ class ConnectorService:
         recorder: Optional[JsonlRecorder] = None,
         event_history_limit: int = 1000,
         altitude_converter: Optional[AltitudeConverter] = None,
+        telemetry_publish_interval_s: float = 0.0,
     ) -> None:
         if event_history_limit < 1:
             raise ValueError("event_history_limit must be greater than zero")
+        if telemetry_publish_interval_s < 0:
+            raise ValueError("telemetry_publish_interval_s must not be negative")
         self.backend = backend
         self.state_store = state_store
         self.recorder = recorder
         self.event_history_limit = event_history_limit
         self.altitude_converter = altitude_converter
+        self.telemetry_publish_interval_s = telemetry_publish_interval_s
         self.missions: Dict[str, MissionSnapshot] = {}
         self.onboard_missions: Dict[str, MissionSnapshot] = {}
         self.onboard_mission_reads: Dict[str, MavlinkMissionRead] = {}
@@ -57,6 +61,7 @@ class ConnectorService:
         self.vehicles: Dict[str, VehicleTelemetry] = {}
         self.vehicle_snapshots: Dict[str, VehicleStateSnapshot] = {}
         self.operations: Dict[UUID, Operation] = {}
+        self._last_published_at: Dict[UUID, datetime] = {}
         self.events: List[Event] = []
         if state_store is not None:
             self.missions = state_store.load_missions(kind="submitted")
@@ -197,6 +202,8 @@ class ConnectorService:
 
         publication_errors: Dict[UUID, BackendError] = {}
         publication_withheld: set[UUID] = set()
+        publication_coalesced: set[UUID] = set()
+        publication_succeeded: set[UUID] = set()
         for operation in active_operations:
             try:
                 if altitude_error is not None:
@@ -209,8 +216,19 @@ class ConnectorService:
                 }:
                     publication_withheld.add(operation.operation_id)
                     continue
+                now = datetime.now(timezone.utc)
+                last_published_at = self._last_published_at.get(operation.operation_id)
+                if (
+                    self.telemetry_publish_interval_s > 0
+                    and last_published_at is not None
+                    and (now - last_published_at).total_seconds() < self.telemetry_publish_interval_s
+                ):
+                    publication_coalesced.add(operation.operation_id)
+                    continue
                 assert provider_telemetry is not None  # narrowed for active operations
                 self.backend.publish_telemetry(provider_telemetry, operation)
+                self._last_published_at[operation.operation_id] = now
+                publication_succeeded.add(operation.operation_id)
             except BackendError as exc:
                 publication_errors[operation.operation_id] = exc
 
@@ -243,6 +261,8 @@ class ConnectorService:
                 if altitude_error is not None
                 else TelemetryPublicationState.DEGRADED
                 if publication_error is not None or operation.operation_id in publication_withheld
+                else operation.state.telemetry_publication
+                if operation.operation_id in publication_coalesced
                 else TelemetryPublicationState.ACTIVE
             )
             operation.updated_at = datetime.now(timezone.utc)
@@ -270,7 +290,7 @@ class ConnectorService:
                 vehicle_id=vehicle_id,
                 details={"quality": telemetry.quality},
             )
-        elif publication_withheld:
+        elif publication_withheld and not publication_succeeded:
             for operation in active_operations:
                 if operation.operation_id in publication_withheld:
                     self._event(
@@ -280,7 +300,7 @@ class ConnectorService:
                         severity="WARNING",
                         details={"quality": telemetry.quality, "reason": "telemetry is not fresh enough for provider publication"},
                     )
-        else:
+        elif publication_succeeded:
             self._event(
                 "TELEMETRY_PUBLISHED",
                 vehicle_id=vehicle_id,

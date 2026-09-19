@@ -177,6 +177,36 @@ def test_service_withholds_stale_telemetry_from_provider() -> None:
     assert service.events[-1].event_type == "TELEMETRY_PUBLICATION_WITHHELD"
 
 
+def test_service_coalesces_provider_telemetry_at_configured_rate() -> None:
+    backend = OperationAwareBackend()
+    service = ConnectorService(backend, telemetry_publish_interval_s=60)
+    service.put_mission("sitl-1", _mission())
+    operation_id = uuid4()
+    service.submit_operation(
+        OperationIntent(operation_id=operation_id, command=OperationCommand.SUBMIT_OPERATION),
+        "sitl-1",
+    )
+    service.apply_intent(
+        OperationIntent(operation_id=operation_id, command=OperationCommand.START_OPERATION)
+    )
+
+    def telemetry() -> VehicleTelemetry:
+        return VehicleTelemetry(
+            vehicle_id="sitl-1",
+            observed_at=datetime.now(timezone.utc),
+            latitude=47.4984,
+            longitude=19.0407,
+            altitude=Altitude(meters=122, datum=AltitudeDatum.AMSL),
+            quality=TelemetryQuality.GOOD,
+        )
+
+    service.put_telemetry("sitl-1", telemetry())
+    service.put_telemetry("sitl-1", telemetry())
+
+    assert len(backend.published_operations) == 1
+    assert service.operations[operation_id].state.telemetry_publication == TelemetryPublicationState.ACTIVE
+
+
 def test_service_converts_altitude_at_flight_blender_boundary() -> None:
     requests: list[httpx.Request] = []
 

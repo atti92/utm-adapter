@@ -202,6 +202,7 @@ UTM_CONNECTOR_FLIGHT_BLENDER_BEARER_TOKEN=
 UTM_CONNECTOR_FLIGHT_BLENDER_MAX_RETRIES=3
 UTM_CONNECTOR_FLIGHT_BLENDER_RETRY_BACKOFF_S=0.25
 UTM_CONNECTOR_RECORD_PATH=connector-events.jsonl
+UTM_CONNECTOR_TELEMETRY_PUBLISH_INTERVAL_S=1.0
 ```
 
 The adapter calls Flight Blender's `set_flight_declaration` endpoint with the generated WGS84 corridor and stores the provider declaration ID in the local operation record. It calls `set_telemetry` with the provider ID for subsequent telemetry. A mission whose altitude datum is AGL or AMSL is converted only when an explicit geoid grid is configured; otherwise submission is rejected because the connector does not have enough information to convert it to WGS84 safely.
@@ -213,6 +214,11 @@ EGM96/EGM2008 grid to enable the coordinate-aware conversion. Without that
 setting the connector preserves the source datum and refuses the provider
 operation rather than silently treating AMSL as WGS84. AGL missions still need
 a terrain/home reference and are rejected until one is supplied.
+
+Inbound MAVLink remains event-driven, while provider telemetry is coalesced to
+one publication per second by default. Set
+`UTM_CONNECTOR_TELEMETRY_PUBLISH_INTERVAL_S=0` only for a backend or diagnostic
+test that explicitly needs every snapshot.
 
 If telemetry arrives before Flight Blender's declaration validity window opens,
 the operation is shown as `DEGRADED` and the connector retries publication on
