@@ -113,6 +113,9 @@ class MavlinkMissionReader:
         received_at = received_at.astimezone(timezone.utc)
         message_type = _message_type(message)
         if message_type == "HEARTBEAT":
+            autopilot = getattr(message, "autopilot", None)
+            if autopilot is not None and int(autopilot) == int(mavutil.mavlink.MAV_AUTOPILOT_INVALID):
+                return None
             self.set_target(_source_id(message, "get_srcSystem"), _source_id(message, "get_srcComponent", 1))
             return None
         if message_type == "MISSION_COUNT":

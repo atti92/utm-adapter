@@ -101,6 +101,21 @@ def test_telemetry_transitions_to_lost_without_heartbeat() -> None:
     assert snapshot.health.heartbeat_age_s == 11
 
 
+def test_gcs_heartbeat_cannot_replace_vehicle_identity() -> None:
+    now = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+    normalizer = MavlinkMessageNormalizer("sitl-1")
+    normalizer.ingest(FakeMessage("HEARTBEAT", system_id=1, component_id=1, autopilot=3, type=2), now)
+    normalizer.ingest(
+        FakeMessage("HEARTBEAT", system_id=255, component_id=190, autopilot=8, type=6),
+        now + timedelta(seconds=1),
+    )
+
+    snapshot = normalizer.snapshot(now + timedelta(seconds=1))
+    assert snapshot.identity.mavlink_system_id == 1
+    assert snapshot.identity.mavlink_component_ids == [1]
+    assert snapshot.identity.autopilot_type == "3"
+
+
 def test_message_timestamps_must_be_timezone_aware() -> None:
     normalizer = MavlinkMessageNormalizer("sitl-1")
     with pytest.raises(ValueError, match="timezone"):

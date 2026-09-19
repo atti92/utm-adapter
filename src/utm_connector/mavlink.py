@@ -85,18 +85,35 @@ class MavlinkMessageNormalizer:
         message_type = _message_type(message)
         system_id = _source_id(message, "get_srcSystem")
         component_id = _source_id(message, "get_srcComponent")
-        if system_id:
-            self._system_id = system_id
-        if component_id:
-            self._component_ids.add(component_id)
 
         if message_type == "HEARTBEAT":
-            self._last_heartbeat_at = received_at
-            self._autopilot_type = str(getattr(message, "autopilot", "UNKNOWN"))
-            self._vehicle_type = str(getattr(message, "type", "UNKNOWN"))
-            base_mode = int(getattr(message, "base_mode", 0))
-            self._armed = bool(base_mode & int(mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED))
-        elif message_type == "GLOBAL_POSITION_INT":
+            autopilot = getattr(message, "autopilot", None)
+            is_gcs_heartbeat = autopilot is not None and int(autopilot) == int(
+                mavutil.mavlink.MAV_AUTOPILOT_INVALID
+            )
+            if not is_gcs_heartbeat:
+                if system_id:
+                    self._system_id = system_id
+                if component_id:
+                    self._component_ids.add(component_id)
+                self._last_heartbeat_at = received_at
+                self._autopilot_type = str(getattr(message, "autopilot", "UNKNOWN"))
+                self._vehicle_type = str(getattr(message, "type", "UNKNOWN"))
+                base_mode = int(getattr(message, "base_mode", 0))
+                self._armed = bool(base_mode & int(mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED))
+        elif self._system_id is None or system_id == self._system_id:
+            if system_id:
+                self._system_id = system_id
+            if component_id:
+                self._component_ids.add(component_id)
+            self._ingest_vehicle_message(message_type, message, received_at)
+
+        self._refresh_quality(received_at)
+
+    def _ingest_vehicle_message(self, message_type: str, message: Any, received_at: datetime) -> None:
+        """Apply a message after it has been attributed to the vehicle."""
+
+        if message_type == "GLOBAL_POSITION_INT":
             self._last_position_at = received_at
             self._last_telemetry = VehicleTelemetry(
                 vehicle_id=self.vehicle_id,
@@ -141,8 +158,6 @@ class MavlinkMessageNormalizer:
                 text = text.decode("utf-8", errors="replace")
             if text:
                 self._add_diagnostic(str(text).rstrip("\x00"))
-
-        self._refresh_quality(received_at)
 
     @staticmethod
     def _first_battery_voltage(voltages: Any) -> Optional[float]:
@@ -300,13 +315,14 @@ class MavlinkVehicleSession(MavlinkMessageNormalizer):
         valid telemetry source and simply keeps its configured/default rates.
         """
 
-        if self._telemetry_stream_request_sent:
+        if self._telemetry_stream_request_sent or self._system_id is None:
             return
-        self._telemetry_stream_request_sent = True
         sender = getattr(getattr(self.connection, "mav", None), "request_data_stream_send", None)
-        if not callable(sender) or self._system_id is None:
+        if not callable(sender):
+            self._telemetry_stream_request_sent = True
             return
 
+        self._telemetry_stream_request_sent = True
         target_component = min(self._component_ids) if self._component_ids else 1
         streams = (
             "MAV_DATA_STREAM_POSITION",
