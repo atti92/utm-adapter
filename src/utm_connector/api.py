@@ -87,6 +87,7 @@ def create_app(
             service.ingest_vehicle_snapshot,
             poll_interval_s=settings.mavlink_poll_interval_s,
             session_factory=session_factory,
+            on_mission=service.ingest_onboard_mission,
             on_error=lambda vehicle_id, error: service.record_event(
                 "MAVLINK_SESSION_ERROR",
                 vehicle_id=vehicle_id,

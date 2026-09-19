@@ -81,6 +81,13 @@ def test_default_app_closes_owned_state_store_on_shutdown(tmp_path) -> None:
     assert state_store._closed is True
 
 
+def test_default_app_wires_downloaded_missions_into_service() -> None:
+    service = ConnectorService(InMemoryBackend())
+    app = create_app(service, ConnectorSettings(mavlink_connections=[]))
+
+    assert app.state.mavlink_session_manager.on_mission == service.ingest_onboard_mission
+
+
 def test_health_exposes_provider_failure_and_recovery() -> None:
     service = ConnectorService(InMemoryBackend())
     with TestClient(create_app(service, ConnectorSettings(mavlink_connections=[]))) as client:
