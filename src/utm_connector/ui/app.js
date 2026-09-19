@@ -29,7 +29,7 @@ function formatDate(value) {
 }
 
 function formatStatus(value) {
-  return value ? String(value).replaceAll("_", " ") : "—";
+  return value ? String(value).replace(/_/g, " ") : "—";
 }
 
 function localInputValue(date) {
@@ -159,7 +159,8 @@ function renderVehicleStatus(status) {
     ? "—"
     : `${health.satellites_visible} sats${health.gps_fix_type == null ? "" : ` · fix ${health.gps_fix_type}`}`;
   const armState = health.armed == null ? "Unavailable" : health.armed ? "Armed" : "Disarmed";
-  const diagnostic = snapshot.diagnostics?.at(-1);
+  const diagnostics = snapshot.diagnostics || [];
+  const diagnostic = diagnostics.length ? diagnostics[diagnostics.length - 1] : "";
   $("vehicle-summary").innerHTML = `<div class="vehicle-card">
     <div><strong>${escapeHtml(snapshot.identity.connector_vehicle_id)}</strong><br /><small>MAVLink system ${escapeHtml(snapshot.identity.mavlink_system_id || "not discovered")}</small></div>
     <div class="vehicle-state">${escapeHtml(formatStatus(snapshot.connection_state))}<br /><small>${escapeHtml(formatStatus(snapshot.quality))}</small></div>

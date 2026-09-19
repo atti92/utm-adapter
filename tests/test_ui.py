@@ -45,3 +45,5 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "Vehicle mission matches the submitted route" in javascript
     assert "renderVehicleStatus" in javascript
     assert "battery_remaining_pct" in javascript
+    assert "replaceAll" not in javascript
+    assert ".at(-1)" not in javascript
