@@ -173,3 +173,17 @@ def test_flight_blender_backend_retries_transient_provider_failure() -> None:
     backend.submit_operation(_operation(mission), mission)
 
     assert attempts == 3
+
+
+def test_flight_blender_backend_preserves_provider_validation_details() -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"message": "declaration window is in the past"})
+
+    backend = FlightBlenderBackend(
+        "http://flight-blender.test",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    mission = _mission()
+    with pytest.raises(BackendError, match="declaration window is in the past"):
+        backend.submit_operation(_operation(mission), mission)

@@ -291,7 +291,11 @@ class FlightBlenderBackend(UTMBackend):
                 raise
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code != 429 and exc.response.status_code < 500:
-                    raise BackendError(f"Flight Blender request {method} {path} failed: {exc}") from exc
+                    detail = _response_body(exc.response)
+                    raise BackendError(
+                        f"Flight Blender request {method} {path} failed with HTTP "
+                        f"{exc.response.status_code}: {detail}"
+                    ) from exc
                 last_error = exc
                 if attempt >= self.max_retries:
                     break
