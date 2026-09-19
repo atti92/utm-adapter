@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import List, Optional
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.staticfiles import StaticFiles
 
 from .backends import BackendError, FlightBlenderBackend, InMemoryBackend
 from .config import ConnectorSettings
@@ -96,8 +98,10 @@ def create_app(
             "mission_formats": ["canonical", "qgroundcontrol"],
             "mavlink": {
                 "configured": bool(manager.connections),
+                "non_commanding": True,
                 "read_only": True,
                 "mission_download": True,
+                "recommended_topology": "single_router_endpoint",
             },
             "operator_commands": [command.value for command in OperationCommand],
         }
@@ -165,6 +169,13 @@ def create_app(
             snapshot = service.put_mission(vehicle_id, mission)
         except ConnectorError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return snapshot.model_dump(mode="json")
+
+    @app.get("/v1/missions/{vehicle_id}", response_model=dict)
+    def get_mission(vehicle_id: str) -> dict:
+        snapshot = service.missions.get(vehicle_id)
+        if snapshot is None:
+            raise HTTPException(status_code=404, detail="mission not found")
         return snapshot.model_dump(mode="json")
 
     @app.put("/v1/missions/{vehicle_id}/qgroundcontrol", response_model=dict)
@@ -267,5 +278,8 @@ def create_app(
     @app.get("/v1/events", response_model=List[Event])
     def events(limit: int = Query(default=100, ge=1, le=1000)) -> List[Event]:
         return list(reversed(service.events[-limit:]))
+
+    ui_directory = Path(__file__).with_name("ui")
+    app.mount("/ui", StaticFiles(directory=ui_directory, html=True), name="ui")
 
     return app

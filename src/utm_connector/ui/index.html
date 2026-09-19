@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UTM Operator Console</title>
+    <link rel="stylesheet" href="/ui/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">LOCAL GCS INTEGRATION</p>
+        <h1>UTM Operator Console</h1>
+        <p class="subtitle">Mission coordination and airspace status alongside your existing GCS.</p>
+      </div>
+      <div class="connection-pill" id="connection-pill" data-state="unknown">
+        <span class="status-dot"></span>
+        <span id="connection-label">Connecting…</span>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="hero-grid">
+        <article class="panel operator-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">OPERATOR WORKSPACE</p>
+              <h2>Flight operation</h2>
+            </div>
+            <span class="badge" id="backend-badge">Local backend</span>
+          </div>
+
+          <label class="field-label" for="vehicle-select">Vehicle</label>
+          <select id="vehicle-select" class="input">
+            <option value="">Waiting for a vehicle…</option>
+          </select>
+
+          <div class="vehicle-summary" id="vehicle-summary">
+            <div class="empty-state">Start the connector with a simulator or router to see a vehicle here.</div>
+          </div>
+
+          <div class="mission-actions">
+            <div>
+              <p class="eyebrow">MISSION PLAN</p>
+              <h3 id="mission-title">No mission loaded</h3>
+              <p class="muted" id="mission-meta">Load a QGroundControl Plan or try the sample route.</p>
+            </div>
+            <div class="button-row">
+              <button class="button secondary" id="sample-button">Sample route</button>
+              <label class="button secondary file-button" for="plan-file">Open .plan</label>
+              <input id="plan-file" type="file" accept=".plan,.json,application/json" hidden />
+            </div>
+          </div>
+
+          <div class="validity-grid">
+            <div>
+              <label class="field-label" for="valid-from">Valid from</label>
+              <input class="input" id="valid-from" type="datetime-local" />
+            </div>
+            <div>
+              <label class="field-label" for="valid-until">Valid until</label>
+              <input class="input" id="valid-until" type="datetime-local" />
+            </div>
+            <div>
+              <label class="field-label" for="corridor-radius">Corridor (m)</label>
+              <input class="input" id="corridor-radius" type="number" min="1" max="10000" value="30" />
+            </div>
+          </div>
+
+          <div class="button-row primary-actions">
+            <button class="button secondary" id="save-button" disabled>Validate &amp; save</button>
+            <button class="button primary" id="submit-button" disabled>Submit to UTM</button>
+            <button class="button success" id="start-button" disabled>Start operation</button>
+          </div>
+          <p class="inline-message" id="action-message" role="status"></p>
+        </article>
+
+        <article class="panel map-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">LIVE VIEW</p>
+              <h2>Route and position</h2>
+            </div>
+            <span class="badge neutral" id="telemetry-badge">No telemetry</span>
+          </div>
+          <div class="map-frame">
+            <svg id="route-map" viewBox="0 0 100 60" role="img" aria-label="Mission route map">
+              <rect class="map-background" x="0" y="0" width="100" height="60" rx="4" />
+              <path class="map-grid" d="M0 15H100M0 30H100M0 45H100M25 0V60M50 0V60M75 0V60" />
+              <text class="map-label" x="4" y="56">Local schematic — route geometry</text>
+              <g id="route-layer"></g>
+            </svg>
+          </div>
+          <div class="telemetry-grid" id="telemetry-grid">
+            <div><span>Position</span><strong>—</strong></div>
+            <div><span>Altitude</span><strong>—</strong></div>
+            <div><span>Speed</span><strong>—</strong></div>
+            <div><span>Quality</span><strong>—</strong></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="lower-grid">
+        <article class="panel operation-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">OPERATION STATUS</p>
+              <h2 id="operation-title">No active operation</h2>
+            </div>
+            <span class="badge neutral" id="operation-badge">Not submitted</span>
+          </div>
+          <div class="state-steps" id="state-steps">
+            <div class="state-step"><span>1</span><strong>Declaration</strong><em>—</em></div>
+            <div class="state-step"><span>2</span><strong>Authorization</strong><em>—</em></div>
+            <div class="state-step"><span>3</span><strong>Telemetry</strong><em>—</em></div>
+            <div class="state-step"><span>4</span><strong>Conformance</strong><em>—</em></div>
+          </div>
+          <div class="button-row">
+            <button class="button secondary" id="refresh-operation-button" disabled>Refresh provider state</button>
+            <button class="button danger" id="cancel-button" disabled>Cancel</button>
+            <button class="button secondary" id="complete-button" disabled>Complete</button>
+          </div>
+        </article>
+
+        <article class="panel events-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">AUDIT TRAIL</p>
+              <h2>Recent events</h2>
+            </div>
+          </div>
+          <div class="event-list" id="event-list"><div class="empty-state">No events yet.</div></div>
+        </article>
+      </section>
+
+      <footer class="footer-note">
+        This local console uses the connector API. QGroundControl and Mission Planner remain the primary vehicle-control applications; the connector does not send vehicle-control commands.
+      </footer>
+    </main>
+    <script src="/ui/app.js" defer></script>
+  </body>
+</html>

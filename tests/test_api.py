@@ -93,8 +93,10 @@ def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
     assert capabilities.status_code == 200
     assert capabilities.json()["mavlink"] == {
         "configured": False,
+        "non_commanding": True,
         "read_only": True,
         "mission_download": True,
+        "recommended_topology": "single_router_endpoint",
     }
     assert "qgroundcontrol" in capabilities.json()["mission_formats"]
 
@@ -171,6 +173,19 @@ def test_mission_and_telemetry_path_ids_are_checked() -> None:
     payload = _mission()
     payload["vehicle_id"] = "other"
     assert client.put("/v1/missions/sitl-1", json=payload).status_code == 422
+
+
+def test_submitted_mission_can_be_reloaded_by_operator_console() -> None:
+    client = TestClient(create_app(ConnectorService(InMemoryBackend())))
+    payload = _mission()
+
+    assert client.put("/v1/missions/sitl-1", json=payload).status_code == 200
+    response = client.get("/v1/missions/sitl-1")
+
+    assert response.status_code == 200
+    assert response.json()["mission"]["vehicle_id"] == "sitl-1"
+    assert response.json()["mission_hash"]
+    assert client.get("/v1/missions/unknown").status_code == 404
 
 
 def test_qgroundcontrol_plan_endpoint_normalizes_explicit_metadata() -> None:
