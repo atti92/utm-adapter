@@ -187,7 +187,7 @@ function renderTelemetry(status) {
   badge.className = `badge ${telemetry.quality === "GOOD" ? "" : "warning"}`;
   $("telemetry-grid").innerHTML = `
     <div><span>Position</span><strong>${Number(telemetry.latitude).toFixed(5)}, ${Number(telemetry.longitude).toFixed(5)}</strong></div>
-    <div><span>Altitude</span><strong>${Number(telemetry.altitude.meters).toFixed(1)} m</strong></div>
+    <div><span>Altitude</span><strong>${Number(telemetry.altitude.meters).toFixed(1)} m ${escapeHtml(formatStatus(telemetry.altitude.datum))}</strong></div>
     <div><span>Speed</span><strong>${telemetry.groundspeed_mps == null ? "—" : `${Number(telemetry.groundspeed_mps).toFixed(1)} m/s`}</strong></div>
     <div><span>Quality</span><strong>${escapeHtml(formatStatus(telemetry.quality))}</strong></div>`;
   drawRoute();
@@ -404,14 +404,19 @@ async function checkVehicleMission() {
 }
 
 function samplePlan() {
+  const telemetry = state.latestStatus?.latest_telemetry;
+  const latitude = Number.isFinite(Number(telemetry?.latitude)) ? Number(telemetry.latitude) : 47.4979;
+  const longitude = Number.isFinite(Number(telemetry?.longitude)) ? Number(telemetry.longitude) : 19.0402;
+  const altitude = Number.isFinite(Number(telemetry?.altitude?.meters)) ? Number(telemetry.altitude.meters) : 137;
+  const datum = telemetry?.altitude?.datum || "WGS84";
   return {
     valid_from: new Date(Date.now() + 60_000).toISOString(),
     valid_until: new Date(Date.now() + 35 * 60_000).toISOString(),
     source: "operator-console-demo",
     waypoints: [
-      { sequence: 0, latitude: 47.4979, longitude: 19.0402, altitude: { meters: 135, datum: "WGS84" } },
-      { sequence: 1, latitude: 47.4992, longitude: 19.0420, altitude: { meters: 140, datum: "WGS84" } },
-      { sequence: 2, latitude: 47.5000, longitude: 19.0390, altitude: { meters: 135, datum: "WGS84" } },
+      { sequence: 0, latitude, longitude, altitude: { meters: altitude - 2, datum } },
+      { sequence: 1, latitude: latitude + 0.0012, longitude: longitude + 0.0018, altitude: { meters: altitude + 2, datum } },
+      { sequence: 2, latitude: latitude + 0.0021, longitude: longitude - 0.0011, altitude: { meters: altitude - 2, datum } },
     ],
   };
 }
