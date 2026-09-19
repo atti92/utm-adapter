@@ -214,6 +214,12 @@ setting the connector preserves the source datum and refuses the provider
 operation rather than silently treating AMSL as WGS84. AGL missions still need
 a terrain/home reference and are rejected until one is supplied.
 
+If telemetry arrives before Flight Blender's declaration validity window opens,
+the operation is shown as `DEGRADED` and the connector retries publication on
+the next telemetry update. Once the provider accepts the stream it returns to
+`ACTIVE`; deterministic configuration errors, such as a missing geoid grid,
+remain terminal and are reported to the operator.
+
 When `UTM_CONNECTOR_RECORD_PATH` is set, connector events, backend request/response envelopes, and raw inbound MAVLink frames are appended as JSONL. Authorization headers are redacted. Raw frames are stored as base64 in `mavlink_frame` records, so the file remains portable and does not depend on a pymavlink dialect during capture. Recording is diagnostic-only: it never adds vehicle-control commands, and the file should be treated as sensitive telemetry.
 
 Replay all connector records in a diagnostic tool with `JsonlReplay`:
