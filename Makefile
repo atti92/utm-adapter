@@ -1,4 +1,4 @@
-.PHONY: setup doctor smoke test run
+.PHONY: setup doctor smoke test run demo
 
 setup:
 	uv sync
@@ -14,3 +14,6 @@ test:
 
 run:
 	uv run utm-connector
+
+demo:
+	uv run utm-connector --open-browser

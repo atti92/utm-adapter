@@ -29,6 +29,17 @@ provider. It is the quickest way to tell whether the installation is usable.
 uv run utm-connector
 ```
 
+For a one-command local demo that opens the operator console automatically:
+
+```sh
+uv run utm-connector --open-browser
+# or, on systems with make:
+make demo
+```
+
+The browser launch uses the platform's default browser and does not change the
+connector's loopback-only default or send any vehicle-control commands.
+
 The command uses an application factory, so importing connector code for tests
 or diagnostics does not open the persistent SQLite database. The equivalent
 direct Uvicorn command is:
@@ -38,7 +49,7 @@ uv run uvicorn 'utm_connector.api:create_app' --factory
 ```
 
 Convenience targets are also available: `make setup`, `make doctor`, `make smoke`,
-`make test`, and `make run`. They delegate to `uv run`, so they do not depend on
+`make test`, `make run`, and `make demo`. They delegate to `uv run`, so they do not depend on
 the Unix-specific `.venv/bin` layout.
 
 The service listens on `http://127.0.0.1:8000`. Open the operator console at

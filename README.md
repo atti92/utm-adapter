@@ -18,7 +18,14 @@ uv run pytest
 uv run utm-connector
 ```
 
-Once the service is running, open [http://127.0.0.1:8000/ui/](http://127.0.0.1:8000/ui/). The operator console is designed for the normal demo flow: select a vehicle, load a QGroundControl `.plan` or sample route, validate it, submit/start the operation, and watch telemetry and conformance without using the CLI.
+For the shortest operator-facing demo, use `uv run utm-connector --open-browser`
+or `make demo`; the default browser opens the console automatically. The
+operator console is designed for the normal demo flow: select a vehicle, load
+a QGroundControl `.plan` or sample route, validate it, submit/start the
+operation, and watch telemetry and conformance without using the CLI.
+
+The service root also opens the console directly at
+[http://127.0.0.1:8000/](http://127.0.0.1:8000/).
 
 The doctor checks the active Python/configuration and writable local state. The
 smoke test exercises mission upload, operation submission, start, telemetry,
