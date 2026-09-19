@@ -490,6 +490,8 @@ class DemoRunner:
             managed.stop()
         self.processes.clear()
         if self.provider_started_by_us and not self.config.keep_provider:
+            previous_sigint_handler = signal.getsignal(signal.SIGINT)
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
             try:
                 result = _run_command(
                     [*_compose_base_command(self.config), "down", "--timeout", "5"],
@@ -507,6 +509,8 @@ class DemoRunner:
                     print("[ok] stopped the Flight Blender Compose stack")
                 else:
                     print("[warn] Flight Blender Compose cleanup returned a non-zero exit code")
+            finally:
+                signal.signal(signal.SIGINT, previous_sigint_handler)
 
 
 def _start_sitl(runner: DemoRunner) -> None:
