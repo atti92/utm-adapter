@@ -40,6 +40,11 @@ make demo
 The browser launch uses the platform's default browser and does not change the
 connector's loopback-only default or send any vehicle-control commands.
 
+For a standalone UI demonstration without a simulator, set
+`UTM_CONNECTOR_DEMO_MODE=true` in `.env` and keep the backend as `in-memory`.
+The console will show a clearly named `demo-sitl` vehicle with moving sample
+telemetry. Demo mode is opt-in and is not intended for live vehicle operation.
+
 The command uses an application factory, so importing connector code for tests
 or diagnostics does not open the persistent SQLite database. The equivalent
 direct Uvicorn command is:

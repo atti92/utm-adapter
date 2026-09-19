@@ -35,6 +35,9 @@ class ConnectorSettings(BaseSettings):
     flight_blender_type_of_operation: int = Field(default=1, ge=1, le=3)
     flight_blender_submitted_by: str = "utm-operations-connector"
     flight_blender_originating_party: str = "utm-operations-connector"
+    demo_mode: bool = False
+    demo_vehicle_id: str = Field(default="demo-sitl", min_length=1, max_length=128)
+    demo_interval_s: float = Field(default=1.0, gt=0.1, le=10)
     mavlink_connections: List[MavlinkConnectionConfig] = Field(default_factory=list)
     mavlink_poll_interval_s: float = Field(default=0.2, gt=0, le=10)
 

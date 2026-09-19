@@ -144,6 +144,26 @@ def test_root_launches_operator_console_and_exposes_integration_contract() -> No
     assert payload["mavlink"]["vehicle_control"] == "none"
 
 
+def test_opt_in_demo_mode_publishes_a_vehicle_for_the_operator_console() -> None:
+    service = ConnectorService(InMemoryBackend())
+    settings = ConnectorSettings(
+        state_db_path=":memory:",
+        demo_mode=True,
+        demo_vehicle_id="demo-1",
+        mavlink_connections=[],
+    )
+
+    with TestClient(create_app(service, settings=settings)) as client:
+        vehicle = client.get("/v1/vehicles")
+        assert vehicle.status_code == 200
+        assert vehicle.json()[0]["vehicle_id"] == "demo-1"
+        assert vehicle.json()[0]["connection_state"] == "CONNECTED"
+        assert client.get("/v1/capabilities").json()["demo_mode"] is True
+        status = client.get("/v1/vehicles/demo-1/status")
+        assert status.status_code == 200
+        assert status.json()["latest_telemetry"]["quality"] == "GOOD"
+
+
 def test_vehicle_directory_reports_configured_session_before_first_heartbeat() -> None:
     service = ConnectorService(InMemoryBackend())
 

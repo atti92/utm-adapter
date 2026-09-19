@@ -74,6 +74,12 @@ def main() -> int:
     else:
         _check("UTM backend", "in-memory; no external UTM service is required")
 
+    if settings.demo_mode:
+        if settings.backend != "in-memory":
+            print("[fail] demo mode: it requires UTM_CONNECTOR_BACKEND=in-memory")
+            return 1
+        _check("demo mode", f"{settings.demo_vehicle_id} at {settings.demo_interval_s:.1f}s intervals")
+
     if settings.mavlink_connections:
         for connection in settings.mavlink_connections:
             _check("MAVLink", f"{connection.vehicle_id} -> {connection.connection_uri}")

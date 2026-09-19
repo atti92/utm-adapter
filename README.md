@@ -27,6 +27,11 @@ operation, and watch telemetry and conformance without using the CLI.
 The service root also opens the console directly at
 [http://127.0.0.1:8000/](http://127.0.0.1:8000/).
 
+If no simulator is available, set `UTM_CONNECTOR_DEMO_MODE=true` in `.env`
+before using the demo command. This creates a clearly named `demo-sitl` vehicle
+with moving sample telemetry through the same connector path as MAVLink input;
+it is disabled by default and only works with the in-memory backend.
+
 The doctor checks the active Python/configuration and writable local state. The
 smoke test exercises mission upload, operation submission, start, telemetry,
 conformance, and completion entirely in-process. Neither command starts a

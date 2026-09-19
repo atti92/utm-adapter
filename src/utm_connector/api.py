@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .backends import BackendError, FlightBlenderBackend, InMemoryBackend
 from .config import ConnectorSettings
+from .demo import DemoVehiclePublisher
 from .domain import (
     DeclarationState,
     Event,
@@ -71,13 +72,28 @@ def create_app(
             details={"error": str(error)},
         ),
     )
+    demo_publisher = None
+    if settings.demo_mode:
+        if settings.backend != "in-memory":
+            raise ValueError("demo_mode requires the in-memory backend")
+        if settings.demo_vehicle_id in {connection.vehicle_id for connection in manager.connections}:
+            raise ValueError("demo_vehicle_id must differ from configured MAVLink vehicle IDs")
+        demo_publisher = DemoVehiclePublisher(
+            service,
+            settings.demo_vehicle_id,
+            interval_s=settings.demo_interval_s,
+        )
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         manager.start()
+        if demo_publisher is not None:
+            demo_publisher.start()
         try:
             yield
         finally:
+            if demo_publisher is not None:
+                demo_publisher.stop()
             manager.stop()
             close_backend = getattr(service.backend, "close", None)
             if close_backend is not None:
@@ -92,11 +108,13 @@ def create_app(
     app = FastAPI(title="UTM Operations Connector", version="0.1.0", lifespan=lifespan)
     app.state.connector_service = service
     app.state.mavlink_session_manager = manager
+    app.state.demo_vehicle_publisher = demo_publisher
 
     @app.get("/v1/capabilities", response_model=dict)
     def capabilities() -> dict:
         return {
             "backend": service.backend.name,
+            "demo_mode": settings.demo_mode,
             "mission_formats": ["canonical", "qgroundcontrol"],
             "integration_manifest": "/v1/integration",
             "mavlink": {
