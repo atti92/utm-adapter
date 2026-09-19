@@ -24,6 +24,7 @@ from .domain import (
 )
 from .mission_reader import MavlinkMissionRead, MavlinkMissionReader
 from .missions import MissionParseError
+from .recording import JsonlRecorder
 
 
 def _utc_now() -> datetime:
@@ -253,9 +254,17 @@ class MavlinkVehicleSession(MavlinkMessageNormalizer):
     checking may send MAVLink mission-protocol retrieval requests.
     """
 
-    def __init__(self, vehicle_id: str, connection: Any, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        vehicle_id: str,
+        connection: Any,
+        *,
+        recorder: Optional[JsonlRecorder] = None,
+        **kwargs: Any,
+    ) -> None:
         super().__init__(vehicle_id, **kwargs)
         self.connection = connection
+        self.recorder = recorder
         self._closed = False
         self.mission_reader = MavlinkMissionReader(vehicle_id, connection, clock=self.clock)
 
@@ -267,13 +276,34 @@ class MavlinkVehicleSession(MavlinkMessageNormalizer):
     def poll(self, timeout: float = 0.0) -> Optional[Any]:
         message = self.connection.recv_match(blocking=timeout > 0, timeout=timeout or None)
         if message is not None:
-            self.ingest(message)
+            received_at = self.clock()
+            self._record_raw_frame(message, received_at)
+            self.ingest(message, received_at)
             if self._system_id is not None and not self.mission_reader.requested:
                 self.mission_reader.request_list(
                     system_id=self._system_id,
                     component_id=min(self._component_ids) if self._component_ids else 1,
                 )
         return message
+
+    def _record_raw_frame(self, message: Any, received_at: datetime) -> None:
+        if self.recorder is None:
+            return
+        get_msgbuf = getattr(message, "get_msgbuf", None)
+        if not callable(get_msgbuf):
+            return
+        try:
+            frame = get_msgbuf()
+            if frame is None:
+                return
+            self.recorder.record_mavlink_frame(
+                self.vehicle_id,
+                bytes(frame),
+                received_at=received_at,
+            )
+        except Exception as exc:
+            # Recording must never interrupt the independent telemetry path.
+            self._add_diagnostic(f"MAVLink frame recording unavailable: {exc}")
 
     def ingest(self, message: Any, received_at: Optional[datetime] = None) -> None:
         super().ingest(message, received_at)

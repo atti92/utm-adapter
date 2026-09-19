@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
 
 from utm_connector.domain import TelemetryQuality, VehicleConnectionState
 from utm_connector.mavlink import MavlinkMessageNormalizer, MavlinkVehicleSession
+from utm_connector.recording import JsonlRecorder, JsonlReplay
 
 
 class FakeMessage:
@@ -27,6 +29,20 @@ class FakeMessage:
 class FakeConnection:
     def __init__(self) -> None:
         self.mav = object()
+
+
+class PollingConnection(FakeConnection):
+    def __init__(self, message: FakeMessage) -> None:
+        super().__init__()
+        self.mav = SimpleNamespace(mission_request_list_send=lambda *_args: None)
+        self.message = message
+        self.closed = False
+
+    def recv_match(self, *, blocking: bool, timeout: float | None) -> FakeMessage:
+        return self.message
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def test_mavlink_messages_become_one_canonical_snapshot() -> None:
@@ -106,3 +122,19 @@ def test_empty_onboard_mission_does_not_interrupt_telemetry() -> None:
     assert snapshot.diagnostics == [
         "MAVLink mission unavailable: MAVLink vehicle reported an empty mission"
     ]
+
+
+def test_session_records_raw_wire_frame_without_changing_telemetry(tmp_path) -> None:
+    message = FakeMessage("STATUSTEXT", text="Ready")
+    message.get_msgbuf = lambda: b"\xfe\x01\x02"
+    connection = PollingConnection(message)
+    recorder = JsonlRecorder(str(tmp_path / "events.jsonl"))
+    session = MavlinkVehicleSession("sitl-1", connection, recorder=recorder)
+
+    assert session.poll() is message
+    session.close()
+    recorder.close()
+
+    frames = list(JsonlReplay(str(tmp_path / "events.jsonl")).mavlink_frames())
+    assert frames == [("sitl-1", b"\xfe\x01\x02")]
+    assert connection.closed is True

@@ -22,6 +22,7 @@ from .domain import (
     QGroundControlMissionRequest,
     VehicleTelemetry,
 )
+from .mavlink import MavlinkVehicleSession
 from .runtime import MavlinkSessionManager
 from .missions import MissionParseError, parse_qgroundcontrol_plan
 from .service import ConnectorError, ConnectorService
@@ -36,10 +37,9 @@ def create_app(
     session_manager: Optional[MavlinkSessionManager] = None,
 ) -> FastAPI:
     settings = settings or ConnectorSettings()
-    recorder = None
+    recorder = JsonlRecorder(settings.record_path) if settings.record_path else None
     owns_service = service is None
     if owns_service:
-        recorder = JsonlRecorder(settings.record_path) if settings.record_path else None
         backend = (
             FlightBlenderBackend(
                 settings.flight_blender_base_url,
@@ -61,17 +61,31 @@ def create_app(
             recorder=recorder,
             event_history_limit=settings.event_history_limit,
         )
-    manager = session_manager or MavlinkSessionManager(
-        settings.mavlink_connections,
-        service.ingest_vehicle_snapshot,
-        poll_interval_s=settings.mavlink_poll_interval_s,
-        on_error=lambda vehicle_id, error: service.record_event(
-            "MAVLINK_SESSION_ERROR",
-            vehicle_id=vehicle_id,
-            severity="ERROR",
-            details={"error": str(error)},
-        ),
-    )
+    if session_manager is None:
+        session_factory = MavlinkVehicleSession.connect
+        if recorder is not None:
+            def recorded_session_factory(vehicle_id: str, connection_uri: str):
+                return MavlinkVehicleSession.connect(
+                    vehicle_id,
+                    connection_uri,
+                    recorder=recorder,
+                )
+
+            session_factory = recorded_session_factory
+        manager = MavlinkSessionManager(
+            settings.mavlink_connections,
+            service.ingest_vehicle_snapshot,
+            poll_interval_s=settings.mavlink_poll_interval_s,
+            session_factory=session_factory,
+            on_error=lambda vehicle_id, error: service.record_event(
+                "MAVLINK_SESSION_ERROR",
+                vehicle_id=vehicle_id,
+                severity="ERROR",
+                details={"error": str(error)},
+            ),
+        )
+    else:
+        manager = session_manager
     demo_publisher = None
     if settings.demo_mode:
         if settings.backend != "in-memory":
@@ -117,6 +131,10 @@ def create_app(
             "demo_mode": settings.demo_mode,
             "mission_formats": ["canonical", "qgroundcontrol"],
             "integration_manifest": "/v1/integration",
+            "recording": {
+                "configured": recorder is not None,
+                "mavlink_raw": recorder is not None,
+            },
             "mavlink": {
                 "configured": bool(manager.connections),
                 "non_commanding": True,

@@ -174,13 +174,30 @@ UTM_CONNECTOR_RECORD_PATH=connector-events.jsonl
 
 The adapter calls Flight Blender's `set_flight_declaration` endpoint with the generated WGS84 corridor and stores the provider declaration ID in the local operation record. It calls `set_telemetry` with the provider ID for subsequent telemetry. A mission whose altitude datum is AGL or AMSL is intentionally rejected for declaration submission because the connector does not have enough information to convert it to WGS84 safely; use WGS84 mission altitudes for this integration path.
 
-When `UTM_CONNECTOR_RECORD_PATH` is set, connector events and backend request/response envelopes are appended as JSONL. Authorization headers are redacted. Replay the file in a diagnostic tool with `JsonlReplay`:
+When `UTM_CONNECTOR_RECORD_PATH` is set, connector events, backend request/response envelopes, and raw inbound MAVLink frames are appended as JSONL. Authorization headers are redacted. Raw frames are stored as base64 in `mavlink_frame` records, so the file remains portable and does not depend on a pymavlink dialect during capture. Recording is diagnostic-only: it never adds vehicle-control commands, and the file should be treated as sensitive telemetry.
+
+Replay all connector records in a diagnostic tool with `JsonlReplay`:
 
 ```python
 from utm_connector.recording import JsonlReplay
 
 JsonlReplay("connector-events.jsonl").replay(lambda kind, payload: print(kind, payload))
 ```
+
+To feed only the recorded MAVLink frames into a deterministic test harness:
+
+```python
+from utm_connector.recording import JsonlReplay
+
+def inspect_frame(vehicle_id: str, frame: bytes) -> None:
+    print(vehicle_id, len(frame), frame.hex())
+
+JsonlReplay("connector-events.jsonl").replay_mavlink(inspect_frame)
+```
+
+The `/v1/capabilities` response reports `recording.configured` and
+`recording.mavlink_raw`, while `/v1/integration` describes the stable record
+type and replay entrypoint for a future GCS diagnostics panel.
 
 ## Run tests
 

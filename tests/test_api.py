@@ -92,6 +92,7 @@ def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
 
     assert capabilities.status_code == 200
     assert capabilities.json()["integration_manifest"] == "/v1/integration"
+    assert capabilities.json()["recording"] == {"configured": False, "mavlink_raw": False}
     assert capabilities.json()["mavlink"] == {
         "configured": False,
         "non_commanding": True,
@@ -124,6 +125,18 @@ def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
             "last_error": None,
         }
     ]
+
+
+def test_recording_capability_is_discoverable_when_configured(tmp_path) -> None:
+    settings = ConnectorSettings(
+        state_db_path=str(tmp_path / "state.sqlite3"),
+        record_path=str(tmp_path / "connector-events.jsonl"),
+    )
+    with TestClient(create_app(settings=settings)) as client:
+        assert client.get("/v1/capabilities").json()["recording"] == {
+            "configured": True,
+            "mavlink_raw": True,
+        }
 
 
 def test_root_launches_operator_console_and_exposes_integration_contract() -> None:

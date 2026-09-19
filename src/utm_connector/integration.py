@@ -54,6 +54,11 @@ INTEGRATION_MANIFEST = {
         },
     },
     "mission_formats": ["canonical", "qgroundcontrol"],
+    "recording": {
+        "configuration": "UTM_CONNECTOR_RECORD_PATH",
+        "raw_mavlink_record_type": "mavlink_frame",
+        "replay": "JsonlReplay.replay_mavlink",
+    },
     "mavlink": {
         "vehicle_control": "none",
         "mission_download": True,
