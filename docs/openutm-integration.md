@@ -91,6 +91,18 @@ PATH="$ARDUPILOT_ROOT/.venv/bin:$PATH" \
   --out=udpout:127.0.0.1:14551
 ```
 
+When the ArduCopter SITL target is already built, use the connector checkout's
+native-binary helper instead of `sim_vehicle.py`:
+
+```sh
+uv run python "$UTM_ADAPTER_ROOT/scripts/ardupilot_sitl.py" \
+  --ardupilot-root "$ARDUPILOT_ROOT"
+```
+
+It starts the same two outputs and places the vehicle at the documented
+Budapest test location by default. Pass `--home lat,lon,altitude,heading` to
+use another location.
+
 Start exactly one GCS on UDP `14550` for the simplest setup. Launch
 QGroundControl or Mission Planner normally from its application menu. On
 macOS, QGroundControl can also be started with `open -a QGroundControl`; on
@@ -109,6 +121,11 @@ For a physical vehicle, or when more than one GCS must share a single vehicle
 link, use the router topology in
 [`examples/mavlink-router/README.md`](../examples/mavlink-router/README.md)
 instead of assigning multiple physical MAVLink ports on the aircraft.
+
+For Mission Planner, the optional thin plugin in
+[`examples/mission-planner-plugin/`](../examples/mission-planner-plugin/) adds
+an operator-console menu and a connector health check without sending vehicle
+control messages.
 
 ## Start the connector against Flight Blender
 

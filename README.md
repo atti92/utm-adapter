@@ -32,6 +32,9 @@ The service root also opens the console directly at
 The portable host-side boundary is documented in
 [docs/gcs-client.md](docs/gcs-client.md); it is suitable for a thin Mission
 Planner or QGroundControl adapter without moving provider logic into the GCS.
+Mission Planner users can use the optional menu plugin in
+[examples/mission-planner-plugin](examples/mission-planner-plugin), while
+QGroundControl users can use the zero-fork manifest and browser console.
 
 The `--demo` flag creates a clearly named `demo-sitl` vehicle with moving
 sample telemetry through the same connector path as MAVLink input. It is

@@ -5,9 +5,11 @@ Mission Planner, QGroundControl, or another GCS adapter. It only speaks to the
 local connector API; it does not know about Flight Blender, provider schemas,
 MAVLink dialects, or vehicle-control commands.
 
-Mission Planner itself remains a Windows-specific host application. A future
-Mission Planner plugin should map its selected vehicle and UI actions to this
-client, while keeping provider-specific behavior in the connector process.
+Mission Planner itself remains a Windows-specific host application. The
+optional thin plugin in
+[`examples/mission-planner-plugin/`](../examples/mission-planner-plugin/)
+maps its normal Flight Data menu to this client boundary while keeping
+provider-specific behavior in the connector process.
 The same client contract can be implemented by a C#, QML, or other host-side
 adapter without changing the connector API.
 

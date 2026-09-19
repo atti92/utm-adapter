@@ -136,7 +136,8 @@ ArduPilot SITL --UDP 14550--> QGroundControl
                  --UDP 14551--> UTM connector
 ```
 
-From the ArduPilot checkout, start the prepared ArduCopter binary with (replace the placeholder path):
+From the ArduPilot checkout, the standard `sim_vehicle.py` launcher works when
+the ArduPilot Python tools are available:
 
 ```sh
 ARDUPILOT_ROOT=/path/to/ardupilot
@@ -146,6 +147,23 @@ PATH="$ARDUPILOT_ROOT/.venv/bin:$PATH" \
   -v ArduCopter -N \
   --out=udpout:127.0.0.1:14550 \
   --out=udpout:127.0.0.1:14551
+```
+
+If you already built the SITL target, the repository includes a dependency-free
+launcher that works with the native executable on macOS, Linux, Windows, and
+WSL. It uses the same two-output topology that was tested with QGroundControl
+and the connector:
+
+```sh
+uv run python scripts/ardupilot_sitl.py --ardupilot-root "$ARDUPILOT_ROOT"
+```
+
+The helper expects `build/sitl/bin/arducopter` (or `.exe`). Build it once from
+the ArduPilot checkout if needed:
+
+```sh
+./waf configure --board sitl
+./waf copter -j2
 ```
 
 Then start one GCS and the connector in separate terminals. Launch
@@ -169,6 +187,11 @@ checked with:
 ```sh
 curl http://127.0.0.1:8000/v1/vehicles/sitl-1/status
 ```
+
+Mission Planner users can install the thin menu integration from
+[`examples/mission-planner-plugin/`](../examples/mission-planner-plugin/).
+Mission Planner remains the vehicle-facing GCS; the connector console handles
+UTM declaration, authorization, conformance, and provider telemetry.
 
 The default local UTM is the connector's in-memory backend, so no external UTM service or account is required for the basic test loop. To use Flight Blender, set these values in `.env`:
 
