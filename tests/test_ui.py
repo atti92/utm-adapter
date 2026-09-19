@@ -48,6 +48,9 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "state.latestStatus?.latest_telemetry" in javascript
     assert "telemetry.altitude.datum" in javascript
     assert "altitude - 2" in javascript
+    assert "clearVehicleWorkspace" in javascript
+    assert "The selected vehicle went offline" in javascript
+    assert "The selected vehicle changed. Load a mission for the new vehicle." in javascript
     assert '$("plan-file").value = ""' in javascript
     assert "Load or create a mission for this vehicle." in javascript
     assert "replaceAll" not in javascript

@@ -70,6 +70,18 @@ function setReadiness(id, labelId, state, label) {
   $(labelId).textContent = label;
 }
 
+function clearVehicleWorkspace(message = "") {
+  state.plan = null;
+  state.mission = null;
+  state.operation = null;
+  state.planName = "";
+  $("plan-file").value = "";
+  renderMission(null);
+  renderMissionDrift(null);
+  renderOperation(null);
+  if (message) setMessage(message);
+}
+
 function renderReadiness(capabilities, vehicles, health) {
   const backend = capabilities.backend || "unknown";
   if (health?.backend_error) {
@@ -112,13 +124,18 @@ function renderVehicleDirectory(vehicles) {
   select.replaceChildren();
   if (!vehicles.length) {
     select.add(new Option("Waiting for a vehicle…", ""));
+    if (previous) clearVehicleWorkspace("The selected vehicle went offline. Load a mission after it reconnects.");
     state.vehicleId = "";
     renderVehicle(null);
     updateMissionReadButton();
     return;
   }
   vehicles.forEach((vehicle) => select.add(new Option(vehicle.vehicle_id, vehicle.vehicle_id)));
-  state.vehicleId = vehicles.some((vehicle) => vehicle.vehicle_id === previous) ? previous : vehicles[0].vehicle_id;
+  const nextVehicleId = vehicles.some((vehicle) => vehicle.vehicle_id === previous) ? previous : vehicles[0].vehicle_id;
+  if (previous && previous !== nextVehicleId) {
+    clearVehicleWorkspace("The selected vehicle changed. Load a mission for the new vehicle.");
+  }
+  state.vehicleId = nextVehicleId;
   select.value = state.vehicleId;
   const vehicle = vehicles.find((item) => item.vehicle_id === state.vehicleId);
   renderVehicle(vehicle);
@@ -470,15 +487,7 @@ async function sendIntent(command) {
 
 $("vehicle-select").addEventListener("change", async (event) => {
   state.vehicleId = event.target.value;
-  state.operation = null;
-  state.plan = null;
-  state.mission = null;
-  state.planName = "";
-  $("plan-file").value = "";
-  renderMission(null);
-  renderMissionDrift(null);
-  renderOperation(null);
-  setMessage(state.vehicleId ? "Vehicle changed. Load or create a mission for this vehicle." : "Select a vehicle to continue.");
+  clearVehicleWorkspace(state.vehicleId ? "Vehicle changed. Load or create a mission for this vehicle." : "Select a vehicle to continue.");
   await refreshVehicle();
 });
 $("sample-button").addEventListener("click", () => { state.plan = samplePlan(); state.planFormat = "canonical"; state.planName = "Demo route"; renderMission(null); setMessage("Demo route loaded. Review the validity window, then validate it."); });
