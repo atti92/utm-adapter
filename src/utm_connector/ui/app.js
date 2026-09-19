@@ -468,7 +468,19 @@ async function sendIntent(command) {
   } catch (error) { setMessage(error.message, "error"); }
 }
 
-$("vehicle-select").addEventListener("change", async (event) => { state.vehicleId = event.target.value; state.operation = null; await refreshVehicle(); });
+$("vehicle-select").addEventListener("change", async (event) => {
+  state.vehicleId = event.target.value;
+  state.operation = null;
+  state.plan = null;
+  state.mission = null;
+  state.planName = "";
+  $("plan-file").value = "";
+  renderMission(null);
+  renderMissionDrift(null);
+  renderOperation(null);
+  setMessage(state.vehicleId ? "Vehicle changed. Load or create a mission for this vehicle." : "Select a vehicle to continue.");
+  await refreshVehicle();
+});
 $("sample-button").addEventListener("click", () => { state.plan = samplePlan(); state.planFormat = "canonical"; state.planName = "Demo route"; renderMission(null); setMessage("Demo route loaded. Review the validity window, then validate it."); });
 $("plan-file").addEventListener("change", async (event) => { const file = event.target.files[0]; if (!file) return; try { const text = await file.text(); state.plan = text.trimStart().startsWith("QGC WPL ") ? text : JSON.parse(text); state.planFormat = typeof state.plan === "string" ? "mission-planner" : "qgroundcontrol"; state.planName = file.name; state.mission = null; renderMission(null); setMessage(file.name + " loaded."); } catch (error) { setMessage("Could not read mission file: " + error.message, "error"); } });
 $("save-button").addEventListener("click", saveMission);
