@@ -62,6 +62,34 @@ function setConnection(status, label) {
   $("connection-label").textContent = label;
 }
 
+function setReadiness(id, labelId, state, label) {
+  $(id).dataset.state = state;
+  $(labelId).textContent = label;
+}
+
+function renderReadiness(capabilities, vehicles) {
+  const backend = capabilities.backend || "unknown";
+  setReadiness("backend-readiness", "backend-readiness-label", "ok", formatStatus(backend));
+
+  if (capabilities.demo_mode) {
+    setReadiness("mavlink-readiness", "mavlink-readiness-label", "ok", "Demo vehicle mode");
+  } else if (!capabilities.mavlink?.configured) {
+    setReadiness("mavlink-readiness", "mavlink-readiness-label", "warning", "No vehicle link configured");
+  } else if (vehicles.length) {
+    const suffix = vehicles.length === 1 ? "vehicle online" : "vehicles online";
+    setReadiness("mavlink-readiness", "mavlink-readiness-label", "ok", `${vehicles.length} ${suffix}`);
+  } else {
+    setReadiness("mavlink-readiness", "mavlink-readiness-label", "warning", "Waiting for vehicle");
+  }
+
+  setReadiness(
+    "recording-readiness",
+    "recording-readiness-label",
+    capabilities.recording?.mavlink_raw ? "ok" : "neutral",
+    capabilities.recording?.mavlink_raw ? "Raw capture enabled" : "Raw capture off",
+  );
+}
+
 function renderVehicleDirectory(vehicles) {
   const select = $("vehicle-select");
   const previous = state.vehicleId;
@@ -219,6 +247,7 @@ async function refresh() {
     ]);
     setConnection(health.status === "ok" ? "ok" : "degraded", health.status === "ok" ? "Connector online" : "Connector degraded");
     $("backend-badge").textContent = capabilities.backend;
+    renderReadiness(capabilities, vehicles);
     renderVehicleDirectory(vehicles);
     renderEvents(events);
     await refreshVehicle();

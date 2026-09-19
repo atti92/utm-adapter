@@ -62,7 +62,8 @@ The service listens on `http://127.0.0.1:8000`. Open the operator console at
 `/v1/health`.
 
 The operator console is the recommended demo and user workflow. It shows
-connector health, vehicle telemetry, route geometry, mission validity, UTM
+connector health, a readiness strip for the backend/vehicle link/diagnostics
+configuration, vehicle telemetry, route geometry, mission validity, UTM
 operation state, conformance, and recent events. It is intentionally served
 from the connector with no external web assets, so it works on macOS, Linux,
 and Windows in the same way as the API.

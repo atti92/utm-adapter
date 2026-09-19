@@ -21,6 +21,21 @@
     </header>
 
     <main class="shell">
+      <section class="readiness-strip" aria-label="Integration readiness">
+        <div class="readiness-item" id="backend-readiness" data-state="unknown">
+          <span class="status-dot"></span>
+          <div><strong>Backend</strong><small id="backend-readiness-label">Connecting…</small></div>
+        </div>
+        <div class="readiness-item" id="mavlink-readiness" data-state="unknown">
+          <span class="status-dot"></span>
+          <div><strong>Vehicle link</strong><small id="mavlink-readiness-label">Checking…</small></div>
+        </div>
+        <div class="readiness-item" id="recording-readiness" data-state="unknown">
+          <span class="status-dot"></span>
+          <div><strong>Diagnostics</strong><small id="recording-readiness-label">Checking…</small></div>
+        </div>
+      </section>
+
       <section class="hero-grid">
         <article class="panel operator-panel">
           <div class="panel-heading">
