@@ -63,8 +63,8 @@ def main() -> None:
     parser.add_argument(
         "--start-offset-minutes",
         type=float,
-        default=0.1,
-        help="Minutes from now when the mission starts; default 0.1 avoids clock skew",
+        default=1.0,
+        help="Minutes from now when the mission starts; default 1.0 leaves room for provider clock skew",
     )
     args = parser.parse_args()
 
