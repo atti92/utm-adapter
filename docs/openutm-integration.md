@@ -194,6 +194,9 @@ retains the source datum in local vehicle state. If the grid is absent,
 submission is rejected safely; the connector never guesses an altitude
 conversion. AGL still requires a terrain/home reference and is rejected until
 one is provided.
+The `181 m` center in the example matches the supplied Budapest SITL home after
+EGM96 conversion; choose a center and span appropriate for another simulator or
+vehicle home.
 
 macOS, Linux, or WSL:
 
@@ -202,7 +205,8 @@ cd "$UTM_ADAPTER_ROOT"
 export MISSION_FILE="$UTM_ADAPTER_ROOT/.local/flight-blender-mission.json"
 uv run python scripts/generate_test_mission.py \
   --output "$MISSION_FILE" \
-  --latitude 47.4979 --longitude 19.0402
+  --latitude 47.4979 --longitude 19.0402 \
+  --altitude-m 181 --altitude-span-m 4
 
 curl -X PUT http://127.0.0.1:8001/v1/missions/sitl-1 \
   -H 'content-type: application/json' \
@@ -224,7 +228,7 @@ Windows PowerShell:
 ```powershell
 Set-Location $env:UTM_ADAPTER_ROOT
 $env:MISSION_FILE = Join-Path $env:UTM_ADAPTER_ROOT ".local\flight-blender-mission.json"
-uv run python scripts/generate_test_mission.py --output $env:MISSION_FILE --latitude 47.4979 --longitude 19.0402
+uv run python scripts/generate_test_mission.py --output $env:MISSION_FILE --latitude 47.4979 --longitude 19.0402 --altitude-m 181 --altitude-span-m 4
 
 curl.exe -X PUT http://127.0.0.1:8001/v1/missions/sitl-1 `
   -H "content-type: application/json" --data-binary "@$env:MISSION_FILE"
