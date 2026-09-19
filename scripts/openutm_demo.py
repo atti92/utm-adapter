@@ -153,6 +153,8 @@ def _run_command(
     *,
     cwd: Path | None = None,
     capture_output: bool = True,
+    start_new_session: bool = False,
+    timeout_s: float | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         list(command),
@@ -160,6 +162,8 @@ def _run_command(
         check=False,
         text=True,
         capture_output=capture_output,
+        start_new_session=start_new_session,
+        timeout=timeout_s,
     )
 
 
@@ -486,15 +490,23 @@ class DemoRunner:
             managed.stop()
         self.processes.clear()
         if self.provider_started_by_us and not self.config.keep_provider:
-            result = _run_command(
-                [*_compose_base_command(self.config), "down"],
-                cwd=self.config.flight_blender_root,
-                capture_output=False,
-            )
-            if result.returncode == 0:
-                print("[ok] stopped the Flight Blender Compose stack")
+            try:
+                result = _run_command(
+                    [*_compose_base_command(self.config), "down", "--timeout", "5"],
+                    cwd=self.config.flight_blender_root,
+                    capture_output=False,
+                    start_new_session=os.name != "nt",
+                    timeout_s=30,
+                )
+            except subprocess.TimeoutExpired:
+                print("[warn] Flight Blender Compose cleanup timed out; inspect Docker manually")
+            except KeyboardInterrupt:
+                print("[warn] Flight Blender Compose cleanup was interrupted; inspect Docker manually")
             else:
-                print("[warn] Flight Blender Compose cleanup returned a non-zero exit code")
+                if result.returncode == 0:
+                    print("[ok] stopped the Flight Blender Compose stack")
+                else:
+                    print("[warn] Flight Blender Compose cleanup returned a non-zero exit code")
 
 
 def _start_sitl(runner: DemoRunner) -> None:

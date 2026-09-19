@@ -90,3 +90,24 @@ def test_requested_missing_qgroundcontrol_is_an_actionable_error(monkeypatch) ->
         assert "QGroundControl" in str(exc)
     else:  # pragma: no cover - assertion clarity
         raise AssertionError("expected an actionable missing-GCS error")
+
+
+def test_run_command_can_isolate_cleanup_process_and_bound_wait(monkeypatch) -> None:
+    observed = {}
+
+    def fake_run(command, **kwargs):
+        observed["command"] = command
+        observed.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(openutm_demo.subprocess, "run", fake_run)
+
+    result = openutm_demo._run_command(
+        ["docker", "compose", "down"],
+        start_new_session=True,
+        timeout_s=30,
+    )
+
+    assert result is not None
+    assert observed["start_new_session"] is True
+    assert observed["timeout"] == 30
