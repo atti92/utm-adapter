@@ -32,18 +32,20 @@ uv run utm-connector
 For a one-command local demo that opens the operator console automatically:
 
 ```sh
-uv run utm-connector --open-browser
+uv run utm-connector --demo --open-browser
 # or, on systems with make:
 make demo
 ```
 
-The browser launch uses the platform's default browser and does not change the
-connector's loopback-only default or send any vehicle-control commands.
+The `--demo` flag explicitly selects the in-memory backend, disables configured
+MAVLink inputs, and publishes a moving `demo-sitl` vehicle. It overrides local
+`.env` backend settings for that process, so it is safe to use as a presentation
+mode. The browser launch uses the platform's default browser and does not
+change the connector's loopback-only default or send any vehicle-control
+commands.
 
-For a standalone UI demonstration without a simulator, set
-`UTM_CONNECTOR_DEMO_MODE=true` in `.env` and keep the backend as `in-memory`.
-The console will show a clearly named `demo-sitl` vehicle with moving sample
-telemetry. Demo mode is opt-in and is not intended for live vehicle operation.
+For a standalone UI demonstration without a simulator, use the command above.
+Demo mode is opt-in and is not intended for live vehicle operation.
 
 The command uses an application factory, so importing connector code for tests
 or diagnostics does not open the persistent SQLite database. The equivalent
@@ -67,6 +69,11 @@ configuration, vehicle telemetry, route geometry, mission validity, UTM
 operation state, conformance, and recent events. It is intentionally served
 from the connector with no external web assets, so it works on macOS, Linux,
 and Windows in the same way as the API.
+
+The mission picker accepts QGroundControl `.plan` files and Mission Planner
+`.waypoints`/WPL 110 exports. Both are normalized into the same canonical
+mission model; the UTM validity window and corridor are entered once in the
+connector because neither GCS file format carries that provider metadata.
 
 For GCS integration, start with the discovery endpoints:
 

@@ -16,4 +16,4 @@ run:
 	uv run utm-connector
 
 demo:
-	uv run utm-connector --open-browser
+	uv run utm-connector --demo --open-browser

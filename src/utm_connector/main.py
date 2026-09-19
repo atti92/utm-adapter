@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import threading
 import webbrowser
@@ -17,12 +18,24 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="open the operator console in the default browser after startup",
     )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="run a self-contained moving-vehicle demo with the in-memory backend",
+    )
     return parser
 
 
 def run() -> None:
-    settings = ConnectorSettings()
     args, _unknown = _parser().parse_known_args()
+    if args.demo:
+        # The app is loaded by Uvicorn's factory in a separate import step, so
+        # pass this explicit CLI override through the same environment-backed
+        # settings boundary used by normal installations.
+        os.environ["UTM_CONNECTOR_BACKEND"] = "in-memory"
+        os.environ["UTM_CONNECTOR_DEMO_MODE"] = "true"
+        os.environ["UTM_CONNECTOR_MAVLINK_CONNECTIONS"] = "[]"
+    settings = ConnectorSettings()
     if args.open_browser:
         url = f"http://{settings.host}:{settings.port}/"
         browser_timer = threading.Timer(1.0, webbrowser.open, args=(url,))

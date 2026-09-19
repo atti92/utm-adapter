@@ -18,11 +18,13 @@ uv run pytest
 uv run utm-connector
 ```
 
-For the shortest operator-facing demo, use `uv run utm-connector --open-browser`
-or `make demo`; the default browser opens the console automatically. The
+For the shortest operator-facing demo, use `uv run utm-connector --demo --open-browser`
+or `make demo`; the default browser opens the console automatically and a
+moving demo vehicle is supplied. The
 operator console is designed for the normal demo flow: select a vehicle, load
-a QGroundControl `.plan` or sample route, validate it, submit/start the
-operation, and watch telemetry and conformance without using the CLI.
+a QGroundControl `.plan`, Mission Planner `.waypoints`, or demo route,
+validate it, submit/start the operation, and watch telemetry and conformance
+without using the CLI.
 
 The service root also opens the console directly at
 [http://127.0.0.1:8000/](http://127.0.0.1:8000/).
@@ -31,10 +33,10 @@ The portable host-side boundary is documented in
 [docs/gcs-client.md](docs/gcs-client.md); it is suitable for a thin Mission
 Planner or QGroundControl adapter without moving provider logic into the GCS.
 
-If no simulator is available, set `UTM_CONNECTOR_DEMO_MODE=true` in `.env`
-before using the demo command. This creates a clearly named `demo-sitl` vehicle
-with moving sample telemetry through the same connector path as MAVLink input;
-it is disabled by default and only works with the in-memory backend.
+The `--demo` flag creates a clearly named `demo-sitl` vehicle with moving
+sample telemetry through the same connector path as MAVLink input. It is
+disabled by default and only affects that process; live runs continue to use
+the configured backend and MAVLink sessions.
 
 The doctor checks the active Python/configuration and writable local state. The
 smoke test exercises mission upload, operation submission, start, telemetry,
