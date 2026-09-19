@@ -1,4 +1,5 @@
 from pathlib import Path
+import signal
 import sys
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
@@ -111,3 +112,20 @@ def test_run_command_can_isolate_cleanup_process_and_bound_wait(monkeypatch) -> 
     assert result is not None
     assert observed["start_new_session"] is True
     assert observed["timeout"] == 30
+
+
+def test_demo_stop_masks_interrupts_while_reaping_children(monkeypatch) -> None:
+    observed = []
+
+    class FakeManagedProcess:
+        def stop(self) -> None:
+            observed.append(signal.getsignal(signal.SIGINT))
+
+    runner = openutm_demo.DemoRunner(openutm_demo.DemoConfig())
+    runner.processes = [FakeManagedProcess()]
+    runner.provider_started_by_us = False
+
+    runner.stop()
+
+    assert observed == [signal.SIG_IGN]
+    assert signal.getsignal(signal.SIGINT) != signal.SIG_IGN

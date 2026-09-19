@@ -486,13 +486,13 @@ class DemoRunner:
         raise DemoSetupError(last_detail)
 
     def stop(self) -> None:
-        for managed in reversed(self.processes):
-            managed.stop()
-        self.processes.clear()
-        if self.provider_started_by_us and not self.config.keep_provider:
-            previous_sigint_handler = signal.getsignal(signal.SIGINT)
-            signal.signal(signal.SIGINT, signal.SIG_IGN)
-            try:
+        previous_sigint_handler = signal.getsignal(signal.SIGINT)
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        try:
+            for managed in reversed(self.processes):
+                managed.stop()
+            self.processes.clear()
+            if self.provider_started_by_us and not self.config.keep_provider:
                 result = _run_command(
                     [*_compose_base_command(self.config), "down", "--timeout", "5"],
                     cwd=self.config.flight_blender_root,
@@ -500,17 +500,19 @@ class DemoRunner:
                     start_new_session=os.name != "nt",
                     timeout_s=30,
                 )
-            except subprocess.TimeoutExpired:
-                print("[warn] Flight Blender Compose cleanup timed out; inspect Docker manually")
-            except KeyboardInterrupt:
-                print("[warn] Flight Blender Compose cleanup was interrupted; inspect Docker manually")
-            else:
                 if result.returncode == 0:
                     print("[ok] stopped the Flight Blender Compose stack")
                 else:
                     print("[warn] Flight Blender Compose cleanup returned a non-zero exit code")
-            finally:
-                signal.signal(signal.SIGINT, previous_sigint_handler)
+        except subprocess.TimeoutExpired:
+            print("[warn] Flight Blender Compose cleanup timed out; inspect Docker manually")
+        except KeyboardInterrupt:
+            # The SIGINT mask above should make this unreachable, but keep
+            # shutdown best-effort if a platform delivers an already-pending
+            # interrupt while a child is being reaped.
+            print("[warn] Flight Blender cleanup was interrupted; inspect Docker manually")
+        finally:
+            signal.signal(signal.SIGINT, previous_sigint_handler)
 
 
 def _start_sitl(runner: DemoRunner) -> None:
