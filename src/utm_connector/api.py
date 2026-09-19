@@ -171,7 +171,7 @@ def create_app(
     @app.get("/v1/health", response_model=HealthResponse)
     def health() -> HealthResponse:
         return HealthResponse(
-            status="degraded" if manager.last_errors else "ok",
+            status="degraded" if manager.last_errors or service.last_backend_error else "ok",
             active_vehicles=len(set(service.vehicles) | set(service.vehicle_snapshots)),
             active_operations=sum(
                 operation.state.declaration in {
@@ -181,6 +181,7 @@ def create_app(
                 for operation in service.operations.values()
             ),
             backend=service.backend.name,
+            backend_error=service.last_backend_error,
         )
 
     @app.get("/v1/vehicles", response_model=List[dict])
@@ -296,6 +297,7 @@ def create_app(
         try:
             return service.put_telemetry(vehicle_id, telemetry)
         except BackendError as exc:
+            service.record_backend_error(exc)
             raise HTTPException(status_code=502, detail=str(exc)) from exc
         except ConnectorError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -308,6 +310,7 @@ def create_app(
             else:
                 operation = service.apply_intent(intent)
         except BackendError as exc:
+            service.record_backend_error(exc)
             raise HTTPException(status_code=502, detail=str(exc)) from exc
         except ConnectorError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -325,6 +328,7 @@ def create_app(
         try:
             return service.refresh_operation(operation_id).model_dump(mode="json")
         except BackendError as exc:
+            service.record_backend_error(exc)
             raise HTTPException(status_code=502, detail=str(exc)) from exc
         except ConnectorError as exc:
             status_code = 404 if str(exc) == "operation not found" else 409

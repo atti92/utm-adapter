@@ -8,7 +8,7 @@ from pathlib import Path
 
 from utm_connector.altitude import AltitudeConversionError, AltitudeConverter
 from utm_connector.config import ConnectorSettings
-from utm_connector.diagnostics import port_is_reachable
+from utm_connector.diagnostics import port_is_reachable, probe_http_endpoint
 
 
 def _check(label: str, detail: str) -> None:
@@ -69,7 +69,12 @@ def main() -> int:
             return 1
 
     if settings.backend == "flight-blender":
-        _check("Flight Blender", settings.flight_blender_base_url)
+        provider_ok, provider_detail = probe_http_endpoint(settings.flight_blender_base_url)
+        report_provider = _check if provider_ok else _info
+        report_provider(
+            "Flight Blender",
+            f"{settings.flight_blender_base_url} ({provider_detail})",
+        )
         if not settings.flight_blender_bearer_token:
             _info("Flight Blender token", "empty; local development bypass may still require a generated token")
     else:

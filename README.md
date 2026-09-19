@@ -34,17 +34,21 @@ The portable host-side boundary is documented in
 Planner or QGroundControl adapter without moving provider logic into the GCS.
 Mission Planner users can use the optional menu plugin in
 [examples/mission-planner-plugin](examples/mission-planner-plugin), while
-QGroundControl users can use the zero-fork manifest and browser console.
+QGroundControl users can use the zero-fork manifest and browser console, or
+the optional native Fly View overlay in
+[examples/qgroundcontrol-custom-build](examples/qgroundcontrol-custom-build)
+when producing a QGroundControl custom build.
 
 The `--demo` flag creates a clearly named `demo-sitl` vehicle with moving
 sample telemetry through the same connector path as MAVLink input. It is
 disabled by default and only affects that process; live runs continue to use
 the configured backend and MAVLink sessions.
 
-The doctor checks the active Python/configuration and writable local state. The
-smoke test exercises mission upload, operation submission, start, telemetry,
-conformance, and completion entirely in-process. Neither command starts a
-background simulator or requires Flight Blender credentials. These commands
+The doctor checks the active Python/configuration, writable local state, and
+Flight Blender reachability when that backend is selected. The smoke test
+exercises mission upload, operation submission, start, telemetry, conformance,
+and completion entirely in-process. Neither command starts a background
+simulator or requires Flight Blender credentials. These commands
 work on Linux, macOS, and Windows when run from a shell with `uv` installed.
 
 The `utm-connector` command starts the API through an application factory, so

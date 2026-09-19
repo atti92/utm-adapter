@@ -63,6 +63,7 @@ class ConnectorService:
         self.operations: Dict[UUID, Operation] = {}
         self._last_published_at: Dict[UUID, datetime] = {}
         self.events: List[Event] = []
+        self.last_backend_error: Optional[str] = None
         if state_store is not None:
             self.missions = state_store.load_missions(kind="submitted")
             self.onboard_missions = state_store.load_missions(kind="onboard")
@@ -106,6 +107,31 @@ class ConnectorService:
             vehicle_id=vehicle_id,
             severity=severity,
             details=details or {},
+        )
+
+    def record_backend_error(self, error: Exception | str) -> None:
+        """Expose the latest provider failure to health and operator clients."""
+
+        message = str(error)
+        if self.last_backend_error == message:
+            return
+        self.last_backend_error = message
+        self.record_event(
+            "BACKEND_ERROR",
+            severity="ERROR",
+            details={"backend": self.backend.name, "error": message},
+        )
+
+    def mark_backend_healthy(self) -> None:
+        """Clear a provider failure after a later successful provider call."""
+
+        if self.last_backend_error is None:
+            return
+        previous_error = self.last_backend_error
+        self.last_backend_error = None
+        self.record_event(
+            "BACKEND_RECOVERED",
+            details={"backend": self.backend.name, "previous_error": previous_error},
         )
 
     def put_mission(self, vehicle_id: str, mission: Mission) -> MissionSnapshot:
@@ -227,6 +253,7 @@ class ConnectorService:
                     continue
                 assert provider_telemetry is not None  # narrowed for active operations
                 self.backend.publish_telemetry(provider_telemetry, operation)
+                self.mark_backend_healthy()
                 self._last_published_at[operation.operation_id] = now
                 publication_succeeded.add(operation.operation_id)
             except BackendError as exc:
@@ -270,6 +297,7 @@ class ConnectorService:
                 self.state_store.save_operation(operation)
 
         if publication_errors:
+            self.record_backend_error(next(iter(publication_errors.values())))
             for operation in active_operations:
                 publication_error = publication_errors.get(operation.operation_id)
                 if publication_error is not None:
@@ -352,6 +380,7 @@ class ConnectorService:
             raise ConnectorError("unsupported command for existing operation")
 
         candidate = self.backend.update_operation(candidate, intent.command)
+        self.mark_backend_healthy()
         candidate.updated_at = datetime.now(timezone.utc)
         self.operations[candidate.operation_id] = candidate
         if self.state_store is not None:
@@ -384,6 +413,7 @@ class ConnectorService:
             ),
         )
         operation = self.backend.submit_operation(operation, self._provider_mission(snapshot.mission))
+        self.mark_backend_healthy()
         self.operations[operation.operation_id] = operation
         if self.state_store is not None:
             self.state_store.save_operation(operation)
@@ -434,6 +464,7 @@ class ConnectorService:
         if fetch_operation is None:
             raise ConnectorError("backend does not support operation refresh")
         provider = fetch_operation(operation)
+        self.mark_backend_healthy()
         provider_state = provider.get("state")
         if not isinstance(provider_state, int):
             raise ConnectorError("provider operation response did not include an integer state")

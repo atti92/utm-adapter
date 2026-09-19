@@ -69,9 +69,13 @@ function setReadiness(id, labelId, state, label) {
   $(labelId).textContent = label;
 }
 
-function renderReadiness(capabilities, vehicles) {
+function renderReadiness(capabilities, vehicles, health) {
   const backend = capabilities.backend || "unknown";
-  setReadiness("backend-readiness", "backend-readiness-label", "ok", formatStatus(backend));
+  if (health?.backend_error) {
+    setReadiness("backend-readiness", "backend-readiness-label", "warning", "Provider error");
+  } else {
+    setReadiness("backend-readiness", "backend-readiness-label", "ok", formatStatus(backend));
+  }
 
   if (capabilities.demo_mode) {
     setReadiness("mavlink-readiness", "mavlink-readiness-label", "ok", "Demo vehicle mode");
@@ -322,7 +326,7 @@ async function refresh() {
     setConnection(health.status === "ok" ? "ok" : "degraded", health.status === "ok" ? "Connector online" : "Connector degraded");
     $("backend-badge").textContent = capabilities.backend;
     $("backend-badge").title = integration.connector?.name || "UTM connector";
-    renderReadiness(capabilities, vehicles);
+    renderReadiness(capabilities, vehicles, health);
     renderVehicleDirectory(vehicles);
     renderEvents(events);
     await refreshVehicle();

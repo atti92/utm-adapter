@@ -17,8 +17,10 @@ uv run python scripts/doctor.py
 uv run python scripts/local_smoke.py
 ```
 
-The doctor validates configuration, writable local state, and whether the API
-port already has a listener. The smoke test
+The doctor validates configuration, writable local state, whether the API
+port already has a listener, and—when Flight Blender is selected—whether its
+`/ping` endpoint is reachable. Provider reachability is informational so the
+doctor remains useful before the dependency is started. The smoke test
 uses a temporary SQLite database and an in-memory UTM backend, then exercises
 the complete local lifecycle without starting a simulator or contacting a
 provider. It is the quickest way to tell whether the installation is usable.
@@ -88,7 +90,8 @@ curl http://127.0.0.1:8000/v1/vehicles
 the non-commanding MAVLink behavior. `/v1/vehicles` lists discovered vehicles,
 telemetry freshness, active operation count, and the last session error when a
 simulator or router cannot be reached. A `degraded` health status means at least
-one configured MAVLink session currently has an error.
+one configured MAVLink session or the selected UTM backend currently has an
+error; `backend_error` contains the latest provider error when available.
 
 For a clean disposable run, use this in `.env`:
 
@@ -192,6 +195,12 @@ Mission Planner users can install the thin menu integration from
 [`examples/mission-planner-plugin/`](../examples/mission-planner-plugin/).
 Mission Planner remains the vehicle-facing GCS; the connector console handles
 UTM declaration, authorization, conformance, and provider telemetry.
+
+QGroundControl users can use the stock binary with the provider-neutral
+contract and browser console. If the demo needs native UTM status inside Fly
+View, use the optional custom-build overlay in
+[`examples/qgroundcontrol-custom-build/`](../examples/qgroundcontrol-custom-build/);
+it is not a runtime plugin for the stock binary.
 
 The default local UTM is the connector's in-memory backend, so no external UTM service or account is required for the basic test loop. To use Flight Blender, set these values in `.env`:
 

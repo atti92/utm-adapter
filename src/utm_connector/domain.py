@@ -352,6 +352,7 @@ class OperationIntent(Envelope):
 class HealthResponse(StrictModel):
     status: str = "ok"
     backend: str = "in-memory"
+    backend_error: Optional[str] = None
     active_vehicles: int = Field(ge=0)
     active_operations: int = Field(ge=0)
 

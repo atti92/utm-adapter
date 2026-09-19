@@ -81,6 +81,20 @@ def test_default_app_closes_owned_state_store_on_shutdown(tmp_path) -> None:
     assert state_store._closed is True
 
 
+def test_health_exposes_provider_failure_and_recovery() -> None:
+    service = ConnectorService(InMemoryBackend())
+    with TestClient(create_app(service, ConnectorSettings(mavlink_connections=[]))) as client:
+        service.record_backend_error("provider unavailable")
+        degraded = client.get("/v1/health")
+        assert degraded.json()["status"] == "degraded"
+        assert degraded.json()["backend_error"] == "provider unavailable"
+
+        service.mark_backend_healthy()
+        recovered = client.get("/v1/health")
+        assert recovered.json()["status"] == "ok"
+        assert recovered.json()["backend_error"] is None
+
+
 def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
     client = TestClient(
         create_app(
