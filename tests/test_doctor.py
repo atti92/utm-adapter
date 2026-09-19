@@ -1,6 +1,10 @@
 import socket
+import sys
+from pathlib import Path
 
 import httpx
+
+sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from utm_connector.diagnostics import port_is_reachable, probe_http_endpoint
 
@@ -45,3 +49,18 @@ def test_http_probe_passes_auth_headers(monkeypatch) -> None:
         "url": "http://127.0.0.1:8000/protected",
         "headers": {"Authorization": "Bearer local-token"},
     }
+
+
+def test_dev_token_has_the_claims_required_by_flight_blender() -> None:
+    import base64
+    import json
+
+    from scripts.generate_flight_blender_dev_token import generate_token
+
+    _header, encoded_claims, _signature = generate_token().split(".")
+    padding = "=" * (-len(encoded_claims) % 4)
+    claims = json.loads(base64.urlsafe_b64decode(encoded_claims + padding))
+
+    assert claims["iss"]
+    assert claims["aud"] == "testflight.flightblender.com"
+    assert "flightblender.write" in claims["scope"]

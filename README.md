@@ -26,6 +26,15 @@ a QGroundControl `.plan`, Mission Planner `.waypoints`, or demo route,
 validate it, submit/start the operation, and watch telemetry and conformance
 without using the CLI.
 
+For a full Flight Blender + ArduPilot SITL demonstration, use
+`uv run python scripts/openutm_demo.py` or `make integration-demo` after
+installing Docker, Flight Blender, and ArduPilot beside this checkout. The
+launcher prepares Flight Blender's local environment, starts the provider,
+connector, and simulator, opens the operator console, and detects an installed
+QGroundControl. Use `--check` to validate prerequisites without starting
+anything. Press Ctrl+C to stop the simulator, connector, and provider stack
+started by that run.
+
 The service root also opens the console directly at
 [http://127.0.0.1:8000/](http://127.0.0.1:8000/).
 

@@ -1,4 +1,4 @@
-.PHONY: setup doctor smoke test run demo
+.PHONY: setup doctor smoke test run demo integration-demo integration-demo-check
 
 setup:
 	uv sync
@@ -17,3 +17,9 @@ run:
 
 demo:
 	uv run utm-connector --demo --open-browser
+
+integration-demo:
+	uv run python scripts/openutm_demo.py
+
+integration-demo-check:
+	uv run python scripts/openutm_demo.py --check

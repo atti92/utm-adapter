@@ -38,6 +38,24 @@ POSIX-like shell (macOS, Linux, or WSL). Native Windows users can run SITL in
 WSL, or use the Mission Planner SITL launcher, while running the connector from
 PowerShell.
 
+## Recommended supervised demo
+
+The repository includes a cross-platform Python launcher that removes the
+multi-terminal startup ceremony while preserving the same topology:
+
+```sh
+uv run python scripts/openutm_demo.py --check
+uv run python scripts/openutm_demo.py
+```
+
+It starts Flight Blender, the connector, and ArduPilot SITL, opens the
+operator console, and auto-detects QGroundControl. On Windows PowerShell use
+the same commands and add `--gcs mission-planner` when Mission Planner is the
+selected GCS. Use `--no-browser` or `--gcs none` when those applications are
+already open. Press Ctrl+C to cleanly stop the simulator, connector, and
+provider stack owned by the launcher. The detailed commands below remain
+available for diagnosing individual components or testing a router topology.
+
 ## Start Flight Blender
 
 Use the local-development configuration from the Flight Blender checkout. This

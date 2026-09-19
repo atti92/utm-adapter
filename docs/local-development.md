@@ -52,6 +52,31 @@ commands.
 For a standalone UI demonstration without a simulator, use the command above.
 Demo mode is opt-in and is not intended for live vehicle operation.
 
+### One-command full-stack demo
+
+When the Flight Blender and ArduPilot checkouts are available, the supervised
+launcher provides the shortest path to a realistic GCS-facing demonstration:
+
+```sh
+uv run python scripts/openutm_demo.py --check
+uv run python scripts/openutm_demo.py
+```
+
+It starts the local Flight Blender Compose stack, the connector configured for
+Flight Blender, and ArduPilot SITL with one telemetry output for a GCS and one
+for the connector. It opens the browser console and launches QGroundControl if
+it is installed. The browser console is where the UTM operator workflow is
+performed: choose the detected vehicle, select `Sample route` or open a
+QGroundControl `.plan`/Mission Planner `.waypoints` export, then validate, submit,
+and start the operation. The GCS remains the vehicle-control application.
+
+Set `FLIGHT_BLENDER_ROOT` and `ARDUPILOT_ROOT` when the checkouts are not in
+the sibling directories next to this repository. The same Python launcher can
+be run from PowerShell; use `--gcs mission-planner` on Windows when Mission
+Planner is installed. `Ctrl+C` cleans up the connector, SITL, and only the
+Flight Blender Compose stack started by that launcher. `--keep-provider` leaves
+the provider running for a later connector restart.
+
 The command uses an application factory, so importing connector code for tests
 or diagnostics does not open the persistent SQLite database. The equivalent
 direct Uvicorn command is:
