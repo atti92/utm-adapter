@@ -4,7 +4,7 @@ from pathlib import Path
 PLUGIN = Path(__file__).parents[1] / "examples" / "mission-planner-plugin" / "UtmConnectorPlugin.cs"
 
 
-def test_mission_planner_plugin_is_thin_non_commanding_and_uses_connector_console() -> None:
+def test_mission_planner_plugin_is_thin_non_commanding_and_supports_gcs_workflow() -> None:
     source = PLUGIN.read_text()
 
     assert "class UtmConnectorPlugin : Plugin" in source
@@ -12,5 +12,9 @@ def test_mission_planner_plugin_is_thin_non_commanding_and_uses_connector_consol
     assert '"/ui/"' in source
     assert "HttpWebRequest" in source
     assert "Host.comPort." not in source
-    assert "MAV_CMD" not in source
+    assert "Sync current mission" in source
+    assert "Submit operation" in source
+    assert "START_OPERATION" in source
+    assert "doCommand" not in source
+    assert "sendPacket" not in source
     assert "COMMAND_LONG" not in source
