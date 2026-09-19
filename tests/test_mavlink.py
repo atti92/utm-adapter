@@ -34,7 +34,11 @@ class FakeConnection:
 class PollingConnection(FakeConnection):
     def __init__(self, message: FakeMessage) -> None:
         super().__init__()
-        self.mav = SimpleNamespace(mission_request_list_send=lambda *_args: None)
+        self.stream_requests = []
+        self.mav = SimpleNamespace(
+            mission_request_list_send=lambda *_args: None,
+            request_data_stream_send=lambda *args: self.stream_requests.append(args),
+        )
         self.message = message
         self.closed = False
 
@@ -138,3 +142,16 @@ def test_session_records_raw_wire_frame_without_changing_telemetry(tmp_path) -> 
     frames = list(JsonlReplay(str(tmp_path / "events.jsonl")).mavlink_frames())
     assert frames == [("sitl-1", b"\xfe\x01\x02")]
     assert connection.closed is True
+
+
+def test_session_requests_read_only_telemetry_streams_once_after_heartbeat() -> None:
+    message = FakeMessage("HEARTBEAT", autopilot=3, type=2, base_mode=0)
+    connection = PollingConnection(message)
+    session = MavlinkVehicleSession("sitl-1", connection)
+
+    session.poll()
+    session.poll()
+
+    assert len(connection.stream_requests) == 4
+    assert all(request[0:2] == (1, 1) for request in connection.stream_requests)
+    assert all(request[3:] == (4, 1) for request in connection.stream_requests)

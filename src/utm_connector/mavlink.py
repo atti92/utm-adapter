@@ -266,6 +266,7 @@ class MavlinkVehicleSession(MavlinkMessageNormalizer):
         self.connection = connection
         self.recorder = recorder
         self._closed = False
+        self._telemetry_stream_request_sent = False
         self.mission_reader = MavlinkMissionReader(vehicle_id, connection, clock=self.clock)
 
     @classmethod
@@ -279,12 +280,46 @@ class MavlinkVehicleSession(MavlinkMessageNormalizer):
             received_at = self.clock()
             self._record_raw_frame(message, received_at)
             self.ingest(message, received_at)
+            if _message_type(message) == "HEARTBEAT":
+                self._request_telemetry_streams()
             if self._system_id is not None and not self.mission_reader.requested:
                 self.mission_reader.request_list(
                     system_id=self._system_id,
                     component_id=min(self._component_ids) if self._component_ids else 1,
                 )
         return message
+
+    def _request_telemetry_streams(self) -> None:
+        """Ask an autopilot for the read-only streams needed by the connector.
+
+        Some ArduPilot SITL and vehicle configurations emit heartbeats until a
+        GCS requests stream rates. These are MAVLink telemetry-rate requests,
+        not vehicle-control commands; they make the connector independent of
+        whether QGroundControl or another GCS happened to request the streams
+        first. A connection without this optional MAVLink helper remains a
+        valid telemetry source and simply keeps its configured/default rates.
+        """
+
+        if self._telemetry_stream_request_sent:
+            return
+        self._telemetry_stream_request_sent = True
+        sender = getattr(getattr(self.connection, "mav", None), "request_data_stream_send", None)
+        if not callable(sender) or self._system_id is None:
+            return
+
+        target_component = min(self._component_ids) if self._component_ids else 1
+        streams = (
+            "MAV_DATA_STREAM_POSITION",
+            "MAV_DATA_STREAM_EXTENDED_STATUS",
+            "MAV_DATA_STREAM_EXTRA1",
+            "MAV_DATA_STREAM_EXTRA2",
+        )
+        try:
+            for stream_name in streams:
+                stream_id = getattr(mavutil.mavlink, stream_name)
+                sender(self._system_id, target_component, stream_id, 4, 1)
+        except Exception as exc:
+            self._add_diagnostic(f"MAVLink telemetry stream request unavailable: {exc}")
 
     def _record_raw_frame(self, message: Any, received_at: datetime) -> None:
         if self.recorder is None:
