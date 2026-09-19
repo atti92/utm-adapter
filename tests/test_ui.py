@@ -37,3 +37,4 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
         "mission-planner",
     ):
         assert endpoint in javascript
+    assert "formatDate(event.timestamp)" in javascript

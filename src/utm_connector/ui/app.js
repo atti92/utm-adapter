@@ -250,7 +250,7 @@ function renderEvents(events) {
   const list = $("event-list");
   if (!events.length) { list.innerHTML = '<div class="empty-state">No events yet.</div>'; return; }
   list.innerHTML = events.slice(0, 8).map((event) => `<div class="event" data-severity="${escapeHtml(event.severity)}">
-    <span class="event-dot"></span><div><strong>${escapeHtml(event.event_type)}</strong><small>${escapeHtml(event.vehicle_id || "connector")}</small></div><time>${escapeHtml(formatDate(event.occurred_at))}</time>
+    <span class="event-dot"></span><div><strong>${escapeHtml(event.event_type)}</strong><small>${escapeHtml(event.vehicle_id || "connector")}</small></div><time>${escapeHtml(formatDate(event.timestamp))}</time>
   </div>`).join("");
 }
 
