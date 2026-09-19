@@ -2,6 +2,7 @@ const state = {
   vehicleId: "",
   plan: null,
   planFormat: "qgroundcontrol",
+  planName: "",
   mission: null,
   operation: null,
   latestStatus: null,
@@ -151,22 +152,68 @@ function renderTelemetry(status) {
   drawRoute();
 }
 
+function previewWaypoint(latitude, longitude, altitude, datum, sequence) {
+  if (![latitude, longitude, altitude].every(Number.isFinite)) return null;
+  return {
+    sequence,
+    latitude,
+    longitude,
+    altitude: { meters: altitude, datum },
+  };
+}
+
+function buildPreviewMission() {
+  if (!state.plan) return null;
+  if (state.planFormat === "canonical") {
+    const waypoints = (state.plan.waypoints || []).map((waypoint, index) => previewWaypoint(
+      Number(waypoint.latitude), Number(waypoint.longitude), Number(waypoint.altitude?.meters),
+      waypoint.altitude?.datum || "UNKNOWN", index,
+    )).filter(Boolean);
+    return waypoints.length >= 2 ? waypoints : null;
+  }
+  if (state.planFormat === "mission-planner") {
+    const waypoints = [];
+    String(state.plan).split(/\r?\n/).slice(1).forEach((line) => {
+      const fields = line.trim().split(/\s+/);
+      if (fields.length < 11 || ![16, 22].includes(Number(fields[3]))) return;
+      const frame = Number(fields[2]);
+      const waypoint = previewWaypoint(
+        Number(fields[8]), Number(fields[9]), Number(fields[10]),
+        [3, 6].includes(frame) ? "AGL" : "AMSL", waypoints.length,
+      );
+      if (waypoint) waypoints.push(waypoint);
+    });
+    return waypoints.length >= 2 ? waypoints : null;
+  }
+  const items = state.plan.mission?.items || [];
+  const waypoints = items.filter((item) => [16, 22].includes(Number(item.command))).map((item, index) => {
+    const frame = Number(item.frame);
+    const params = item.params || [];
+    return previewWaypoint(
+      Number(params[4]), Number(params[5]), Number(params[6]),
+      [3, 6].includes(frame) ? "AGL" : "AMSL", index,
+    );
+  }).filter(Boolean);
+  return waypoints.length >= 2 ? waypoints : null;
+}
+
 function renderMission(snapshot) {
   state.mission = snapshot;
   if (!snapshot) {
-    const preview = state.planFormat === "canonical" && state.plan?.source === "operator-console-demo";
-    if (preview) {
+    const waypoints = buildPreviewMission();
+    if (waypoints) {
       state.mission = {
         mission: {
-          ...state.plan,
+          source: "operator-console-preview",
           vehicle_id: state.vehicleId,
           corridor_radius_m: Number($("corridor-radius").value),
+          waypoints,
         },
         mission_hash: "preview",
       };
-      $("mission-title").textContent = "Demo route ready";
-      $("mission-meta").textContent = "Three WGS84 waypoints around Budapest · validate before submission";
-      $("save-button").disabled = !state.vehicleId;
+      $("mission-title").textContent = `${waypoints.length} waypoint route`;
+      $("mission-meta").textContent = `${state.planName || "Mission file"} loaded · validate before submission`;
+      $("save-button").disabled = !state.vehicleId || !state.plan;
       $("submit-button").disabled = true;
       drawRoute();
       return;
@@ -346,8 +393,8 @@ async function sendIntent(command) {
 }
 
 $("vehicle-select").addEventListener("change", async (event) => { state.vehicleId = event.target.value; state.operation = null; await refreshVehicle(); });
-$("sample-button").addEventListener("click", () => { state.plan = samplePlan(); state.planFormat = "canonical"; renderMission(null); setMessage("Demo route loaded. Review the validity window, then validate it."); });
-$("plan-file").addEventListener("change", async (event) => { const file = event.target.files[0]; if (!file) return; try { const text = await file.text(); state.plan = text.trimStart().startsWith("QGC WPL ") ? text : JSON.parse(text); state.planFormat = typeof state.plan === "string" ? "mission-planner" : "qgroundcontrol"; state.mission = null; drawRoute(); $("mission-title").textContent = file.name; $("mission-meta").textContent = state.planFormat === "mission-planner" ? "Mission Planner waypoint file loaded · validate before submission" : "QGroundControl Plan loaded · validate before submission"; $("save-button").disabled = !state.vehicleId; $("submit-button").disabled = true; setMessage(file.name + " loaded."); } catch (error) { setMessage("Could not read mission file: " + error.message, "error"); } });
+$("sample-button").addEventListener("click", () => { state.plan = samplePlan(); state.planFormat = "canonical"; state.planName = "Demo route"; renderMission(null); setMessage("Demo route loaded. Review the validity window, then validate it."); });
+$("plan-file").addEventListener("change", async (event) => { const file = event.target.files[0]; if (!file) return; try { const text = await file.text(); state.plan = text.trimStart().startsWith("QGC WPL ") ? text : JSON.parse(text); state.planFormat = typeof state.plan === "string" ? "mission-planner" : "qgroundcontrol"; state.planName = file.name; state.mission = null; renderMission(null); setMessage(file.name + " loaded."); } catch (error) { setMessage("Could not read mission file: " + error.message, "error"); } });
 $("save-button").addEventListener("click", saveMission);
 $("submit-button").addEventListener("click", () => sendIntent("SUBMIT_OPERATION"));
 $("start-button").addEventListener("click", () => sendIntent("START_OPERATION"));
