@@ -140,7 +140,7 @@ function renderOperation(operation) {
     title.textContent = "No active operation";
     badge.textContent = "Not submitted";
     badge.className = "badge neutral";
-    ["refresh-operation-button", "cancel-button", "complete-button", "start-button"].forEach((id) => { $(id).disabled = id === "start-button" ? !state.mission : true; });
+    ["refresh-operation-button", "cancel-button", "complete-button", "start-button"].forEach((id) => { $(id).disabled = true; });
   } else {
     title.textContent = `Operation ${operation.operation_id.slice(0, 8)}…`;
     const declaration = operation.state.declaration;
@@ -157,6 +157,15 @@ function renderOperation(operation) {
     const value = steps[index];
     step.dataset.state = value === "CONFORMING" || value === "ACCEPTED" || value === "AUTHORIZED" || value === "ACTIVE" ? "ok" : value && ["NON_CONFORMING", "FAILED", "REJECTED"].includes(value) ? "error" : value ? "warning" : "";
     step.querySelector("em").textContent = formatStatus(value);
+  });
+}
+
+function newOperationId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
+    const random = Math.random() * 16 | 0;
+    const value = character === "x" ? random : (random & 0x3 | 0x8);
+    return value.toString(16);
   });
 }
 
@@ -242,7 +251,7 @@ async function saveMission() {
 
 async function sendIntent(command) {
   if (!state.vehicleId) return;
-  const operationId = state.operation?.operation_id || crypto.randomUUID();
+  const operationId = state.operation?.operation_id || newOperationId();
   try {
     const operation = await request(`/v1/operator-intents?vehicle_id=${encodeURIComponent(state.vehicleId)}`, { method: "POST", body: JSON.stringify({ schema_version: "1.0", command, operation_id: operationId }) });
     renderOperation(operation);
