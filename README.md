@@ -45,7 +45,8 @@ disabled by default and only affects that process; live runs continue to use
 the configured backend and MAVLink sessions.
 
 The doctor checks the active Python/configuration, writable local state, and
-Flight Blender reachability when that backend is selected. The smoke test
+Flight Blender reachability plus bearer-token authorization when that backend
+is selected and the provider is available. The smoke test
 exercises mission upload, operation submission, start, telemetry, conformance,
 and completion entirely in-process. Neither command starts a background
 simulator or requires Flight Blender credentials. These commands

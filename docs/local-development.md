@@ -19,8 +19,10 @@ uv run python scripts/local_smoke.py
 
 The doctor validates configuration, writable local state, whether the API
 port already has a listener, and—when Flight Blender is selected—whether its
-`/ping` endpoint is reachable. Provider reachability is informational so the
-doctor remains useful before the dependency is started. The smoke test
+`/ping` endpoint is reachable. If a bearer token is configured and the
+provider is reachable, it also checks a protected read endpoint so malformed
+or under-scoped local tokens fail before a mission is submitted. Provider
+reachability remains informational when the dependency is not started. The smoke test
 uses a temporary SQLite database and an in-memory UTM backend, then exercises
 the complete local lifecycle without starting a simulator or contacting a
 provider. It is the quickest way to tell whether the installation is usable.

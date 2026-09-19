@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import socket
+from collections.abc import Mapping
 
 import httpx
 
@@ -18,13 +19,18 @@ def port_is_reachable(host: str, port: int) -> bool:
         return False
 
 
-def probe_http_endpoint(base_url: str, path: str = "/ping", timeout_s: float = 1.5) -> tuple[bool, str]:
+def probe_http_endpoint(
+    base_url: str,
+    path: str = "/ping",
+    timeout_s: float = 1.5,
+    headers: Mapping[str, str] | None = None,
+) -> tuple[bool, str]:
     """Probe a local HTTP dependency without raising setup-tool exceptions."""
 
     url = f"{base_url.rstrip('/')}{path}"
     try:
         with httpx.Client(timeout=timeout_s) as client:
-            response = client.get(url)
+            response = client.get(url, headers=dict(headers or {}))
     except httpx.RequestError as exc:
         return False, f"not reachable ({exc.__class__.__name__})"
     if 200 <= response.status_code < 300:

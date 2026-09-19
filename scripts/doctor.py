@@ -77,6 +77,19 @@ def main() -> int:
         )
         if not settings.flight_blender_bearer_token:
             _info("Flight Blender token", "empty; local development bypass may still require a generated token")
+        elif provider_ok:
+            auth_ok, auth_detail = probe_http_endpoint(
+                settings.flight_blender_base_url,
+                path="/flight_declaration_ops/flight_declaration",
+                headers={"Authorization": f"Bearer {settings.flight_blender_bearer_token}"},
+            )
+            if auth_ok:
+                _check("Flight Blender auth", auth_detail)
+            else:
+                print(f"[fail] Flight Blender auth: {auth_detail}")
+                return 1
+        else:
+            _info("Flight Blender auth", "not checked because the provider is not reachable")
     else:
         _check("UTM backend", "in-memory; no external UTM service is required")
 

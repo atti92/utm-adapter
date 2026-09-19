@@ -1,6 +1,8 @@
 import socket
 
-from utm_connector.diagnostics import port_is_reachable
+import httpx
+
+from utm_connector.diagnostics import port_is_reachable, probe_http_endpoint
 
 
 def test_doctor_detects_an_active_listen_port() -> None:
@@ -11,3 +13,35 @@ def test_doctor_detects_an_active_listen_port() -> None:
         assert port_is_reachable("127.0.0.1", listener.getsockname()[1]) is True
     finally:
         listener.close()
+
+
+def test_http_probe_passes_auth_headers(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeClient:
+        def __init__(self, *, timeout: float) -> None:
+            captured["timeout"] = timeout
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args) -> None:
+            return None
+
+        def get(self, url: str, *, headers: dict[str, str]):
+            captured["url"] = url
+            captured["headers"] = headers
+            return httpx.Response(200)
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+
+    assert probe_http_endpoint(
+        "http://127.0.0.1:8000",
+        path="/protected",
+        headers={"Authorization": "Bearer local-token"},
+    ) == (True, "reachable (HTTP 200)")
+    assert captured == {
+        "timeout": 1.5,
+        "url": "http://127.0.0.1:8000/protected",
+        "headers": {"Authorization": "Bearer local-token"},
+    }
