@@ -64,10 +64,12 @@
               <p class="eyebrow">MISSION PLAN</p>
               <h3 id="mission-title">No mission loaded</h3>
               <p class="muted" id="mission-meta">Load a QGroundControl .plan or Mission Planner .waypoints file.</p>
+              <div class="drift-summary" id="drift-summary" hidden></div>
             </div>
             <div class="button-row">
               <button class="button secondary" id="sample-button">Sample route</button>
               <label class="button secondary file-button" for="plan-file">Open mission file</label>
+              <button class="button secondary" id="read-mission-button" disabled>Check vehicle mission</button>
               <input id="plan-file" type="file" accept=".plan,.waypoints,.txt,.json,application/json,text/plain" hidden />
             </div>
           </div>

@@ -6,6 +6,7 @@ const state = {
   mission: null,
   operation: null,
   latestStatus: null,
+  capabilities: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -113,6 +114,7 @@ function renderVehicleDirectory(vehicles) {
     select.add(new Option("Waiting for a vehicle…", ""));
     state.vehicleId = "";
     renderVehicle(null);
+    updateMissionReadButton();
     return;
   }
   vehicles.forEach((vehicle) => select.add(new Option(vehicle.vehicle_id, vehicle.vehicle_id)));
@@ -120,6 +122,16 @@ function renderVehicleDirectory(vehicles) {
   select.value = state.vehicleId;
   const vehicle = vehicles.find((item) => item.vehicle_id === state.vehicleId);
   renderVehicle(vehicle);
+  updateMissionReadButton();
+}
+
+function updateMissionReadButton() {
+  const button = $("read-mission-button");
+  const configured = Boolean(state.capabilities?.mavlink?.configured);
+  button.disabled = !state.vehicleId || !configured;
+  button.title = configured
+    ? "Request the current mission from the vehicle over the read-only MAVLink mission protocol."
+    : "Configure a MAVLink vehicle link to read the onboard mission.";
 }
 
 function renderVehicle(vehicle) {
@@ -238,6 +250,24 @@ function renderMission(snapshot) {
   drawRoute();
 }
 
+function renderMissionDrift(report) {
+  const element = $("drift-summary");
+  if (!report) {
+    element.hidden = true;
+    element.textContent = "";
+    element.dataset.state = "";
+    return;
+  }
+  const classification = formatStatus(report.classification);
+  const changedFields = (report.changed_fields || []).map(escapeHtml).join(", ");
+  const matches = report.classification === "NO_CHANGE";
+  element.hidden = false;
+  element.dataset.state = matches ? "ok" : "warning";
+  element.innerHTML = `<strong>${matches ? "Vehicle mission matches the submitted route" : `Mission drift detected: ${escapeHtml(classification)}`}</strong>
+    <span>${matches ? "No route or altitude changes found." : `Changed fields: ${changedFields || "review the current vehicle mission"}`}</span>
+    <small>Checked ${escapeHtml(formatDate(report.checked_at))}</small>`;
+}
+
 function renderOperation(operation) {
   state.operation = operation;
   const title = $("operation-title");
@@ -314,6 +344,7 @@ async function refreshVehicle() {
   state.latestStatus = status;
   renderTelemetry(status);
   renderMission(mission);
+  renderMissionDrift(status.mission_drift);
   const operations = status.operations || [];
   renderOperation(operations.length ? operations[operations.length - 1] : null);
 }
@@ -323,6 +354,7 @@ async function refresh() {
     const [health, capabilities, integration, vehicles, events] = await Promise.all([
       request("/v1/health"), request("/v1/capabilities"), request("/v1/integration"), request("/v1/vehicles"), request("/v1/events?limit=12"),
     ]);
+    state.capabilities = capabilities;
     setConnection(health.status === "ok" ? "ok" : "degraded", health.status === "ok" ? "Connector online" : "Connector degraded");
     $("backend-badge").textContent = capabilities.backend;
     $("backend-badge").title = integration.connector?.name || "UTM connector";
@@ -334,6 +366,15 @@ async function refresh() {
     setConnection("error", "Connector unavailable");
     setMessage(error.message, "error");
   }
+}
+
+async function checkVehicleMission() {
+  if (!state.vehicleId) return;
+  try {
+    await request(`/v1/vehicles/${encodeURIComponent(state.vehicleId)}/onboard-mission/refresh`, { method: "POST" });
+    setMessage("Requested the current mission from the vehicle. Waiting for the MAVLink response…");
+    await refreshVehicle();
+  } catch (error) { setMessage(error.message, "error"); }
 }
 
 function samplePlan() {
@@ -400,6 +441,7 @@ $("vehicle-select").addEventListener("change", async (event) => { state.vehicleI
 $("sample-button").addEventListener("click", () => { state.plan = samplePlan(); state.planFormat = "canonical"; state.planName = "Demo route"; renderMission(null); setMessage("Demo route loaded. Review the validity window, then validate it."); });
 $("plan-file").addEventListener("change", async (event) => { const file = event.target.files[0]; if (!file) return; try { const text = await file.text(); state.plan = text.trimStart().startsWith("QGC WPL ") ? text : JSON.parse(text); state.planFormat = typeof state.plan === "string" ? "mission-planner" : "qgroundcontrol"; state.planName = file.name; state.mission = null; renderMission(null); setMessage(file.name + " loaded."); } catch (error) { setMessage("Could not read mission file: " + error.message, "error"); } });
 $("save-button").addEventListener("click", saveMission);
+$("read-mission-button").addEventListener("click", checkVehicleMission);
 $("submit-button").addEventListener("click", () => sendIntent("SUBMIT_OPERATION"));
 $("start-button").addEventListener("click", () => sendIntent("START_OPERATION"));
 $("cancel-button").addEventListener("click", () => sendIntent("CANCEL_OPERATION"));
