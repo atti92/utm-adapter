@@ -27,6 +27,10 @@ operation, and watch telemetry and conformance without using the CLI.
 The service root also opens the console directly at
 [http://127.0.0.1:8000/](http://127.0.0.1:8000/).
 
+The portable host-side boundary is documented in
+[docs/gcs-client.md](docs/gcs-client.md); it is suitable for a thin Mission
+Planner or QGroundControl adapter without moving provider logic into the GCS.
+
 If no simulator is available, set `UTM_CONNECTOR_DEMO_MODE=true` in `.env`
 before using the demo command. This creates a clearly named `demo-sitl` vehicle
 with moving sample telemetry through the same connector path as MAVLink input;
