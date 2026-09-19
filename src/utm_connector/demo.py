@@ -56,7 +56,10 @@ class DemoVehiclePublisher:
             observed_at=observed_at,
             latitude=latitude,
             longitude=longitude,
-            altitude={"meters": 35, "datum": "WGS84"},
+            # Keep the built-in vehicle inside the sample route's 135–140 m
+            # WGS84 volume so the one-command demo demonstrates a healthy
+            # conformance state instead of manufacturing an altitude alert.
+            altitude={"meters": 137, "datum": "WGS84"},
             heading_deg=90,
             groundspeed_mps=4.0,
             quality=TelemetryQuality.GOOD,

@@ -14,5 +14,7 @@ def test_demo_publisher_uses_the_canonical_vehicle_snapshot_path() -> None:
     assert snapshot.identity.connector_vehicle_id == "demo-1"
     assert snapshot.connection_state.value == "CONNECTED"
     assert service.vehicles["demo-1"].quality.value == "GOOD"
+    assert snapshot.telemetry.altitude.meters == 137
+    assert snapshot.telemetry.altitude.datum.value == "WGS84"
     assert 47.49 < snapshot.telemetry.latitude < 47.51
     assert 19.03 < snapshot.telemetry.longitude < 19.05
