@@ -55,6 +55,12 @@ class ConnectorClient:
     def capabilities(self) -> dict[str, Any]:
         return self._request("GET", "/v1/capabilities")
 
+    def integration(self) -> dict[str, Any]:
+        return self._request("GET", "/v1/integration")
+
+    def events(self, *, limit: int = 100) -> list[dict[str, Any]]:
+        return self._request("GET", f"/v1/events?limit={limit}")
+
     def vehicles(self) -> list[dict[str, Any]]:
         return self._request("GET", "/v1/vehicles")
 
@@ -128,6 +134,9 @@ class ConnectorClient:
             "POST",
             f"/v1/operations/{self._path_value(str(operation_id))}/refresh",
         )
+
+    def operation(self, operation_id: UUID | str) -> dict[str, Any]:
+        return self._request("GET", f"/v1/operations/{self._path_value(str(operation_id))}")
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         try:

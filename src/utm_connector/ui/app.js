@@ -89,6 +89,15 @@ function renderReadiness(capabilities, vehicles) {
     capabilities.recording?.mavlink_raw ? "ok" : "neutral",
     capabilities.recording?.mavlink_raw ? "Raw capture enabled" : "Raw capture off",
   );
+
+  const altitude = capabilities.altitude || {};
+  if (backend === "flight-blender" && !altitude.geoid_conversion_configured) {
+    setReadiness("altitude-readiness", "altitude-readiness-label", "warning", "Geoid grid required");
+  } else if (altitude.geoid_conversion_configured) {
+    setReadiness("altitude-readiness", "altitude-readiness-label", "ok", "AMSL ↔ WGS84 ready");
+  } else {
+    setReadiness("altitude-readiness", "altitude-readiness-label", "neutral", "Not needed locally");
+  }
 }
 
 function renderVehicleDirectory(vehicles) {
@@ -145,6 +154,23 @@ function renderTelemetry(status) {
 function renderMission(snapshot) {
   state.mission = snapshot;
   if (!snapshot) {
+    const preview = state.planFormat === "canonical" && state.plan?.source === "operator-console-demo";
+    if (preview) {
+      state.mission = {
+        mission: {
+          ...state.plan,
+          vehicle_id: state.vehicleId,
+          corridor_radius_m: Number($("corridor-radius").value),
+        },
+        mission_hash: "preview",
+      };
+      $("mission-title").textContent = "Demo route ready";
+      $("mission-meta").textContent = "Three WGS84 waypoints around Budapest · validate before submission";
+      $("save-button").disabled = !state.vehicleId;
+      $("submit-button").disabled = true;
+      drawRoute();
+      return;
+    }
     $("mission-title").textContent = "No mission loaded";
     $("mission-meta").textContent = "Load a QGroundControl .plan or Mission Planner .waypoints file.";
     $("save-button").disabled = !state.plan;
@@ -243,11 +269,12 @@ async function refreshVehicle() {
 
 async function refresh() {
   try {
-    const [health, capabilities, vehicles, events] = await Promise.all([
-      request("/v1/health"), request("/v1/capabilities"), request("/v1/vehicles"), request("/v1/events?limit=12"),
+    const [health, capabilities, integration, vehicles, events] = await Promise.all([
+      request("/v1/health"), request("/v1/capabilities"), request("/v1/integration"), request("/v1/vehicles"), request("/v1/events?limit=12"),
     ]);
     setConnection(health.status === "ok" ? "ok" : "degraded", health.status === "ok" ? "Connector online" : "Connector degraded");
     $("backend-badge").textContent = capabilities.backend;
+    $("backend-badge").title = integration.connector?.name || "UTM connector";
     renderReadiness(capabilities, vehicles);
     renderVehicleDirectory(vehicles);
     renderEvents(events);
@@ -319,8 +346,8 @@ async function sendIntent(command) {
 }
 
 $("vehicle-select").addEventListener("change", async (event) => { state.vehicleId = event.target.value; state.operation = null; await refreshVehicle(); });
-$("sample-button").addEventListener("click", () => { state.plan = samplePlan(); state.planFormat = "canonical"; $("mission-title").textContent = "Demo route ready"; $("mission-meta").textContent = "Three WGS84 waypoints around Budapest · compatible with Flight Blender"; $("save-button").disabled = !state.vehicleId; setMessage("Demo route loaded. Review the validity window, then validate it."); drawRoute(); });
-$("plan-file").addEventListener("change", async (event) => { const file = event.target.files[0]; if (!file) return; try { const text = await file.text(); state.plan = text.trimStart().startsWith("QGC WPL ") ? text : JSON.parse(text); state.planFormat = typeof state.plan === "string" ? "mission-planner" : "qgroundcontrol"; $("mission-title").textContent = file.name; $("mission-meta").textContent = state.planFormat === "mission-planner" ? "Mission Planner waypoint file loaded · validate before submission" : "QGroundControl Plan loaded · validate before submission"; $("save-button").disabled = !state.vehicleId; setMessage(file.name + " loaded."); } catch (error) { setMessage("Could not read mission file: " + error.message, "error"); } });
+$("sample-button").addEventListener("click", () => { state.plan = samplePlan(); state.planFormat = "canonical"; renderMission(null); setMessage("Demo route loaded. Review the validity window, then validate it."); });
+$("plan-file").addEventListener("change", async (event) => { const file = event.target.files[0]; if (!file) return; try { const text = await file.text(); state.plan = text.trimStart().startsWith("QGC WPL ") ? text : JSON.parse(text); state.planFormat = typeof state.plan === "string" ? "mission-planner" : "qgroundcontrol"; state.mission = null; drawRoute(); $("mission-title").textContent = file.name; $("mission-meta").textContent = state.planFormat === "mission-planner" ? "Mission Planner waypoint file loaded · validate before submission" : "QGroundControl Plan loaded · validate before submission"; $("save-button").disabled = !state.vehicleId; $("submit-button").disabled = true; setMessage(file.name + " loaded."); } catch (error) { setMessage("Could not read mission file: " + error.message, "error"); } });
 $("save-button").addEventListener("click", saveMission);
 $("submit-button").addEventListener("click", () => sendIntent("SUBMIT_OPERATION"));
 $("start-button").addEventListener("click", () => sendIntent("START_OPERATION"));

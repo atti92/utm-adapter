@@ -24,7 +24,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
 
     for label in ("Open mission file", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness"):
         assert label in html
-    for element_id in ("backend-readiness", "mavlink-readiness", "recording-readiness"):
+    for element_id in ("backend-readiness", "mavlink-readiness", "recording-readiness", "altitude-readiness"):
         assert element_id in html
     for endpoint in (
         "/v1/health",
@@ -33,6 +33,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
         "/v1/operator-intents",
         "/v1/operations/",
         "/v1/capabilities",
+        "/v1/integration",
         "mission-planner",
     ):
         assert endpoint in javascript

@@ -20,7 +20,7 @@ body { margin: 0; min-width: 320px; background: radial-gradient(circle at 90% -1
 button, input, select { font: inherit; }
 .topbar { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; padding: 34px max(24px, calc((100vw - 1320px) / 2)); border-bottom: 1px solid var(--border); background: rgba(6, 18, 30, 0.75); }
 .shell { width: min(1320px, calc(100% - 48px)); margin: 28px auto 40px; }
-.readiness-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: rgba(15, 32, 48, 0.72); }
+.readiness-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: rgba(15, 32, 48, 0.72); }
 .readiness-item { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 3px 8px; color: var(--muted); }
 .readiness-item .status-dot { flex: 0 0 auto; width: 7px; height: 7px; color: var(--muted); box-shadow: 0 0 9px currentColor; }
 .readiness-item[data-state="ok"] { color: var(--green); }

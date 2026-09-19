@@ -60,3 +60,21 @@ def test_client_surfaces_provider_http_errors_without_provider_types() -> None:
             assert str(exc) == "operation not found"
         else:  # pragma: no cover - assertion guard
             raise AssertionError("expected ConnectorClientError")
+
+
+def test_client_exposes_discovery_audit_and_operation_reads() -> None:
+    paths = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.raw_path)
+        if request.url.path == "/v1/events":
+            return httpx.Response(200, json=[{"event_type": "CONNECTED"}])
+        return httpx.Response(200, json={"status": "ok"})
+
+    operation_id = UUID("00000000-0000-0000-0000-000000000001")
+    with _client(handler) as client:
+        assert client.integration() == {"status": "ok"}
+        assert client.events(limit=5) == [{"event_type": "CONNECTED"}]
+        assert client.operation(operation_id) == {"status": "ok"}
+
+    assert paths == [b"/v1/integration", b"/v1/events?limit=5", b"/v1/operations/00000000-0000-0000-0000-000000000001"]
