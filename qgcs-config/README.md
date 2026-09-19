@@ -9,6 +9,10 @@ contract used by a GCS integration.
   connector API and browser operator console. It is intentionally
   provider-neutral and can be consumed by a thin QGroundControl or other GCS
   adapter without modifying the stock flight-control application.
+- [`../examples/qgroundcontrol-custom-build/`](../examples/qgroundcontrol-custom-build/)
+  contains an optional native Fly View status overlay for a QGroundControl
+  custom build. A stock QGroundControl binary cannot load this resource as a
+  loose runtime plugin.
 
 The live service exposes the same contract at `GET /v1/integration`. The
 relative paths in the manifest are resolved against the connector origin, for
