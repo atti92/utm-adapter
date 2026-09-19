@@ -9,6 +9,8 @@ const state = {
   capabilities: null,
 };
 
+const DEMO_LEAD_TIME_MS = 15_000;
+
 const $ = (id) => document.getElementById(id);
 
 function escapeHtml(value) {
@@ -38,7 +40,7 @@ function localInputValue(date) {
 }
 
 function setDefaultWindow() {
-  const start = new Date(Date.now() + 60_000);
+  const start = new Date(Date.now() + DEMO_LEAD_TIME_MS);
   const end = new Date(Date.now() + 35 * 60_000);
   $("valid-from").value = localInputValue(start);
   $("valid-until").value = localInputValue(end);
@@ -427,7 +429,7 @@ function samplePlan() {
   const altitude = Number.isFinite(Number(telemetry?.altitude?.meters)) ? Number(telemetry.altitude.meters) : 137;
   const datum = telemetry?.altitude?.datum || "WGS84";
   return {
-    valid_from: new Date(Date.now() + 60_000).toISOString(),
+    valid_from: new Date(Date.now() + DEMO_LEAD_TIME_MS).toISOString(),
     valid_until: new Date(Date.now() + 35 * 60_000).toISOString(),
     source: "operator-console-demo",
     waypoints: [
@@ -480,7 +482,14 @@ async function sendIntent(command) {
   try {
     const operation = await request(`/v1/operator-intents?vehicle_id=${encodeURIComponent(state.vehicleId)}`, { method: "POST", body: JSON.stringify({ schema_version: "1.0", command, operation_id: operationId }) });
     renderOperation(operation);
-    setMessage(`${formatStatus(command)} completed.`, "success");
+    const startsAt = state.mission?.mission?.valid_from ? new Date(state.mission.mission.valid_from) : null;
+    const waitingForWindow = command === "START_OPERATION" && startsAt && startsAt > new Date();
+    setMessage(
+      waitingForWindow
+        ? `Operation started. Telemetry will publish automatically when the mission window opens at ${formatDate(startsAt)}.`
+        : `${formatStatus(command)} completed.`,
+      "success",
+    );
     await refresh();
   } catch (error) { setMessage(error.message, "error"); }
 }

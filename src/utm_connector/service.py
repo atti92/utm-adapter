@@ -228,8 +228,16 @@ class ConnectorService:
 
         publication_errors: Dict[UUID, BackendError] = {}
         publication_withheld: set[UUID] = set()
+        publication_withheld_reasons: Dict[UUID, str] = {}
         publication_coalesced: set[UUID] = set()
         publication_succeeded: set[UUID] = set()
+        now = datetime.now(timezone.utc)
+        mission_window_reason: Optional[str] = None
+        if mission_snapshot is not None:
+            if now < mission_snapshot.mission.valid_from:
+                mission_window_reason = "mission window has not opened"
+            elif now >= mission_snapshot.mission.valid_until:
+                mission_window_reason = "mission window has closed"
         for operation in active_operations:
             try:
                 if altitude_error is not None:
@@ -241,8 +249,19 @@ class ConnectorService:
                     TelemetryQuality.LOST,
                 }:
                     publication_withheld.add(operation.operation_id)
+                    publication_withheld_reasons[operation.operation_id] = (
+                        "telemetry is not fresh enough for provider publication"
+                    )
                     continue
-                now = datetime.now(timezone.utc)
+                if mission_window_reason is not None:
+                    # Flight Blender only considers a declaration current
+                    # inside its declared time window. Keep the MAVLink
+                    # session healthy and retry the next fresh sample rather
+                    # than turning a normal scheduled start into a provider
+                    # error.
+                    publication_withheld.add(operation.operation_id)
+                    publication_withheld_reasons[operation.operation_id] = mission_window_reason
+                    continue
                 last_published_at = self._last_published_at.get(operation.operation_id)
                 if (
                     self.telemetry_publish_interval_s > 0
@@ -326,7 +345,13 @@ class ConnectorService:
                         vehicle_id=vehicle_id,
                         operation_id=operation.operation_id,
                         severity="WARNING",
-                        details={"quality": telemetry.quality, "reason": "telemetry is not fresh enough for provider publication"},
+                        details={
+                            "quality": telemetry.quality,
+                            "reason": publication_withheld_reasons.get(
+                                operation.operation_id,
+                                "telemetry is not fresh enough for provider publication",
+                            ),
+                        },
                     )
         elif publication_succeeded:
             self._event(

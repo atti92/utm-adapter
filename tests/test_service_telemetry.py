@@ -34,8 +34,8 @@ class OperationAwareBackend(InMemoryBackend):
         super().publish_telemetry(telemetry, operation)
 
 
-def _mission() -> Mission:
-    start = datetime.now(timezone.utc)
+def _mission(start: datetime | None = None) -> Mission:
+    start = start or datetime.now(timezone.utc)
     return Mission(
         vehicle_id="sitl-1",
         valid_from=start,
@@ -104,6 +104,39 @@ def test_service_publishes_one_telemetry_observation_per_active_operation() -> N
         service.operations[operation_id].state.telemetry_publication.value == "ACTIVE"
         for operation_id in operation_ids
     )
+
+
+def test_service_waits_for_scheduled_mission_window_without_provider_error() -> None:
+    backend = OperationAwareBackend()
+    service = ConnectorService(backend)
+    service.put_mission("sitl-1", _mission(datetime.now(timezone.utc) + timedelta(seconds=30)))
+    operation_id = uuid4()
+    service.submit_operation(
+        OperationIntent(operation_id=operation_id, command=OperationCommand.SUBMIT_OPERATION),
+        "sitl-1",
+    )
+    service.apply_intent(
+        OperationIntent(operation_id=operation_id, command=OperationCommand.START_OPERATION)
+    )
+
+    service.put_telemetry(
+        "sitl-1",
+        VehicleTelemetry(
+            vehicle_id="sitl-1",
+            observed_at=datetime.now(timezone.utc),
+            latitude=47.4984,
+            longitude=19.0407,
+            altitude=Altitude(meters=122, datum=AltitudeDatum.AMSL),
+            quality=TelemetryQuality.GOOD,
+        ),
+    )
+
+    operation = service.operations[operation_id]
+    assert backend.published_operations == []
+    assert operation.state.telemetry_publication == TelemetryPublicationState.DEGRADED
+    assert service.last_backend_error is None
+    assert service.events[-1].event_type == "TELEMETRY_PUBLICATION_WITHHELD"
+    assert service.events[-1].details["reason"] == "mission window has not opened"
 
 
 def test_service_retries_transient_provider_telemetry_failures() -> None:
