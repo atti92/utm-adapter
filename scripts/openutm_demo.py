@@ -35,6 +35,8 @@ from utm_connector.diagnostics import port_is_reachable, probe_http_endpoint
 DEFAULT_VEHICLE_ID = "sitl-1"
 DEFAULT_PROVIDER_PORT = 8000
 DEFAULT_CONNECTOR_PORT = 8001
+DEFAULT_GCS_UDP_PORT = 14550
+DEFAULT_CONNECTOR_UDP_PORT = 14551
 DEFAULT_PROVIDER_TIMEOUT_S = 180.0
 DEFAULT_CONNECTOR_TIMEOUT_S = 30.0
 FLIGHT_BLENDER_IMAGE = "openutm/flight-blender-dev"
@@ -53,6 +55,8 @@ class DemoConfig:
     vehicle_id: str = DEFAULT_VEHICLE_ID
     provider_port: int = DEFAULT_PROVIDER_PORT
     connector_port: int = DEFAULT_CONNECTOR_PORT
+    gcs_udp_port: int = DEFAULT_GCS_UDP_PORT
+    connector_udp_port: int = DEFAULT_CONNECTOR_UDP_PORT
     provider_timeout_s: float = DEFAULT_PROVIDER_TIMEOUT_S
     connector_timeout_s: float = DEFAULT_CONNECTOR_TIMEOUT_S
     gcs: str = "auto"
@@ -308,6 +312,18 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--vehicle-id", default=DEFAULT_VEHICLE_ID)
     parser.add_argument("--provider-port", type=int, default=DEFAULT_PROVIDER_PORT)
     parser.add_argument("--connector-port", type=int, default=DEFAULT_CONNECTOR_PORT)
+    parser.add_argument(
+        "--gcs-udp-port",
+        type=int,
+        default=DEFAULT_GCS_UDP_PORT,
+        help="SITL UDP output for QGroundControl or Mission Planner (default: 14550)",
+    )
+    parser.add_argument(
+        "--connector-udp-port",
+        type=int,
+        default=DEFAULT_CONNECTOR_UDP_PORT,
+        help="SITL UDP input consumed by the connector (default: 14551)",
+    )
     parser.add_argument("--provider-timeout", type=float, default=DEFAULT_PROVIDER_TIMEOUT_S)
     parser.add_argument("--connector-timeout", type=float, default=DEFAULT_CONNECTOR_TIMEOUT_S)
     parser.add_argument(
@@ -339,6 +355,8 @@ def _config_from_args(args: argparse.Namespace) -> DemoConfig:
         vehicle_id=args.vehicle_id,
         provider_port=args.provider_port,
         connector_port=args.connector_port,
+        gcs_udp_port=args.gcs_udp_port,
+        connector_udp_port=args.connector_udp_port,
         provider_timeout_s=args.provider_timeout,
         connector_timeout_s=args.connector_timeout,
         gcs=args.gcs,
@@ -351,6 +369,15 @@ def check_prerequisites(config: DemoConfig) -> list[str]:
     """Return human-readable prerequisite failures without starting anything."""
 
     failures: list[str] = []
+    for label, port in (
+        ("GCS UDP port", config.gcs_udp_port),
+        ("connector UDP port", config.connector_udp_port),
+    ):
+        if not 1 <= port <= 65535:
+            failures.append(f"{label} must be between 1 and 65535 (got {port})")
+    if config.gcs_udp_port == config.connector_udp_port:
+        failures.append("GCS UDP port and connector UDP port must be different")
+
     if not config.flight_blender_root.is_dir():
         failures.append(f"Flight Blender checkout not found: {config.flight_blender_root}")
     elif not (config.flight_blender_root / "docker-compose-dev.yml").is_file():
@@ -438,8 +465,8 @@ class DemoRunner:
                 "UTM_CONNECTOR_RECORD_PATH": str(self.config.connector_record_path),
                 "UTM_CONNECTOR_ALTITUDE_GEOID_GRID_PATH": str(geoid_grid),
                 "UTM_CONNECTOR_MAVLINK_CONNECTIONS": (
-                    '[{"vehicle_id":"%s","connection_uri":"udpin:127.0.0.1:14551"}]'
-                    % self.config.vehicle_id
+                    '[{"vehicle_id":"%s","connection_uri":"udpin:127.0.0.1:%s"}]'
+                    % (self.config.vehicle_id, self.config.connector_udp_port)
                 ),
             }
         )
@@ -462,7 +489,10 @@ class DemoRunner:
         print("")
         print("UTM demo is ready")
         print(f"  Operator console: {self.config.connector_url}/ui/")
-        print(f"  Vehicle:          {self.config.vehicle_id} (GCS UDP 14550, connector UDP 14551)")
+        print(
+            f"  Vehicle:          {self.config.vehicle_id} "
+            f"(GCS UDP {self.config.gcs_udp_port}, connector UDP {self.config.connector_udp_port})"
+        )
         print("  Workflow:         choose Sample route or open a GCS mission, Validate & save, Submit, Start")
         if gcs_label:
             print(f"  GCS:              {gcs_label}")
@@ -526,6 +556,10 @@ def _start_sitl(runner: DemoRunner) -> None:
             str(config.ardupilot_root),
             "--home",
             config.home,
+            "--gcs-port",
+            str(config.gcs_udp_port),
+            "--connector-port",
+            str(config.connector_udp_port),
         ],
         cwd=config.ardupilot_root,
         env=os.environ.copy(),

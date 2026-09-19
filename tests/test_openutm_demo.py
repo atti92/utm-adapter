@@ -22,7 +22,25 @@ def test_demo_config_keeps_provider_and_connector_separate() -> None:
 
     assert config.provider_url == "http://127.0.0.1:8000"
     assert config.connector_url == "http://127.0.0.1:8001"
+    assert config.gcs_udp_port == 14550
+    assert config.connector_udp_port == 14551
     assert config.connector_record_path == config.run_dir / "connector-events.jsonl"
+
+
+def test_check_prerequisites_rejects_invalid_or_duplicate_simulator_ports(tmp_path: Path, monkeypatch) -> None:
+    config = openutm_demo.DemoConfig(
+        flight_blender_root=tmp_path / "missing-flight-blender",
+        ardupilot_root=tmp_path / "missing-ardupilot",
+        gcs_udp_port=14551,
+        connector_udp_port=14551,
+    )
+    monkeypatch.setattr(openutm_demo, "_command_available", lambda _command: (True, "ok"))
+    monkeypatch.setattr(openutm_demo, "_find_geoid_grid", lambda: tmp_path / "grid.tif")
+    monkeypatch.setattr(openutm_demo, "port_is_reachable", lambda _host, _port: False)
+
+    failures = openutm_demo.check_prerequisites(config)
+
+    assert "GCS UDP port and connector UDP port must be different" in failures
 
 
 def test_compose_up_reuses_a_cached_provider_image(tmp_path: Path, monkeypatch) -> None:

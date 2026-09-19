@@ -70,6 +70,13 @@ performed: choose the detected vehicle, select `Sample route` or open a
 QGroundControl `.plan`/Mission Planner `.waypoints` export, then validate, submit,
 and start the operation. The GCS remains the vehicle-control application.
 
+If the default simulator endpoints are already used, choose different ports
+without editing configuration files, for example:
+
+```sh
+uv run python scripts/openutm_demo.py --gcs-udp-port 14560 --connector-udp-port 14561
+```
+
 Set `FLIGHT_BLENDER_ROOT` and `ARDUPILOT_ROOT` when the checkouts are not in
 the sibling directories next to this repository. The same Python launcher can
 be run from PowerShell; use `--gcs mission-planner` on Windows when Mission

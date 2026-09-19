@@ -121,6 +121,9 @@ It starts the same two outputs and places the vehicle at the documented
 Budapest test location by default. Pass `--home lat,lon,altitude,heading` to
 use another location.
 
+The supervised demo also accepts `--gcs-udp-port` and
+`--connector-udp-port` when the default simulator ports are already in use.
+
 Start exactly one GCS on UDP `14550` for the simplest setup. Launch
 QGroundControl or Mission Planner normally from its application menu. On
 macOS, QGroundControl can also be started with `open -a QGroundControl`; on
