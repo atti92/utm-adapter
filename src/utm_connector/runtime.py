@@ -61,6 +61,7 @@ class MavlinkSessionManager:
         self._threads: List[threading.Thread] = []
         self._lock = threading.RLock()
         self._delivered_missions: Dict[str, MavlinkMissionRead] = {}
+        self._last_snapshot_signatures: Dict[str, tuple[object, ...]] = {}
         self.last_errors: Dict[str, str] = {}
 
     def start(self) -> None:
@@ -68,6 +69,7 @@ class MavlinkSessionManager:
             if self._threads:
                 return
             self._stop.clear()
+            self._last_snapshot_signatures.clear()
             for connection in self.connections:
                 try:
                     session = self.session_factory(connection.vehicle_id, connection.connection_uri)
@@ -112,6 +114,7 @@ class MavlinkSessionManager:
             self._threads = []
             self.sessions.clear()
             self._delivered_missions.clear()
+            self._last_snapshot_signatures.clear()
 
     def request_mission(self, vehicle_id: str) -> None:
         session = self.sessions.get(vehicle_id)
@@ -129,8 +132,10 @@ class MavlinkSessionManager:
                 message = session.poll(timeout=0.0)
                 self._clear_error(vehicle_id)
                 if message is not None:
-                    self._deliver(vehicle_id, session)
+                    self._deliver(vehicle_id, session, force=True)
                     messages += 1
+                else:
+                    self._deliver(vehicle_id, session, force=False)
             except Exception as exc:
                 self._report_error(vehicle_id, exc)
         return messages
@@ -141,7 +146,9 @@ class MavlinkSessionManager:
                 message = session.poll(timeout=self.poll_interval_s)
                 self._clear_error(vehicle_id)
                 if message is not None:
-                    self._deliver(vehicle_id, session)
+                    self._deliver(vehicle_id, session, force=True)
+                else:
+                    self._deliver(vehicle_id, session, force=False)
             except Exception as exc:
                 if self._stop.is_set():
                     break
@@ -158,8 +165,24 @@ class MavlinkSessionManager:
         with self._lock:
             self.last_errors.pop(vehicle_id, None)
 
-    def _deliver(self, vehicle_id: str, session: PollableSession) -> None:
-        self.on_snapshot(session.snapshot())
+    def _deliver(self, vehicle_id: str, session: PollableSession, *, force: bool) -> None:
+        try:
+            snapshot = session.snapshot()
+        except ValueError as exc:
+            # A session has no identity until its first vehicle heartbeat. This
+            # is normal during startup and is not a connection error.
+            if str(exc) == "cannot create a vehicle snapshot before receiving MAVLink data":
+                return
+            raise
+        signature = (
+            snapshot.connection_state,
+            snapshot.quality,
+            snapshot.telemetry.observed_at if snapshot.telemetry is not None else None,
+        )
+        if not force and self._last_snapshot_signatures.get(vehicle_id) == signature:
+            return
+        self.on_snapshot(snapshot)
+        self._last_snapshot_signatures[vehicle_id] = signature
         mission = getattr(session, "onboard_mission", None)
         if mission is not None and mission is not self._delivered_missions.get(vehicle_id):
             self._delivered_missions[vehicle_id] = mission

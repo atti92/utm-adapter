@@ -220,6 +220,12 @@ the next telemetry update. Once the provider accepts the stream it returns to
 `ACTIVE`; deterministic configuration errors, such as a missing geoid grid,
 remain terminal and are reported to the operator.
 
+When a MAVLink link goes quiet, the runtime continues evaluating the last
+observation until it becomes `STALE` or `LOST`. Those observations are retained
+for diagnostics but are not forwarded to an active UTM operation; conformance
+is reported as `TELEMETRY_UNRELIABLE` and publication is shown as `DEGRADED`.
+Fresh telemetry automatically resumes publication after the link recovers.
+
 When `UTM_CONNECTOR_RECORD_PATH` is set, connector events, backend request/response envelopes, and raw inbound MAVLink frames are appended as JSONL. Authorization headers are redacted. Raw frames are stored as base64 in `mavlink_frame` records, so the file remains portable and does not depend on a pymavlink dialect during capture. Recording is diagnostic-only: it never adds vehicle-control commands, and the file should be treated as sensitive telemetry.
 
 Replay all connector records in a diagnostic tool with `JsonlReplay`:

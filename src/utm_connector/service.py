@@ -19,6 +19,7 @@ from .domain import (
     OperationCommand,
     OperationIntent,
     OperationState,
+    TelemetryQuality,
     TelemetryPublicationState,
     VehicleStateSnapshot,
     VehicleTelemetry,
@@ -195,10 +196,19 @@ class ConnectorService:
                 altitude_error = exc
 
         publication_errors: Dict[UUID, BackendError] = {}
+        publication_withheld: set[UUID] = set()
         for operation in active_operations:
             try:
                 if altitude_error is not None:
                     raise altitude_error
+                if telemetry.quality in {
+                    TelemetryQuality.UNKNOWN,
+                    TelemetryQuality.STALE,
+                    TelemetryQuality.INVALID,
+                    TelemetryQuality.LOST,
+                }:
+                    publication_withheld.add(operation.operation_id)
+                    continue
                 assert provider_telemetry is not None  # narrowed for active operations
                 self.backend.publish_telemetry(provider_telemetry, operation)
             except BackendError as exc:
@@ -232,7 +242,7 @@ class ConnectorService:
                 TelemetryPublicationState.FAILED
                 if altitude_error is not None
                 else TelemetryPublicationState.DEGRADED
-                if publication_error is not None
+                if publication_error is not None or operation.operation_id in publication_withheld
                 else TelemetryPublicationState.ACTIVE
             )
             operation.updated_at = datetime.now(timezone.utc)
@@ -254,11 +264,28 @@ class ConnectorService:
                         },
                     )
             raise next(iter(publication_errors.values()))
-        self._event(
-            "TELEMETRY_PUBLISHED" if active_operations else "TELEMETRY_RECEIVED",
-            vehicle_id=vehicle_id,
-            details={"quality": telemetry.quality},
-        )
+        if not active_operations:
+            self._event(
+                "TELEMETRY_RECEIVED",
+                vehicle_id=vehicle_id,
+                details={"quality": telemetry.quality},
+            )
+        elif publication_withheld:
+            for operation in active_operations:
+                if operation.operation_id in publication_withheld:
+                    self._event(
+                        "TELEMETRY_PUBLICATION_WITHHELD",
+                        vehicle_id=vehicle_id,
+                        operation_id=operation.operation_id,
+                        severity="WARNING",
+                        details={"quality": telemetry.quality, "reason": "telemetry is not fresh enough for provider publication"},
+                    )
+        else:
+            self._event(
+                "TELEMETRY_PUBLISHED",
+                vehicle_id=vehicle_id,
+                details={"quality": telemetry.quality},
+            )
         return telemetry
 
     def ingest_vehicle_snapshot(self, snapshot: VehicleStateSnapshot) -> VehicleStateSnapshot:

@@ -11,10 +11,12 @@ from utm_connector.backends import InMemoryBackend
 from utm_connector.domain import (
     Altitude,
     AltitudeDatum,
+    ConformanceState,
     Mission,
     Operation,
     OperationCommand,
     OperationIntent,
+    TelemetryQuality,
     TelemetryPublicationState,
     VehicleTelemetry,
 )
@@ -93,6 +95,7 @@ def test_service_publishes_one_telemetry_observation_per_active_operation() -> N
         latitude=47.4979,
         longitude=19.0402,
         altitude=Altitude(meters=120, datum=AltitudeDatum.AMSL),
+        quality=TelemetryQuality.GOOD,
     )
     service.put_telemetry("sitl-1", telemetry)
 
@@ -130,6 +133,7 @@ def test_service_retries_transient_provider_telemetry_failures() -> None:
         latitude=47.4984,
         longitude=19.0407,
         altitude=Altitude(meters=122, datum=AltitudeDatum.AMSL),
+        quality=TelemetryQuality.GOOD,
     )
 
     with pytest.raises(BackendError, match="not active yet"):
@@ -139,6 +143,38 @@ def test_service_retries_transient_provider_telemetry_failures() -> None:
     service.put_telemetry("sitl-1", telemetry)
     assert service.operations[operation_id].state.telemetry_publication == TelemetryPublicationState.ACTIVE
     assert len(backend.telemetry) == 1
+
+
+def test_service_withholds_stale_telemetry_from_provider() -> None:
+    backend = OperationAwareBackend()
+    service = ConnectorService(backend)
+    service.put_mission("sitl-1", _mission())
+    operation_id = uuid4()
+    service.submit_operation(
+        OperationIntent(operation_id=operation_id, command=OperationCommand.SUBMIT_OPERATION),
+        "sitl-1",
+    )
+    service.apply_intent(
+        OperationIntent(operation_id=operation_id, command=OperationCommand.START_OPERATION)
+    )
+
+    service.put_telemetry(
+        "sitl-1",
+        VehicleTelemetry(
+            vehicle_id="sitl-1",
+            observed_at=datetime.now(timezone.utc) - timedelta(seconds=20),
+            latitude=47.4984,
+            longitude=19.0407,
+            altitude=Altitude(meters=122, datum=AltitudeDatum.AMSL),
+            quality=TelemetryQuality.LOST,
+        ),
+    )
+
+    operation = service.operations[operation_id]
+    assert backend.published_operations == []
+    assert operation.state.telemetry_publication == TelemetryPublicationState.DEGRADED
+    assert operation.state.conformance == ConformanceState.TELEMETRY_UNRELIABLE
+    assert service.events[-1].event_type == "TELEMETRY_PUBLICATION_WITHHELD"
 
 
 def test_service_converts_altitude_at_flight_blender_boundary() -> None:

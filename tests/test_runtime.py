@@ -138,3 +138,53 @@ def test_session_manager_keeps_last_connection_error_for_diagnostics() -> None:
 
     assert manager.last_errors == {"sitl-1": "simulator is offline"}
     assert errors == [("sitl-1", "simulator is offline")]
+
+
+def test_session_manager_delivers_quiet_period_connection_transitions() -> None:
+    connected = _snapshot()
+    lost = connected.model_copy(
+        update={
+            "connection_state": VehicleConnectionState.LOST,
+            "quality": TelemetryQuality.LOST,
+            "telemetry": connected.telemetry.model_copy(update={"quality": TelemetryQuality.LOST}),
+            "health": VehicleHealth(heartbeat_age_s=11, position_age_s=11),
+        }
+    )
+
+    class QuietSession:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def poll(self, timeout: float = 0.0) -> object:
+            return None
+
+        def snapshot(self) -> VehicleStateSnapshot:
+            self.calls += 1
+            return connected if self.calls == 1 else lost
+
+        @property
+        def onboard_mission(self) -> MavlinkMissionRead | None:
+            return None
+
+        def request_mission(self) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+    received: list[VehicleStateSnapshot] = []
+    manager = MavlinkSessionManager(
+        [],
+        received.append,
+        session_factory=lambda _vehicle_id, _uri: QuietSession(),
+    )
+    manager.sessions["sitl-1"] = QuietSession()
+
+    manager.poll_once()
+    manager.poll_once()
+    manager.poll_once()
+
+    assert [snapshot.connection_state for snapshot in received] == [
+        VehicleConnectionState.CONNECTED,
+        VehicleConnectionState.LOST,
+    ]
