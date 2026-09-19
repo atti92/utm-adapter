@@ -6,6 +6,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from .backends import BackendError, FlightBlenderBackend, InMemoryBackend
@@ -25,6 +26,7 @@ from .missions import MissionParseError, parse_qgroundcontrol_plan
 from .service import ConnectorError, ConnectorService
 from .persistence import SQLiteStateStore
 from .recording import JsonlRecorder
+from .integration import integration_manifest
 
 
 def create_app(
@@ -96,6 +98,7 @@ def create_app(
         return {
             "backend": service.backend.name,
             "mission_formats": ["canonical", "qgroundcontrol"],
+            "integration_manifest": "/v1/integration",
             "mavlink": {
                 "configured": bool(manager.connections),
                 "non_commanding": True,
@@ -105,6 +108,12 @@ def create_app(
             },
             "operator_commands": [command.value for command in OperationCommand],
         }
+
+    @app.get("/v1/integration", response_model=dict)
+    def integration() -> dict:
+        """Expose the zero-fork GCS/connector boundary for local discovery."""
+
+        return integration_manifest()
 
     @app.get("/v1/health", response_model=HealthResponse)
     def health() -> HealthResponse:
@@ -278,6 +287,12 @@ def create_app(
     @app.get("/v1/events", response_model=List[Event])
     def events(limit: int = Query(default=100, ge=1, le=1000)) -> List[Event]:
         return list(reversed(service.events[-limit:]))
+
+    @app.get("/", include_in_schema=False)
+    def root() -> RedirectResponse:
+        """Make the normal local launch URL open the operator workflow."""
+
+        return RedirectResponse(url="/ui/")
 
     ui_directory = Path(__file__).with_name("ui")
     app.mount("/ui", StaticFiles(directory=ui_directory, html=True), name="ui")

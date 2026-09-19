@@ -1,11 +1,25 @@
-## QGCS Config file (product.json)
+## GCS configuration
 
-This directory contains the configuration detail for UTM adapter in QGCS
+This directory contains the provider metadata and the zero-fork connector
+contract used by a GCS integration.
 
-## File structure
-| Variable Key | Data Type | Description |
-|--------------|--------------|:-----:|
-| available_services | list | A list of services that are supported by the USSP  |
+- [`product.json`](product.json) describes the UTM/USSP capabilities shown in
+  the GCS product configuration.
+- [`connector-manifest.json`](connector-manifest.json) describes the local
+  connector API and browser operator console. It is intentionally
+  provider-neutral and can be consumed by a thin QGroundControl or other GCS
+  adapter without modifying the stock flight-control application.
+
+The live service exposes the same contract at `GET /v1/integration`. The
+relative paths in the manifest are resolved against the connector origin, for
+example `http://127.0.0.1:8000/v1/integration`. Opening the service root
+(`http://127.0.0.1:8000/`) redirects to the operator console.
+
+The connector is non-commanding with respect to vehicle control: MAVLink is
+used for telemetry and optional onboard-mission download, while operation
+submit/start/cancel/complete actions are UTM-side API intents. Use the
+single-router topology in `examples/mavlink-router/` when the GCS and
+connector need to observe the same vehicle link.
 
 ## Definitions 
 

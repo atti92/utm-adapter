@@ -91,6 +91,7 @@ def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
     capabilities = client.get("/v1/capabilities")
 
     assert capabilities.status_code == 200
+    assert capabilities.json()["integration_manifest"] == "/v1/integration"
     assert capabilities.json()["mavlink"] == {
         "configured": False,
         "non_commanding": True,
@@ -123,6 +124,24 @@ def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
             "last_error": None,
         }
     ]
+
+
+def test_root_launches_operator_console_and_exposes_integration_contract() -> None:
+    client = TestClient(create_app(ConnectorService(InMemoryBackend())))
+
+    root = client.get("/", follow_redirects=False)
+    assert root.status_code == 307
+    assert root.headers["location"] == "/ui/"
+
+    manifest = client.get("/v1/integration")
+    assert manifest.status_code == 200
+    payload = manifest.json()
+    assert payload["operator_console"]["path"] == "/ui/"
+    assert payload["api"]["mission"]["qgroundcontrol"] == {
+        "method": "PUT",
+        "path": "/v1/missions/{vehicle_id}/qgroundcontrol",
+    }
+    assert payload["mavlink"]["vehicle_control"] == "none"
 
 
 def test_vehicle_directory_reports_configured_session_before_first_heartbeat() -> None:
