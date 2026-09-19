@@ -15,6 +15,7 @@ from utm_connector.domain import (
     Operation,
     OperationCommand,
     OperationIntent,
+    TelemetryPublicationState,
     VehicleTelemetry,
 )
 from utm_connector.service import ConnectorService
@@ -100,6 +101,44 @@ def test_service_publishes_one_telemetry_observation_per_active_operation() -> N
         service.operations[operation_id].state.telemetry_publication.value == "ACTIVE"
         for operation_id in operation_ids
     )
+
+
+def test_service_retries_transient_provider_telemetry_failures() -> None:
+    class TransientBackend(OperationAwareBackend):
+        failures_remaining = 1
+
+        def publish_telemetry(self, telemetry: VehicleTelemetry, operation: Operation | None = None) -> None:
+            if self.failures_remaining:
+                self.failures_remaining -= 1
+                raise BackendError("provider is not active yet")
+            super().publish_telemetry(telemetry, operation)
+
+    backend = TransientBackend()
+    service = ConnectorService(backend)
+    service.put_mission("sitl-1", _mission())
+    operation_id = uuid4()
+    service.submit_operation(
+        OperationIntent(operation_id=operation_id, command=OperationCommand.SUBMIT_OPERATION),
+        "sitl-1",
+    )
+    service.apply_intent(
+        OperationIntent(operation_id=operation_id, command=OperationCommand.START_OPERATION)
+    )
+    telemetry = VehicleTelemetry(
+        vehicle_id="sitl-1",
+        observed_at=datetime.now(timezone.utc),
+        latitude=47.4984,
+        longitude=19.0407,
+        altitude=Altitude(meters=122, datum=AltitudeDatum.AMSL),
+    )
+
+    with pytest.raises(BackendError, match="not active yet"):
+        service.put_telemetry("sitl-1", telemetry)
+    assert service.operations[operation_id].state.telemetry_publication == TelemetryPublicationState.DEGRADED
+
+    service.put_telemetry("sitl-1", telemetry)
+    assert service.operations[operation_id].state.telemetry_publication == TelemetryPublicationState.ACTIVE
+    assert len(backend.telemetry) == 1
 
 
 def test_service_converts_altitude_at_flight_blender_boundary() -> None:

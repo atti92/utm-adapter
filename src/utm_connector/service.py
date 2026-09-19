@@ -175,7 +175,10 @@ class ConnectorService:
             operation
             for operation in self.operations.values()
             if operation.vehicle_id == vehicle_id
-            and operation.state.telemetry_publication == TelemetryPublicationState.ACTIVE
+            and operation.state.telemetry_publication in {
+                TelemetryPublicationState.ACTIVE,
+                TelemetryPublicationState.DEGRADED,
+            }
         ]
         provider_telemetry: Optional[VehicleTelemetry] = telemetry
         provider_mission: Optional[Mission] = None
@@ -227,6 +230,8 @@ class ConnectorService:
             publication_error = publication_errors.get(operation.operation_id)
             operation.state.telemetry_publication = (
                 TelemetryPublicationState.FAILED
+                if altitude_error is not None
+                else TelemetryPublicationState.DEGRADED
                 if publication_error is not None
                 else TelemetryPublicationState.ACTIVE
             )
