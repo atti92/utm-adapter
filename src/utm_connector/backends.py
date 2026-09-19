@@ -22,6 +22,7 @@ from .recording import JsonlRecorder
 
 class UTMBackend(ABC):
     name = "backend"
+    required_altitude_datum: Optional[AltitudeDatum] = None
 
     @abstractmethod
     def submit_operation(self, operation: Operation, mission: Mission) -> Operation:
@@ -88,6 +89,7 @@ class FlightBlenderBackend(UTMBackend):
     """HTTP adapter for the Flight Blender flight declaration and RID APIs."""
 
     name = "flight-blender"
+    required_altitude_datum = AltitudeDatum.WGS84
 
     def __init__(
         self,
@@ -191,6 +193,11 @@ class FlightBlenderBackend(UTMBackend):
     def publish_telemetry(
         self, telemetry: VehicleTelemetry, operation: Optional[Operation] = None
     ) -> None:
+        if telemetry.altitude.datum != self.required_altitude_datum:
+            raise BackendError(
+                "Flight Blender telemetry requires WGS84 altitude; "
+                f"received {telemetry.altitude.datum.value}"
+            )
         if operation is not None and operation.vehicle_id != telemetry.vehicle_id:
             raise BackendError("telemetry vehicle_id does not match the operation vehicle_id")
         operation_id = None

@@ -1,9 +1,12 @@
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-import httpx
+import json
 
-from utm_connector.backends import FlightBlenderBackend
+import httpx
+import pytest
+
+from utm_connector.backends import BackendError, FlightBlenderBackend
 from utm_connector.backends import InMemoryBackend
 from utm_connector.domain import (
     Altitude,
@@ -97,3 +100,108 @@ def test_service_publishes_one_telemetry_observation_per_active_operation() -> N
         service.operations[operation_id].state.telemetry_publication.value == "ACTIVE"
         for operation_id in operation_ids
     )
+
+
+def test_service_converts_altitude_at_flight_blender_boundary() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path.endswith("set_flight_declaration"):
+            return httpx.Response(200, json={"id": "provider-1", "state": 1, "is_approved": 1})
+        return httpx.Response(201, json={"message": "Telemetry data successfully submitted"})
+
+    class OffsetConverter:
+        @staticmethod
+        def convert_mission(mission: Mission, *, target: AltitudeDatum) -> Mission:
+            assert target == AltitudeDatum.WGS84
+            return mission.model_copy(
+                update={
+                    "waypoints": [
+                        waypoint.model_copy(
+                            update={
+                                "altitude": Altitude(
+                                    meters=waypoint.altitude.meters + 100,
+                                    datum=target,
+                                )
+                            }
+                        )
+                        for waypoint in mission.waypoints
+                    ]
+                }
+            )
+
+        @staticmethod
+        def convert_telemetry(telemetry: VehicleTelemetry, *, target: AltitudeDatum) -> VehicleTelemetry:
+            assert target == AltitudeDatum.WGS84
+            return telemetry.model_copy(
+                update={
+                    "altitude": Altitude(
+                        meters=telemetry.altitude.meters + 100,
+                        datum=target,
+                    )
+                }
+            )
+
+    service = ConnectorService(
+        FlightBlenderBackend(
+            "http://flight-blender.test",
+            client=httpx.Client(transport=httpx.MockTransport(handler)),
+        ),
+        altitude_converter=OffsetConverter(),  # type: ignore[arg-type]
+    )
+    mission = _mission()
+    service.put_mission("sitl-1", mission)
+    operation_id = uuid4()
+    service.submit_operation(
+        OperationIntent(operation_id=operation_id, command=OperationCommand.SUBMIT_OPERATION),
+        "sitl-1",
+    )
+    service.apply_intent(
+        OperationIntent(operation_id=operation_id, command=OperationCommand.START_OPERATION)
+    )
+
+    service.put_telemetry(
+        "sitl-1",
+        VehicleTelemetry(
+            vehicle_id="sitl-1",
+            observed_at=datetime.now(timezone.utc),
+            latitude=47.4984,
+            longitude=19.0407,
+            altitude=Altitude(meters=122, datum=AltitudeDatum.AMSL),
+            quality="GOOD",
+        ),
+    )
+
+    declaration = json.loads(requests[0].content)
+    telemetry = json.loads(requests[2].content)
+    min_altitude = declaration["flight_declaration_geo_json"]["features"][0]["properties"]["min_altitude"]
+    observed_altitude = telemetry["observations"][0]["current_states"][0]["position"]["alt"]
+    assert min_altitude == {"meters": 220.0, "datum": "WGS84"}
+    assert observed_altitude == 222.0
+    assert service.operations[operation_id].state.conformance.value == "CONFORMING"
+    assert service.operations[operation_id].state.telemetry_publication.value == "ACTIVE"
+
+
+def test_service_marks_provider_publication_unreliable_without_altitude_conversion() -> None:
+    backend = FlightBlenderBackend(
+        "http://flight-blender.test",
+        client=httpx.Client(
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(
+                    200,
+                    json={"id": "provider-1", "state": 1, "is_approved": 1},
+                )
+                if request.url.path.endswith("set_flight_declaration")
+                else httpx.Response(201),
+            )
+        ),
+    )
+    service = ConnectorService(backend)
+    service.put_mission("sitl-1", _mission())
+
+    with pytest.raises(BackendError, match="requires WGS84 mission altitude"):
+        service.submit_operation(
+            OperationIntent(operation_id=uuid4(), command=OperationCommand.SUBMIT_OPERATION),
+            "sitl-1",
+        )

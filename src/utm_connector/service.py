@@ -4,8 +4,9 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from uuid import UUID
 
+from .altitude import AltitudeConversionError, AltitudeConverter
 from .backends import BackendError, UTMBackend
-from .conformance import assess_conformance
+from .conformance import ConformanceAssessment, assess_conformance
 from .domain import (
     AuthorizationState,
     ConformanceState,
@@ -39,6 +40,7 @@ class ConnectorService:
         state_store: Optional[SQLiteStateStore] = None,
         recorder: Optional[JsonlRecorder] = None,
         event_history_limit: int = 1000,
+        altitude_converter: Optional[AltitudeConverter] = None,
     ) -> None:
         if event_history_limit < 1:
             raise ValueError("event_history_limit must be greater than zero")
@@ -46,6 +48,7 @@ class ConnectorService:
         self.state_store = state_store
         self.recorder = recorder
         self.event_history_limit = event_history_limit
+        self.altitude_converter = altitude_converter
         self.missions: Dict[str, MissionSnapshot] = {}
         self.onboard_missions: Dict[str, MissionSnapshot] = {}
         self.onboard_mission_reads: Dict[str, MavlinkMissionRead] = {}
@@ -174,17 +177,41 @@ class ConnectorService:
             if operation.vehicle_id == vehicle_id
             and operation.state.telemetry_publication == TelemetryPublicationState.ACTIVE
         ]
+        provider_telemetry: Optional[VehicleTelemetry] = telemetry
+        provider_mission: Optional[Mission] = None
+        altitude_error: Optional[BackendError] = None
+        mission_snapshot = self.missions.get(vehicle_id)
+        if active_operations:
+            try:
+                provider_telemetry = self._provider_telemetry(telemetry)
+                if mission_snapshot is not None:
+                    provider_mission = self._provider_mission(mission_snapshot.mission)
+            except BackendError as exc:
+                # Keep the source observation stored, but do not claim that it
+                # was published or assessed in the provider's altitude datum.
+                altitude_error = exc
+
         publication_errors: Dict[UUID, BackendError] = {}
         for operation in active_operations:
             try:
-                self.backend.publish_telemetry(telemetry, operation)
+                if altitude_error is not None:
+                    raise altitude_error
+                assert provider_telemetry is not None  # narrowed for active operations
+                self.backend.publish_telemetry(provider_telemetry, operation)
             except BackendError as exc:
                 publication_errors[operation.operation_id] = exc
 
         for operation in active_operations:
-            mission_snapshot = self.missions.get(vehicle_id)
             if mission_snapshot is not None:
-                assessment = assess_conformance(mission_snapshot.mission, telemetry)
+                if altitude_error is not None or provider_mission is None:
+                    assessment = ConformanceAssessment(
+                        state=ConformanceState.TELEMETRY_UNRELIABLE,
+                        horizontal_distance_m=0,
+                        reason=f"provider altitude conversion unavailable: {altitude_error}",
+                        assessed_at=datetime.now(timezone.utc),
+                    )
+                else:
+                    assessment = assess_conformance(provider_mission, provider_telemetry)
                 operation.state.conformance = assessment.state
                 self._event(
                     "CONFORMANCE_ASSESSED",
@@ -304,7 +331,7 @@ class ConnectorService:
                 authorization=AuthorizationState.AUTHORIZED,
             ),
         )
-        operation = self.backend.submit_operation(operation, snapshot.mission)
+        operation = self.backend.submit_operation(operation, self._provider_mission(snapshot.mission))
         self.operations[operation.operation_id] = operation
         if self.state_store is not None:
             self.state_store.save_operation(operation)
@@ -316,6 +343,34 @@ class ConnectorService:
             details={"mission_hash": operation.mission_hash},
         )
         return operation
+
+    def _provider_mission(self, mission: Mission) -> Mission:
+        target = self.backend.required_altitude_datum
+        if target is None or all(waypoint.altitude.datum == target for waypoint in mission.waypoints):
+            return mission
+        if self.altitude_converter is None:
+            raise BackendError(
+                f"{self.backend.name} requires {target.value} mission altitude; "
+                "configure an altitude geoid grid to convert the source datum"
+            )
+        try:
+            return self.altitude_converter.convert_mission(mission, target=target)
+        except AltitudeConversionError as exc:
+            raise BackendError(f"cannot convert mission altitude for {self.backend.name}: {exc}") from exc
+
+    def _provider_telemetry(self, telemetry: VehicleTelemetry) -> VehicleTelemetry:
+        target = self.backend.required_altitude_datum
+        if target is None or telemetry.altitude.datum == target:
+            return telemetry
+        if self.altitude_converter is None:
+            raise BackendError(
+                f"{self.backend.name} requires {target.value} telemetry altitude; "
+                "configure an altitude geoid grid to convert the source datum"
+            )
+        try:
+            return self.altitude_converter.convert_telemetry(telemetry, target=target)
+        except AltitudeConversionError as exc:
+            raise BackendError(f"cannot convert telemetry altitude for {self.backend.name}: {exc}") from exc
 
     def refresh_operation(self, operation_id: UUID) -> Operation:
         """Reconcile one operation with provider-owned state."""

@@ -204,7 +204,15 @@ UTM_CONNECTOR_FLIGHT_BLENDER_RETRY_BACKOFF_S=0.25
 UTM_CONNECTOR_RECORD_PATH=connector-events.jsonl
 ```
 
-The adapter calls Flight Blender's `set_flight_declaration` endpoint with the generated WGS84 corridor and stores the provider declaration ID in the local operation record. It calls `set_telemetry` with the provider ID for subsequent telemetry. A mission whose altitude datum is AGL or AMSL is intentionally rejected for declaration submission because the connector does not have enough information to convert it to WGS84 safely; use WGS84 mission altitudes for this integration path.
+The adapter calls Flight Blender's `set_flight_declaration` endpoint with the generated WGS84 corridor and stores the provider declaration ID in the local operation record. It calls `set_telemetry` with the provider ID for subsequent telemetry. A mission whose altitude datum is AGL or AMSL is converted only when an explicit geoid grid is configured; otherwise submission is rejected because the connector does not have enough information to convert it to WGS84 safely.
+
+For a live MAVLink vehicle, `GLOBAL_POSITION_INT.alt` is AMSL while Flight
+Blender expects WGS84 ellipsoidal height. Set
+`UTM_CONNECTOR_ALTITUDE_GEOID_GRID_PATH` to an explicitly installed PROJ
+EGM96/EGM2008 grid to enable the coordinate-aware conversion. Without that
+setting the connector preserves the source datum and refuses the provider
+operation rather than silently treating AMSL as WGS84. AGL missions still need
+a terrain/home reference and are rejected until one is supplied.
 
 When `UTM_CONNECTOR_RECORD_PATH` is set, connector events, backend request/response envelopes, and raw inbound MAVLink frames are appended as JSONL. Authorization headers are redacted. Raw frames are stored as base64 in `mavlink_frame` records, so the file remains portable and does not depend on a pymavlink dialect during capture. Recording is diagnostic-only: it never adds vehicle-control commands, and the file should be treated as sensitive telemetry.
 

@@ -6,6 +6,7 @@ import os
 import sys
 from pathlib import Path
 
+from utm_connector.altitude import AltitudeConversionError, AltitudeConverter
 from utm_connector.config import ConnectorSettings
 from utm_connector.diagnostics import port_is_reachable
 
@@ -73,6 +74,19 @@ def main() -> int:
             _info("Flight Blender token", "empty; local development bypass may still require a generated token")
     else:
         _check("UTM backend", "in-memory; no external UTM service is required")
+
+    if settings.altitude_geoid_grid_path:
+        try:
+            AltitudeConverter(settings.altitude_geoid_grid_path)
+        except AltitudeConversionError as exc:
+            print(f"[fail] altitude conversion: {exc}")
+            return 1
+        _check("altitude conversion", f"geoid grid {settings.altitude_geoid_grid_path}")
+    elif settings.backend == "flight-blender":
+        _info(
+            "altitude conversion",
+            "not configured; AMSL MAVLink telemetry cannot be declared as WGS84 safely",
+        )
 
     if settings.demo_mode:
         if settings.backend != "in-memory":

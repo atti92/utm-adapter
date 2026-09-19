@@ -144,6 +144,8 @@ export UTM_CONNECTOR_FLIGHT_BLENDER_BASE_URL=http://127.0.0.1:8000
 export UTM_CONNECTOR_FLIGHT_BLENDER_BEARER_TOKEN="$(uv run python scripts/generate_flight_blender_dev_token.py)"
 export UTM_CONNECTOR_FLIGHT_BLENDER_SUBMITTED_BY=connector@example.invalid
 export UTM_CONNECTOR_RECORD_PATH=.local/connector-events.jsonl
+# Required for AMSL MAVLink telemetry -> Flight Blender WGS84 conversion.
+export UTM_CONNECTOR_ALTITUDE_GEOID_GRID_PATH=/path/to/us_nga_egm96_15.tif
 uv run utm-connector
 ```
 
@@ -158,6 +160,7 @@ $env:UTM_CONNECTOR_FLIGHT_BLENDER_BASE_URL = "http://127.0.0.1:8000"
 $env:UTM_CONNECTOR_FLIGHT_BLENDER_BEARER_TOKEN = (uv run python scripts/generate_flight_blender_dev_token.py).Trim()
 $env:UTM_CONNECTOR_FLIGHT_BLENDER_SUBMITTED_BY = "connector@example.invalid"
 $env:UTM_CONNECTOR_RECORD_PATH = ".local\connector-events.jsonl"
+$env:UTM_CONNECTOR_ALTITUDE_GEOID_GRID_PATH = "C:\path\to\us_nga_egm96_15.tif"
 uv run utm-connector
 ```
 
@@ -182,10 +185,15 @@ and `/v1/vehicles` includes the last session error.
 
 ## Submit and activate a declaration
 
-Generate an immediately active WGS84 mission and submit it immediately. The
-WGS84 datum is intentional: the connector does not guess a conversion from
-QGroundControl's AGL/AMSL mission altitude. Flight Blender rejects declarations
-whose start time is already in the past.
+Generate an immediately active mission and submit it immediately. Flight
+Blender uses WGS84 ellipsoidal height while MAVLink global position altitude is
+AMSL, so configure `UTM_CONNECTOR_ALTITUDE_GEOID_GRID_PATH` with a host-
+installed PROJ EGM96/EGM2008 grid for a real SITL or aircraft run. The
+connector converts mission and telemetry values using latitude/longitude and
+retains the source datum in local vehicle state. If the grid is absent,
+submission is rejected safely; the connector never guesses an altitude
+conversion. AGL still requires a terrain/home reference and is rejected until
+one is provided.
 
 macOS, Linux, or WSL:
 

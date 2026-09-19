@@ -117,6 +117,24 @@ def test_flight_blender_backend_requires_operation_for_telemetry() -> None:
         )
 
 
+def test_flight_blender_backend_rejects_non_wgs84_telemetry() -> None:
+    backend = FlightBlenderBackend(
+        "http://flight-blender.test",
+        client=httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(500))),
+    )
+
+    with pytest.raises(BackendError, match="telemetry requires WGS84"):
+        backend.publish_telemetry(
+            VehicleTelemetry(
+                vehicle_id="sitl-1",
+                observed_at=datetime.now(timezone.utc),
+                latitude=47.4979,
+                longitude=19.0402,
+                altitude={"meters": 120, "datum": "AMSL"},
+            )
+        )
+
+
 def test_flight_blender_backend_keeps_same_vehicle_operations_separate() -> None:
     requests: list[httpx.Request] = []
     provider_ids = iter(["provider-one", "provider-two"])

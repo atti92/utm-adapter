@@ -10,6 +10,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from .backends import BackendError, FlightBlenderBackend, InMemoryBackend
+from .altitude import AltitudeConversionError, AltitudeConverter
 from .config import ConnectorSettings
 from .demo import DemoVehiclePublisher
 from .domain import (
@@ -56,11 +57,18 @@ def create_app(
             if settings.backend == "flight-blender"
             else InMemoryBackend()
         )
+        altitude_converter = None
+        if settings.altitude_geoid_grid_path:
+            try:
+                altitude_converter = AltitudeConverter(settings.altitude_geoid_grid_path)
+            except AltitudeConversionError as exc:
+                raise ValueError(f"invalid altitude_geoid_grid_path: {exc}") from exc
         service = ConnectorService(
             backend,
             SQLiteStateStore(settings.state_db_path),
             recorder=recorder,
             event_history_limit=settings.event_history_limit,
+            altitude_converter=altitude_converter,
         )
     if session_manager is None:
         session_factory = MavlinkVehicleSession.connect
@@ -142,6 +150,12 @@ def create_app(
                 "read_only": True,
                 "mission_download": True,
                 "recommended_topology": "single_router_endpoint",
+            },
+            "altitude": {
+                "geoid_conversion_configured": settings.altitude_geoid_grid_path is not None,
+                "geoid_grid_path": settings.altitude_geoid_grid_path,
+                "source_mavlink_global_position": "AMSL",
+                "provider_requirement": "WGS84" if service.backend.required_altitude_datum else None,
             },
             "operator_commands": [command.value for command in OperationCommand],
         }
