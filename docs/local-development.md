@@ -39,8 +39,9 @@ make demo
 
 The `--demo` flag explicitly selects the in-memory backend, disables configured
 MAVLink inputs, and publishes a moving `demo-sitl` vehicle. It overrides local
-`.env` backend settings for that process, so it is safe to use as a presentation
-mode. The browser launch uses the platform's default browser and does not
+`.env` backend and state settings for that process, so every presentation starts
+clean and does not modify the normal SQLite history. The browser launch uses the
+platform's default browser and does not
 change the connector's loopback-only default or send any vehicle-control
 commands.
 

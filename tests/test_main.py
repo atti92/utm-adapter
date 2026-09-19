@@ -53,6 +53,7 @@ def test_run_demo_flag_configures_a_self_contained_vehicle(monkeypatch) -> None:
     monkeypatch.delenv("UTM_CONNECTOR_BACKEND", raising=False)
     monkeypatch.delenv("UTM_CONNECTOR_DEMO_MODE", raising=False)
     monkeypatch.delenv("UTM_CONNECTOR_MAVLINK_CONNECTIONS", raising=False)
+    monkeypatch.delenv("UTM_CONNECTOR_STATE_DB_PATH", raising=False)
     monkeypatch.setattr(main.uvicorn, "run", fake_run)
     monkeypatch.setattr(main.sys, "argv", ["utm-connector", "--demo"])
 
@@ -62,3 +63,4 @@ def test_run_demo_flag_configures_a_self_contained_vehicle(monkeypatch) -> None:
     assert main.ConnectorSettings().backend == "in-memory"
     assert main.ConnectorSettings().demo_mode is True
     assert main.ConnectorSettings().mavlink_connections == []
+    assert main.ConnectorSettings().state_db_path == ":memory:"

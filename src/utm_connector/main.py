@@ -35,6 +35,10 @@ def run() -> None:
         os.environ["UTM_CONNECTOR_BACKEND"] = "in-memory"
         os.environ["UTM_CONNECTOR_DEMO_MODE"] = "true"
         os.environ["UTM_CONNECTOR_MAVLINK_CONNECTIONS"] = "[]"
+        # Presentation runs should always start from a clean state. Normal
+        # runs keep the configured SQLite history; only the explicit demo
+        # shortcut uses an in-memory store.
+        os.environ["UTM_CONNECTOR_STATE_DB_PATH"] = ":memory:"
     settings = ConnectorSettings()
     if args.open_browser:
         url = f"http://{settings.host}:{settings.port}/"
