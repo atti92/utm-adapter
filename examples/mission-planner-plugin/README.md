@@ -2,8 +2,9 @@
 
 This directory contains a thin, non-commanding Mission Planner plugin. It
 adds a `UTM Connector` entry to the normal Flight Data menu so an operator can
-open the connector console and check that the local connector is online without
-leaving the GCS workflow.
+configure the local connector, sync the mission currently shown in Mission
+Planner, and drive the UTM operation lifecycle without leaving the GCS
+workflow.
 
 The plugin does not replace Mission Planner's vehicle-control or mission-editing
 features, and it never writes to the vehicle MAVLink connection. The connector
@@ -22,21 +23,28 @@ operator console.
    that directory when Mission Planner starts.
 4. In Flight Data, open `UTM Connector` and choose `Open operator console`.
 
-The plugin assumes the default connector address `http://127.0.0.1:8000`. If
-the connector runs on another host or port, change `ConnectorBaseUrl` in the
-source before copying it.
+The plugin starts with connector address `http://127.0.0.1:8000` and vehicle ID
+`sitl-1`. Use `Configure connector...` from the menu to change either value;
+the values are persisted in Mission Planner settings.
 
 ## Operator flow
 
-Mission Planner remains the familiar vehicle-facing GCS. Use the connector web
-console for the UTM-specific steps:
+Mission Planner remains the familiar vehicle-facing GCS. The plugin exposes
+the common UTM steps directly from its menu:
 
-1. Confirm the vehicle appears and the telemetry readiness indicator is good.
-2. Load a Mission Planner `.waypoints` file in the connector console, or use a
-   QGroundControl `.plan` file.
-3. Validate and save the declaration, submit it to the configured UTM provider,
-   then start the operation when its validity window opens.
-4. Watch authorization, conformance, and telemetry state in the same console.
+1. Configure the connector URL and the connector vehicle ID once.
+2. Load or edit the mission in Mission Planner's Flight Planner view.
+3. Choose `Sync current mission`.
+4. Choose `Submit operation`, then `Start operation` when ready. `Cancel` and
+   `Complete` are available for the same operation.
+5. Open the operator console when you want the richer authorization,
+   conformance, and telemetry view.
+
+The connector currently accepts navigable `WAYPOINT` and `TAKEOFF` items for
+this direct workflow. Unsupported Mission Planner actions are rejected with a
+clear message instead of being silently dropped; they can still be handled by
+the existing file-import path after the mission is reduced to a supported
+route.
 
 This source file is intentionally kept compatible with Mission Planner's
 script-plugin model and uses only the .NET Framework APIs normally available to
