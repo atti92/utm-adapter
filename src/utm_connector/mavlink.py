@@ -247,7 +247,11 @@ class MavlinkMessageNormalizer:
 
 
 class MavlinkVehicleSession(MavlinkMessageNormalizer):
-    """A read-only pymavlink session feeding the canonical normalizer."""
+    """A non-commanding pymavlink session feeding the canonical normalizer.
+
+    Telemetry is observed without vehicle-control commands. Mission drift
+    checking may send MAVLink mission-protocol retrieval requests.
+    """
 
     def __init__(self, vehicle_id: str, connection: Any, **kwargs: Any) -> None:
         super().__init__(vehicle_id, **kwargs)

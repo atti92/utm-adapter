@@ -1,6 +1,6 @@
 # Local development environment
 
-The repository contains a local connector based on the implementation plan. It runs a loopback-only FastAPI service with an in-memory backend by default, and includes read-only MAVLink normalization plus QGroundControl mission and corridor tests, so product behavior can be exercised without credentials or a deployed UTM provider. It can also submit declarations and RID telemetry to a local or remote Flight Blender instance.
+The repository contains a local connector based on the implementation plan. It runs a loopback-only FastAPI service with an in-memory backend by default, includes a browser-based operator console, and provides non-commanding MAVLink normalization plus QGroundControl mission and corridor tests. Product behavior can therefore be exercised without credentials or a deployed UTM provider. It can also submit declarations and RID telemetry to a local or remote Flight Blender instance.
 
 ## Requirements
 
@@ -41,8 +41,15 @@ Convenience targets are also available: `make setup`, `make doctor`, `make smoke
 `make test`, and `make run`. They delegate to `uv run`, so they do not depend on
 the Unix-specific `.venv/bin` layout.
 
-The service listens on `http://127.0.0.1:8000`. OpenAPI is available at `/docs`,
-and the health endpoint is `/v1/health`.
+The service listens on `http://127.0.0.1:8000`. Open the operator console at
+`/ui/`; OpenAPI is available at `/docs`, and the health endpoint is
+`/v1/health`.
+
+The operator console is the recommended demo and user workflow. It shows
+connector health, vehicle telemetry, route geometry, mission validity, UTM
+operation state, conformance, and recent events. It is intentionally served
+from the connector with no external web assets, so it works on macOS, Linux,
+and Windows in the same way as the API.
 
 For GCS integration, start with the discovery endpoints:
 
@@ -53,7 +60,7 @@ curl http://127.0.0.1:8000/v1/vehicles
 ```
 
 `/v1/capabilities` describes supported mission formats, operator commands, and
-the read-only MAVLink behavior. `/v1/vehicles` lists discovered vehicles,
+the non-commanding MAVLink behavior. `/v1/vehicles` lists discovered vehicles,
 telemetry freshness, active operation count, and the last session error when a
 simulator or router cannot be reached. A `degraded` health status means at least
 one configured MAVLink session currently has an error.
@@ -74,7 +81,7 @@ memory by default; the full event history remains in SQLite. Change
 
 ## Connect a simulator over MAVLink
 
-The connector can run one or more read-only MAVLink sessions in the background. Copy `.env.example` to `.env` and set the connection list to the URI exposed by your simulator or MAVLink router:
+The connector can run one or more non-commanding MAVLink sessions in the background. Copy `.env.example` to `.env` and set the connection list to the URI exposed by your simulator or MAVLink router:
 
 ```dotenv
 UTM_CONNECTOR_MAVLINK_CONNECTIONS=[{"vehicle_id":"sitl-1","connection_uri":"udpin:127.0.0.1:14551"}]
@@ -87,11 +94,17 @@ Then start the connector with `uv run utm-connector` (or `make run`) and inspect
 curl http://127.0.0.1:8000/v1/vehicles/sitl-1/status
 ```
 
-Use a MAVLink router or separate simulator output port if QGroundControl or Mission Planner is also listening on the same UDP port. This path only reads MAVLink telemetry; it does not send vehicle commands.
+The recommended real-world topology is one vehicle link into a MAVLink router,
+with separate router endpoints for the GCS and connector. See
+[`examples/mavlink-router/README.md`](../examples/mavlink-router/README.md).
+The connector consumes telemetry and uses mission-protocol requests for drift
+checking; it does not send vehicle-control commands. The separate-output SITL
+shortcut below is still useful when a router is not installed.
 
 ### ArduPilot SITL and QGroundControl
 
-The prepared macOS setup uses two simulator outputs so the GCS and connector can observe the same vehicle independently:
+For the shortest SITL-only path, use two simulator outputs so the GCS and
+connector can observe the same vehicle independently:
 
 ```text
 ArduPilot SITL --UDP 14550--> QGroundControl
@@ -121,7 +134,12 @@ open -a QGroundControl
 From the connector checkout, use `uv run utm-connector` (or `make run` on
 systems with `make`).
 
-QGroundControl should show the SITL vehicle automatically. The connector state can be checked with:
+QGroundControl should show the SITL vehicle automatically. Then open
+`http://127.0.0.1:8000/ui/` and use the operator console to load or create a
+mission and run the operation lifecycle. The connector does not send vehicle
+commands; it only consumes telemetry and uses mission-protocol requests when
+onboard mission comparison is enabled. The connector state can also be
+checked with:
 
 ```sh
 curl http://127.0.0.1:8000/v1/vehicles/sitl-1/status

@@ -1,4 +1,4 @@
-"""Runtime orchestration for configured, read-only MAVLink sessions."""
+"""Runtime orchestration for configured, non-commanding MAVLink sessions."""
 
 from __future__ import annotations
 

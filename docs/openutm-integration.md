@@ -1,7 +1,8 @@
 # Manual openUTM integration test
 
 This is the complete local path for testing ArduPilot SITL, a ground-control
-station (QGroundControl or Mission Planner), the connector, and Flight Blender.
+station (QGroundControl or Mission Planner), the connector's operator console,
+and Flight Blender.
 The connector itself is cross-platform; Docker, SITL, and GCS installation
 steps remain dependent on the operating system.
 
@@ -70,8 +71,8 @@ environment.
 
 ## Start SITL and a GCS
 
-Use two UDP outputs so the GCS and connector can observe the same vehicle
-independently:
+For a quick SITL test, use two UDP outputs so the GCS and connector can observe
+the same vehicle independently:
 
 ```text
 ArduPilot SITL --UDP 14550--> QGroundControl or Mission Planner
@@ -99,7 +100,15 @@ vehicle, use a MAVLink router instead of binding both directly to the same UDP
 port.
 
 QGroundControl or Mission Planner should show the SITL vehicle. The connector
-only reads the separate `14551` stream and does not send vehicle commands.
+is non-commanding: it consumes telemetry and can issue mission-protocol
+requests for drift checking, but it does not send vehicle-control commands.
+Open `http://127.0.0.1:8001/ui/` after starting the connector and use that
+console for the operator-facing mission and operation flow.
+
+For a physical vehicle, or when more than one GCS must share a single vehicle
+link, use the router topology in
+[`examples/mavlink-router/README.md`](../examples/mavlink-router/README.md)
+instead of assigning multiple physical MAVLink ports on the aircraft.
 
 ## Start the connector against Flight Blender
 

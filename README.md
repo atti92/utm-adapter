@@ -2,13 +2,13 @@
 
 ## Local UTM Operations Connector
 
-The repository includes working Phase 0, Phase 1, and the first Phase 2 slices from [`utm_connector_plan.md`](utm_connector_plan.md): a provider-neutral canonical model, loopback FastAPI API, deterministic in-memory UTM backend, Flight Blender HTTP adapter, read-only MAVLink normalization, QGroundControl `.plan` parsing, metre-correct corridor generation, mission drift classification, and tests.
+The repository includes working Phase 0, Phase 1, and the first Phase 2 slices from [`utm_connector_plan.md`](utm_connector_plan.md): a provider-neutral canonical model, loopback FastAPI API, deterministic in-memory UTM backend, Flight Blender HTTP adapter, non-commanding MAVLink normalization, QGroundControl `.plan` parsing, metre-correct corridor generation, mission drift classification, an operator console, and tests.
 
 See [`docs/local-development.md`](docs/local-development.md) for setup and API examples.
 For the complete Flight Blender + SITL + QGroundControl/Mission Planner path,
 see [`docs/openutm-integration.md`](docs/openutm-integration.md).
 
-The local runtime can also consume read-only MAVLink telemetry from a configured simulator or MAVLink router; see the simulator setup section in the local-development guide.
+The local runtime can also consume non-commanding MAVLink telemetry from a configured simulator or MAVLink router. For a physical vehicle, use the router topology in [`examples/mavlink-router/README.md`](examples/mavlink-router/README.md) so the connector and GCS share one vehicle link.
 
 ```sh
 uv sync
@@ -17,6 +17,8 @@ uv run python scripts/local_smoke.py
 uv run pytest
 uv run utm-connector
 ```
+
+Once the service is running, open [http://127.0.0.1:8000/ui/](http://127.0.0.1:8000/ui/). The operator console is designed for the normal demo flow: select a vehicle, load a QGroundControl `.plan` or sample route, validate it, submit/start the operation, and watch telemetry and conformance without using the CLI.
 
 The doctor checks the active Python/configuration and writable local state. The
 smoke test exercises mission upload, operation submission, start, telemetry,
