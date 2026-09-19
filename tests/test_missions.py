@@ -3,7 +3,11 @@ from datetime import datetime, timezone
 import pytest
 
 from utm_connector.domain import AltitudeDatum
-from utm_connector.missions import MissionParseError, parse_qgroundcontrol_plan
+from utm_connector.missions import (
+    MissionParseError,
+    parse_mission_planner_waypoints,
+    parse_qgroundcontrol_plan,
+)
 
 
 def _plan(frame: int = 6) -> dict:
@@ -39,6 +43,51 @@ def test_qgroundcontrol_plan_rejects_unsupported_altitude_frame() -> None:
     with pytest.raises(MissionParseError, match="altitude frame"):
         parse_qgroundcontrol_plan(
             _plan(frame=10),
+            vehicle_id="sitl-1",
+            valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            valid_until=datetime(2026, 1, 1, 1, tzinfo=timezone.utc),
+        )
+
+
+def _mission_planner_file(frame: int = 3) -> str:
+    return "\n".join(
+        [
+            "QGC WPL 110",
+            f"0\t1\t{frame}\t22\t0\t0\t0\t0\t47.5\t19.05\t100\t1",
+            f"1\t0\t{frame}\t16\t0\t0\t0\t0\t47.501\t19.052\t120\t1",
+        ]
+    )
+
+
+def test_mission_planner_wpl_maps_coordinates_and_altitude_frame() -> None:
+    mission = parse_mission_planner_waypoints(
+        _mission_planner_file(),
+        vehicle_id="sitl-1",
+        valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        valid_until=datetime(2026, 1, 1, 1, tzinfo=timezone.utc),
+    )
+
+    assert mission.source == "mission-planner"
+    assert mission.waypoints[0].latitude == 47.5
+    assert mission.waypoints[1].longitude == 19.052
+    assert mission.waypoints[0].altitude.datum == AltitudeDatum.AGL
+
+
+def test_mission_planner_wpl_rejects_non_route_commands() -> None:
+    payload = _mission_planner_file().replace("\t16\t", "\t178\t")
+    with pytest.raises(MissionParseError, match="unsupported Mission Planner mission command"):
+        parse_mission_planner_waypoints(
+            payload,
+            vehicle_id="sitl-1",
+            valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            valid_until=datetime(2026, 1, 1, 1, tzinfo=timezone.utc),
+        )
+
+
+def test_mission_planner_wpl_rejects_malformed_header() -> None:
+    with pytest.raises(MissionParseError, match="QGC WPL header"):
+        parse_mission_planner_waypoints(
+            "0 1 3 16 0 0 0 0 47.5 19.0 100 1",
             vehicle_id="sitl-1",
             valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
             valid_until=datetime(2026, 1, 1, 1, tzinfo=timezone.utc),

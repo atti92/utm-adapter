@@ -154,6 +154,10 @@ def test_root_launches_operator_console_and_exposes_integration_contract() -> No
         "method": "PUT",
         "path": "/v1/missions/{vehicle_id}/qgroundcontrol",
     }
+    assert payload["api"]["mission"]["mission_planner"] == {
+        "method": "PUT",
+        "path": "/v1/missions/{vehicle_id}/mission-planner",
+    }
     assert payload["mavlink"]["vehicle_control"] == "none"
 
 
@@ -296,6 +300,40 @@ def test_qgroundcontrol_plan_endpoint_validates_metadata_types_and_order() -> No
         },
     )
     assert reversed_window.status_code == 422
+
+
+def test_mission_planner_plan_endpoint_normalizes_wpl_text() -> None:
+    app = create_app(ConnectorService(InMemoryBackend()))
+    client = TestClient(app)
+    now = datetime.now(timezone.utc)
+    response = client.put(
+        "/v1/missions/sitl-1/mission-planner",
+        json={
+            "valid_from": now.isoformat(),
+            "valid_until": (now + timedelta(minutes=30)).isoformat(),
+            "text": "QGC WPL 110\n"
+            "0 1 3 22 0 0 0 0 47.5 19.0 20 1\n"
+            "1 0 3 16 0 0 0 0 47.501 19.001 25 1",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["mission"]["source"] == "mission-planner"
+
+
+def test_mission_planner_plan_endpoint_rejects_invalid_text() -> None:
+    client = TestClient(create_app(ConnectorService(InMemoryBackend())))
+    now = datetime.now(timezone.utc)
+    response = client.put(
+        "/v1/missions/sitl-1/mission-planner",
+        json={
+            "valid_from": now.isoformat(),
+            "valid_until": (now + timedelta(minutes=30)).isoformat(),
+            "text": "not a waypoint file",
+        },
+    )
+
+    assert response.status_code == 422
 
 
 def test_onboard_mission_drift_is_reported_in_vehicle_status() -> None:

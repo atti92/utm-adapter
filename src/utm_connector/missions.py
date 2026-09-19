@@ -76,6 +76,76 @@ def parse_qgroundcontrol_plan(
     )
 
 
+def parse_mission_planner_waypoints(
+    payload: str,
+    *,
+    vehicle_id: str,
+    valid_from: datetime,
+    valid_until: datetime,
+    corridor_radius_m: float = 30,
+) -> Mission:
+    """Parse Mission Planner's ``QGC WPL`` text export.
+
+    Mission Planner uses the QGroundControl WPL 110 interchange format for
+    waypoint files.  Only navigable commands are accepted because a UTM
+    declaration must describe the actual route, not silently drop an action
+    command from the GCS mission.
+    """
+
+    lines = [line.strip() for line in payload.lstrip("\ufeff").splitlines() if line.strip()]
+    if not lines or not lines[0].startswith("QGC WPL "):
+        raise MissionParseError("Mission Planner file must start with a QGC WPL header")
+
+    waypoints = []
+    expected_index = 0
+    for line_number, line in enumerate(lines[1:], start=2):
+        fields = line.split()
+        if len(fields) != 12:
+            raise MissionParseError(
+                f"Mission Planner waypoint line {line_number} must contain 12 fields"
+            )
+        try:
+            index = int(fields[0])
+            frame = int(fields[2])
+            command = int(fields[3])
+            latitude = float(fields[8])
+            longitude = float(fields[9])
+            altitude = float(fields[10])
+        except (TypeError, ValueError) as exc:
+            raise MissionParseError(
+                f"Mission Planner waypoint line {line_number} contains invalid numeric data"
+            ) from exc
+        if index != expected_index:
+            raise MissionParseError(
+                f"Mission Planner waypoint indexes must be contiguous; expected {expected_index}"
+            )
+        if command not in (16, 22):  # MAV_CMD_NAV_WAYPOINT / MAV_CMD_NAV_TAKEOFF
+            raise MissionParseError(
+                f"unsupported Mission Planner mission command on line {line_number}: {command}"
+            )
+        datum = _altitude_datum(frame)
+        waypoints.append(
+            Waypoint(
+                latitude=latitude,
+                longitude=longitude,
+                altitude={"meters": altitude, "datum": datum},
+                sequence=len(waypoints),
+            )
+        )
+        expected_index += 1
+
+    if len(waypoints) < 2:
+        raise MissionParseError("Mission Planner mission must contain at least two navigable items")
+    return Mission(
+        vehicle_id=vehicle_id,
+        waypoints=waypoints,
+        corridor_radius_m=corridor_radius_m,
+        valid_from=valid_from,
+        valid_until=valid_until,
+        source="mission-planner",
+    )
+
+
 def _integer(value: Any, field_name: str) -> int:
     try:
         return int(value)

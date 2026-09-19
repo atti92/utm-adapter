@@ -37,6 +37,10 @@ INTEGRATION_MANIFEST = {
                 "method": "PUT",
                 "path": "/v1/missions/{vehicle_id}/qgroundcontrol",
             },
+            "mission_planner": {
+                "method": "PUT",
+                "path": "/v1/missions/{vehicle_id}/mission-planner",
+            },
         },
         "operations": {
             "intent": {
@@ -53,7 +57,7 @@ INTEGRATION_MANIFEST = {
             },
         },
     },
-    "mission_formats": ["canonical", "qgroundcontrol"],
+    "mission_formats": ["canonical", "qgroundcontrol", "mission-planner"],
     "recording": {
         "configuration": "UTM_CONNECTOR_RECORD_PATH",
         "raw_mavlink_record_type": "mavlink_frame",

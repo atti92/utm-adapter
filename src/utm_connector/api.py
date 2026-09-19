@@ -17,6 +17,7 @@ from .domain import (
     Event,
     HealthResponse,
     Mission,
+    MissionPlannerMissionRequest,
     OperationCommand,
     OperationIntent,
     QGroundControlMissionRequest,
@@ -24,7 +25,7 @@ from .domain import (
 )
 from .mavlink import MavlinkVehicleSession
 from .runtime import MavlinkSessionManager
-from .missions import MissionParseError, parse_qgroundcontrol_plan
+from .missions import MissionParseError, parse_mission_planner_waypoints, parse_qgroundcontrol_plan
 from .service import ConnectorError, ConnectorService
 from .persistence import SQLiteStateStore
 from .recording import JsonlRecorder
@@ -129,7 +130,7 @@ def create_app(
         return {
             "backend": service.backend.name,
             "demo_mode": settings.demo_mode,
-            "mission_formats": ["canonical", "qgroundcontrol"],
+            "mission_formats": ["canonical", "qgroundcontrol", "mission-planner"],
             "integration_manifest": "/v1/integration",
             "recording": {
                 "configured": recorder is not None,
@@ -240,6 +241,24 @@ def create_app(
             return service.put_mission(vehicle_id, mission).model_dump(mode="json")
         except (ConnectorError, MissionParseError, ValueError) as exc:
             raise HTTPException(status_code=422, detail=f"invalid QGroundControl mission: {exc}") from exc
+
+    @app.put("/v1/missions/{vehicle_id}/mission-planner", response_model=dict)
+    def put_mission_planner_mission(
+        vehicle_id: str, request: MissionPlannerMissionRequest
+    ) -> dict:
+        """Normalize a Mission Planner QGC WPL export with explicit UTM metadata."""
+
+        try:
+            mission = parse_mission_planner_waypoints(
+                request.text,
+                vehicle_id=vehicle_id,
+                valid_from=request.valid_from,
+                valid_until=request.valid_until,
+                corridor_radius_m=request.corridor_radius_m,
+            )
+            return service.put_mission(vehicle_id, mission).model_dump(mode="json")
+        except (ConnectorError, MissionParseError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail=f"invalid Mission Planner mission: {exc}") from exc
 
     @app.put("/v1/vehicles/{vehicle_id}/onboard-mission", response_model=dict)
     def put_onboard_mission(vehicle_id: str, mission: Mission) -> dict:

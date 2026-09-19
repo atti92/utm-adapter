@@ -25,6 +25,10 @@
       "qgroundcontrol": {
         "method": "PUT",
         "path": "/v1/missions/{vehicle_id}/qgroundcontrol"
+      },
+      "mission_planner": {
+        "method": "PUT",
+        "path": "/v1/missions/{vehicle_id}/mission-planner"
       }
     },
     "operations": {
@@ -44,7 +48,8 @@
   },
   "mission_formats": [
     "canonical",
-    "qgroundcontrol"
+    "qgroundcontrol",
+    "mission-planner"
   ],
   "recording": {
     "configuration": "UTM_CONNECTOR_RECORD_PATH",

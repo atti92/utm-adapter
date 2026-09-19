@@ -1,6 +1,7 @@
 const state = {
   vehicleId: "",
   plan: null,
+  planFormat: "qgroundcontrol",
   mission: null,
   operation: null,
   latestStatus: null,
@@ -145,7 +146,7 @@ function renderMission(snapshot) {
   state.mission = snapshot;
   if (!snapshot) {
     $("mission-title").textContent = "No mission loaded";
-    $("mission-meta").textContent = "Load a QGroundControl Plan or try the sample route.";
+    $("mission-meta").textContent = "Load a QGroundControl .plan or Mission Planner .waypoints file.";
     $("save-button").disabled = !state.plan;
     $("submit-button").disabled = true;
     drawRoute();
@@ -259,18 +260,46 @@ async function refresh() {
 
 function samplePlan() {
   return {
-    fileType: "Plan",
-    geoFence: { circles: [], polygons: [] },
-    mission: { firmwareType: 3, vehicleType: 2, items: [
-      { type: "SimpleItem", command: 22, frame: 3, params: [0, 0, 0, 0, 47.4979, 19.0402, 35] },
-      { type: "SimpleItem", command: 16, frame: 3, params: [0, 0, 0, 0, 47.4992, 19.0420, 40] },
-      { type: "SimpleItem", command: 16, frame: 3, params: [0, 0, 0, 0, 47.5000, 19.0390, 35] },
-    ] },
+    valid_from: new Date(Date.now() + 60_000).toISOString(),
+    valid_until: new Date(Date.now() + 35 * 60_000).toISOString(),
+    source: "operator-console-demo",
+    waypoints: [
+      { sequence: 0, latitude: 47.4979, longitude: 19.0402, altitude: { meters: 135, datum: "WGS84" } },
+      { sequence: 1, latitude: 47.4992, longitude: 19.0420, altitude: { meters: 140, datum: "WGS84" } },
+      { sequence: 2, latitude: 47.5000, longitude: 19.0390, altitude: { meters: 135, datum: "WGS84" } },
+    ],
   };
 }
 
 async function saveMission() {
   if (!state.vehicleId || !state.plan) return;
+  const metadata = {
+    valid_from: inputAsIso("valid-from"),
+    valid_until: inputAsIso("valid-until"),
+    corridor_radius_m: Number($("corridor-radius").value),
+  };
+  if (state.planFormat === "canonical") {
+    try {
+      const response = await request("/v1/missions/" + encodeURIComponent(state.vehicleId), {
+        method: "PUT",
+        body: JSON.stringify({ ...state.plan, vehicle_id: state.vehicleId, ...metadata }),
+      });
+      renderMission(response);
+      setMessage("Mission validated and saved locally.", "success");
+    } catch (error) { setMessage(error.message, "error"); }
+    return;
+  }
+  if (state.planFormat === "mission-planner") {
+    try {
+      const response = await request("/v1/missions/" + encodeURIComponent(state.vehicleId) + "/mission-planner", {
+        method: "PUT",
+        body: JSON.stringify({ ...metadata, text: state.plan }),
+      });
+      renderMission(response);
+      setMessage("Mission validated and saved locally.", "success");
+    } catch (error) { setMessage(error.message, "error"); }
+    return;
+  }
   try {
     const response = await request(`/v1/missions/${encodeURIComponent(state.vehicleId)}/qgroundcontrol`, { method: "PUT", body: JSON.stringify({ valid_from: inputAsIso("valid-from"), valid_until: inputAsIso("valid-until"), corridor_radius_m: Number($("corridor-radius").value), plan: state.plan }) });
     renderMission(response);
@@ -290,8 +319,8 @@ async function sendIntent(command) {
 }
 
 $("vehicle-select").addEventListener("change", async (event) => { state.vehicleId = event.target.value; state.operation = null; await refreshVehicle(); });
-$("sample-button").addEventListener("click", () => { state.plan = samplePlan(); $("mission-title").textContent = "Sample route ready"; $("mission-meta").textContent = "Three waypoints around Budapest · validate before submission"; $("save-button").disabled = !state.vehicleId; setMessage("Sample route loaded. Review the validity window, then validate it."); drawRoute(); });
-$("plan-file").addEventListener("change", async (event) => { const file = event.target.files[0]; if (!file) return; try { state.plan = JSON.parse(await file.text()); $("mission-title").textContent = file.name; $("mission-meta").textContent = "QGroundControl Plan loaded · validate before submission"; $("save-button").disabled = !state.vehicleId; setMessage(`${file.name} loaded.`); } catch (error) { setMessage(`Could not read Plan: ${error.message}`, "error"); } });
+$("sample-button").addEventListener("click", () => { state.plan = samplePlan(); state.planFormat = "canonical"; $("mission-title").textContent = "Demo route ready"; $("mission-meta").textContent = "Three WGS84 waypoints around Budapest · compatible with Flight Blender"; $("save-button").disabled = !state.vehicleId; setMessage("Demo route loaded. Review the validity window, then validate it."); drawRoute(); });
+$("plan-file").addEventListener("change", async (event) => { const file = event.target.files[0]; if (!file) return; try { const text = await file.text(); state.plan = text.trimStart().startsWith("QGC WPL ") ? text : JSON.parse(text); state.planFormat = typeof state.plan === "string" ? "mission-planner" : "qgroundcontrol"; $("mission-title").textContent = file.name; $("mission-meta").textContent = state.planFormat === "mission-planner" ? "Mission Planner waypoint file loaded · validate before submission" : "QGroundControl Plan loaded · validate before submission"; $("save-button").disabled = !state.vehicleId; setMessage(file.name + " loaded."); } catch (error) { setMessage("Could not read mission file: " + error.message, "error"); } });
 $("save-button").addEventListener("click", saveMission);
 $("submit-button").addEventListener("click", () => sendIntent("SUBMIT_OPERATION"));
 $("start-button").addEventListener("click", () => sendIntent("START_OPERATION"));

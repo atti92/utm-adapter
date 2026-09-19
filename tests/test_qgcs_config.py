@@ -18,6 +18,10 @@ def test_checked_in_connector_manifest_matches_live_contract_shape() -> None:
         "method": "PUT",
         "path": "/v1/missions/{vehicle_id}/qgroundcontrol",
     }
+    assert manifest["api"]["mission"]["mission_planner"] == {
+        "method": "PUT",
+        "path": "/v1/missions/{vehicle_id}/mission-planner",
+    }
     assert manifest["mavlink"]["vehicle_control"] == "none"
 
 

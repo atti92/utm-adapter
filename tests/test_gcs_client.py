@@ -17,7 +17,7 @@ def test_client_maps_gcs_workflow_to_connector_endpoints() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
-        if request.url.path.endswith("/qgroundcontrol"):
+        if request.url.path.endswith("/qgroundcontrol") or request.url.path.endswith("/mission-planner"):
             return httpx.Response(200, json={"mission_hash": "a" * 64})
         if request.url.path.endswith("/operator-intents"):
             return httpx.Response(200, json={"operation_id": "00000000-0000-0000-0000-000000000001"})
@@ -35,12 +35,20 @@ def test_client_maps_gcs_workflow_to_connector_endpoints() -> None:
             valid_from=datetime(2030, 1, 1, tzinfo=timezone.utc),
             valid_until=datetime(2030, 1, 1, 0, 30, tzinfo=timezone.utc),
         )["mission_hash"] == "a" * 64
+        assert client.upload_mission_planner_waypoints(
+            "sitl/1",
+            "QGC WPL 110\n",
+            valid_from=datetime(2030, 1, 1, tzinfo=timezone.utc),
+            valid_until=datetime(2030, 1, 1, 0, 30, tzinfo=timezone.utc),
+        )["mission_hash"] == "a" * 64
         client.operation_intent("sitl/1", OperationCommand.SUBMIT_OPERATION, operation_id=operation_id)
 
     assert requests[2].url.raw_path == b"/v1/missions/sitl%2F1/qgroundcontrol"
     assert requests[2].content.startswith(b'{"valid_from"')
-    assert requests[3].url.path == "/v1/operator-intents"
-    assert requests[3].url.params["vehicle_id"] == "sitl/1"
+    assert requests[3].url.raw_path == b"/v1/missions/sitl%2F1/mission-planner"
+    assert requests[3].content.startswith(b'{"valid_from"')
+    assert requests[4].url.path == "/v1/operator-intents"
+    assert requests[4].url.params["vehicle_id"] == "sitl/1"
 
 
 def test_client_surfaces_provider_http_errors_without_provider_types() -> None:

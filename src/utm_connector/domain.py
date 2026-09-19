@@ -163,6 +163,28 @@ class QGroundControlMissionRequest(StrictModel):
         return value
 
 
+class MissionPlannerMissionRequest(StrictModel):
+    """A Mission Planner WPL export plus the UTM metadata it cannot carry."""
+
+    valid_from: datetime
+    valid_until: datetime
+    corridor_radius_m: float = Field(default=30, gt=0, le=10000, allow_inf_nan=False)
+    text: str = Field(min_length=1, max_length=2_000_000)
+
+    @field_validator("valid_from", "valid_until")
+    @classmethod
+    def validate_timestamp(cls, value: datetime) -> datetime:
+        return _aware_datetime(value)
+
+    @field_validator("valid_until")
+    @classmethod
+    def validate_time_order(cls, value: datetime, info: Any) -> datetime:
+        start = info.data.get("valid_from")
+        if start is not None and value <= start:
+            raise ValueError("valid_until must be later than valid_from")
+        return value
+
+
 class VehicleTelemetry(StrictModel):
     vehicle_id: str = Field(min_length=1, max_length=128)
     observed_at: datetime

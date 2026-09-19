@@ -84,6 +84,26 @@ class ConnectorClient:
             },
         )
 
+    def upload_mission_planner_waypoints(
+        self,
+        vehicle_id: str,
+        text: str,
+        *,
+        valid_from: datetime,
+        valid_until: datetime,
+        corridor_radius_m: float = 30,
+    ) -> dict[str, Any]:
+        return self._request(
+            "PUT",
+            f"/v1/missions/{self._path_value(vehicle_id)}/mission-planner",
+            json={
+                "valid_from": valid_from.isoformat(),
+                "valid_until": valid_until.isoformat(),
+                "corridor_radius_m": corridor_radius_m,
+                "text": text,
+            },
+        )
+
     def operation_intent(
         self,
         vehicle_id: str,
