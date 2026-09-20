@@ -107,6 +107,11 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "Validate and save the mission before checking the vehicle's onboard route." in javascript
     assert "Validate & save the current mission before checking the vehicle mission." in javascript
     assert "intentInFlight" in javascript
+    assert "function updateOperationActionState()" in javascript
+    assert 'busyCommand === "START_OPERATION"' in javascript
+    assert 'busyCommand === "CANCEL_OPERATION"' in javascript
+    assert 'busyCommand === "COMPLETE_OPERATION"' in javascript
+    assert 'updateOperationActionState();' in javascript
     assert 'operation.state.telemetry_publication !== "NOT_STARTED"' in javascript
     assert 'state.latestStatus = null' in javascript
     assert "renderNextAction" in javascript

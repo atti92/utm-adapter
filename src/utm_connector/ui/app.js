@@ -763,6 +763,7 @@ function renderOperation(operation) {
       ? providerBlockReason() || vehicleLinkBlockReason()
       : "Start UTM telemetry publication for the authorized operation.";
   }
+  updateOperationActionState();
   const values = operation ? operation.state : {};
   const steps = [values.declaration, values.authorization, values.telemetry_publication, values.conformance];
   document.querySelectorAll(".state-step").forEach((step, index) => {
@@ -772,6 +773,28 @@ function renderOperation(operation) {
   });
   updateMissionActionState();
   renderNextAction();
+}
+
+function updateOperationActionState() {
+  const operation = state.operation;
+  const busyCommand = [...intentInFlight][0] || "";
+  const busy = Boolean(busyCommand);
+  const declaration = operation?.state?.declaration;
+  const terminal = !declaration || TERMINAL_DECLARATIONS.has(declaration);
+
+  $("refresh-operation-button").disabled = !operation || busy;
+  $("cancel-button").disabled = !operation || terminal || busy;
+  $("complete-button").disabled = !operation || declaration !== "ACCEPTED" || busy;
+  const startBlocked = !providerReady() || !vehicleLinkReady();
+  $("start-button").disabled = !operation
+    || declaration !== "ACCEPTED"
+    || operation.state.telemetry_publication !== "NOT_STARTED"
+    || startBlocked
+    || busy;
+
+  $("start-button").textContent = busyCommand === "START_OPERATION" ? "Starting operation…" : "Start operation";
+  $("cancel-button").textContent = busyCommand === "CANCEL_OPERATION" ? "Cancelling…" : "Cancel";
+  $("complete-button").textContent = busyCommand === "COMPLETE_OPERATION" ? "Completing…" : "Complete";
 }
 
 function newOperationId() {
@@ -1085,6 +1108,7 @@ async function sendIntent(command) {
   if (!state.vehicleId) return;
   if (intentInFlight.has(command)) return;
   intentInFlight.add(command);
+  updateOperationActionState();
   try {
     if (command === "SUBMIT_OPERATION") {
       if (!providerReady()) throw new Error(providerBlockReason());
@@ -1112,7 +1136,10 @@ async function sendIntent(command) {
     );
     await refresh();
   } catch (error) { setMessage(error.message, "error"); }
-  finally { intentInFlight.delete(command); }
+  finally {
+    intentInFlight.delete(command);
+    updateOperationActionState();
+  }
 }
 
 $("vehicle-select").addEventListener("change", async (event) => {
