@@ -426,6 +426,32 @@ secrets and access tokens are never written to the JSONL recorder. The static
 `UTM_CONNECTOR_FLIGHT_BLENDER_BEARER_TOKEN` remains available for the isolated
 local Flight Blender development bypass only.
 
+For production hosts, the client secret can stay in the native OS credential
+store instead of `.env`. Install the optional cross-platform integration and
+store the value interactively; the secret is not echoed or written to the
+repository:
+
+```sh
+uv sync --extra credentials
+uv run --extra credentials python scripts/credential_store.py set \
+  --service utm-operations-connector --account flight-blender-client-secret
+```
+
+Then configure only the credential coordinates:
+
+```dotenv
+UTM_CONNECTOR_FLIGHT_BLENDER_TOKEN_URL=https://auth.example.test/oauth/token
+UTM_CONNECTOR_FLIGHT_BLENDER_CLIENT_ID=utm-connector
+UTM_CONNECTOR_FLIGHT_BLENDER_CLIENT_SECRET=
+UTM_CONNECTOR_FLIGHT_BLENDER_CLIENT_SECRET_KEYRING_SERVICE=utm-operations-connector
+UTM_CONNECTOR_FLIGHT_BLENDER_CLIENT_SECRET_KEYRING_ACCOUNT=flight-blender-client-secret
+```
+
+The `keyring` integration uses Keychain on macOS, the Windows credential
+manager on Windows, and the configured Secret Service backend on Linux. A
+headless Linux deployment must provide a Secret Service-compatible backend or
+use an external secret injector.
+
 For a live MAVLink vehicle, `GLOBAL_POSITION_INT.alt` is AMSL while Flight
 Blender expects WGS84 ellipsoidal height. Set
 `UTM_CONNECTOR_ALTITUDE_GEOID_GRID_PATH` to an explicitly installed PROJ

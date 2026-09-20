@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from .backends import BackendError, FlightBlenderBackend, InMemoryBackend
 from .altitude import AltitudeConversionError, AltitudeConverter
 from .config import ConnectorSettings
+from .credentials import resolve_client_secret
 from .demo import DemoVehiclePublisher
 from .domain import (
     DeclarationState,
@@ -51,13 +52,22 @@ def create_app(
     owns_service = service is None
     metrics = service.metrics if service is not None else RuntimeMetrics()
     if owns_service:
+        flight_blender_client_secret = (
+            resolve_client_secret(
+                client_secret=settings.flight_blender_client_secret,
+                keyring_service=settings.flight_blender_client_secret_keyring_service,
+                keyring_account=settings.flight_blender_client_secret_keyring_account,
+            )
+            if settings.backend == "flight-blender"
+            else settings.flight_blender_client_secret
+        )
         backend = (
             FlightBlenderBackend(
                 settings.flight_blender_base_url,
                 bearer_token=settings.flight_blender_bearer_token,
                 oauth_token_url=settings.flight_blender_token_url,
                 oauth_client_id=settings.flight_blender_client_id,
-                oauth_client_secret=settings.flight_blender_client_secret,
+                oauth_client_secret=flight_blender_client_secret,
                 oauth_scope=settings.flight_blender_scope,
                 timeout_s=settings.flight_blender_timeout_s,
                 max_retries=settings.flight_blender_max_retries,

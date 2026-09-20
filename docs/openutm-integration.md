@@ -280,6 +280,25 @@ The connector obtains tokens over HTTPS, caches them until shortly before
 expiry, retries once with a fresh token after a 401, and never records client
 secrets or access tokens in the diagnostic JSONL file.
 
+To keep the production client secret out of `.env`, use the optional native
+credential-store integration:
+
+```sh
+uv sync --extra credentials
+uv run --extra credentials python scripts/credential_store.py set \
+  --service utm-operations-connector --account flight-blender-client-secret
+```
+
+Configure the matching service and account instead of setting the secret
+value. The integration uses the host's Keychain, Windows credential manager,
+or Secret Service backend, depending on the operating system:
+
+```dotenv
+UTM_CONNECTOR_FLIGHT_BLENDER_CLIENT_SECRET=
+UTM_CONNECTOR_FLIGHT_BLENDER_CLIENT_SECRET_KEYRING_SERVICE=utm-operations-connector
+UTM_CONNECTOR_FLIGHT_BLENDER_CLIENT_SECRET_KEYRING_ACCOUNT=flight-blender-client-secret
+```
+
 Check both services from another terminal. On Windows, use `curl.exe` rather
 than the PowerShell `curl` alias:
 

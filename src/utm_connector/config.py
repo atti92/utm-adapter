@@ -32,6 +32,8 @@ class ConnectorSettings(BaseSettings):
     flight_blender_token_url: str | None = None
     flight_blender_client_id: str | None = None
     flight_blender_client_secret: str | None = None
+    flight_blender_client_secret_keyring_service: str | None = None
+    flight_blender_client_secret_keyring_account: str | None = None
     flight_blender_scope: str = "flightblender.write flightblender.read"
     flight_blender_timeout_s: float = Field(default=10.0, gt=0, le=120)
     flight_blender_max_retries: int = Field(default=3, ge=0, le=10)
@@ -63,7 +65,36 @@ class ConnectorSettings(BaseSettings):
             self.flight_blender_client_id,
             self.flight_blender_client_secret,
         )
-        if any(oauth_values):
+        keyring_values = (
+            self.flight_blender_client_secret_keyring_service,
+            self.flight_blender_client_secret_keyring_account,
+        )
+        if any(keyring_values):
+            if self.flight_blender_bearer_token or self.flight_blender_client_secret:
+                raise ValueError(
+                    "configure either FLIGHT_BLENDER_BEARER_TOKEN, a client secret, or keyring credentials"
+                )
+            missing = [
+                name
+                for name, value in (
+                    ("flight_blender_token_url", self.flight_blender_token_url),
+                    ("flight_blender_client_id", self.flight_blender_client_id),
+                    (
+                        "flight_blender_client_secret_keyring_service",
+                        self.flight_blender_client_secret_keyring_service,
+                    ),
+                    (
+                        "flight_blender_client_secret_keyring_account",
+                        self.flight_blender_client_secret_keyring_account,
+                    ),
+                )
+                if not value
+            ]
+            if missing:
+                raise ValueError(
+                    "OAuth keyring authentication requires: " + ", ".join(missing)
+                )
+        elif any(oauth_values):
             if self.flight_blender_bearer_token:
                 raise ValueError(
                     "configure either FLIGHT_BLENDER_BEARER_TOKEN or OAuth client credentials, not both"

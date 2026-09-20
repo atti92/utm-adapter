@@ -11,6 +11,7 @@ import httpx
 from utm_connector.altitude import AltitudeConversionError, AltitudeConverter
 from utm_connector.auth import OAuthClientCredentials, OAuthError
 from utm_connector.config import ConnectorSettings
+from utm_connector.credentials import CredentialStoreError, resolve_client_secret
 from utm_connector.diagnostics import port_is_reachable, probe_http_endpoint
 
 
@@ -84,6 +85,15 @@ def main() -> int:
             return 1
 
     if settings.backend == "flight-blender":
+        try:
+            flight_blender_client_secret = resolve_client_secret(
+                client_secret=settings.flight_blender_client_secret,
+                keyring_service=settings.flight_blender_client_secret_keyring_service,
+                keyring_account=settings.flight_blender_client_secret_keyring_account,
+            )
+        except CredentialStoreError as exc:
+            print(f"[fail] Flight Blender auth: {exc}")
+            return 1
         provider_ok, provider_detail = probe_http_endpoint(settings.flight_blender_base_url)
         report_provider = _check if provider_ok else _info
         report_provider(
@@ -94,14 +104,14 @@ def main() -> int:
             if (
                 settings.flight_blender_token_url
                 and settings.flight_blender_client_id
-                and settings.flight_blender_client_secret
+                and flight_blender_client_secret
             ):
                 try:
                     with httpx.Client(timeout=settings.flight_blender_timeout_s) as client:
                         token = OAuthClientCredentials(
                             settings.flight_blender_token_url,
                             settings.flight_blender_client_id,
-                            settings.flight_blender_client_secret,
+                            flight_blender_client_secret,
                             scope=settings.flight_blender_scope,
                             client=client,
                         ).get_token()

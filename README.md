@@ -125,7 +125,11 @@ the configured backend and MAVLink sessions.
 
 The doctor checks the active Python/configuration, writable local state, and
 Flight Blender reachability plus bearer-token or OAuth authorization when that
-backend is selected and the provider is available. The smoke test
+backend is selected and the provider is available. OAuth client secrets may
+be loaded from the optional host OS credential-store integration; run
+`uv sync --extra credentials` and
+`uv run --extra credentials python scripts/credential_store.py --help` for
+setup. The smoke test
 exercises mission upload, operation submission, start, telemetry, conformance,
 and completion entirely in-process. Neither command starts a background
 simulator or requires Flight Blender credentials. These commands

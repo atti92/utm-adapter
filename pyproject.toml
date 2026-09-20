@@ -20,6 +20,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+credentials = [
+    "keyring==25.6.0",
+]
 test = [
     "hypothesis==6.119.0",
     "pytest==8.3.4",

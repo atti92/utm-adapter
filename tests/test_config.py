@@ -28,3 +28,21 @@ def test_provider_oauth_credentials_must_be_complete_and_exclusive() -> None:
             flight_blender_client_id="connector",
             flight_blender_client_secret="secret",
         )
+
+
+def test_provider_oauth_keyring_coordinates_are_a_complete_auth_mode() -> None:
+    settings = ConnectorSettings(
+        flight_blender_token_url="https://auth.example.test/token",
+        flight_blender_client_id="connector",
+        flight_blender_client_secret_keyring_service="utm-connector",
+        flight_blender_client_secret_keyring_account="flight-blender",
+    )
+
+    assert settings.flight_blender_client_secret is None
+
+    with pytest.raises(ValidationError, match="keyring authentication requires"):
+        ConnectorSettings(
+            flight_blender_token_url="https://auth.example.test/token",
+            flight_blender_client_id="connector",
+            flight_blender_client_secret_keyring_service="utm-connector",
+        )
