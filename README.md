@@ -2,7 +2,13 @@
 
 ## Local UTM Operations Connector
 
-The repository includes working Phase 0, Phase 1, and the first Phase 2 slices from [`utm_connector_plan.md`](utm_connector_plan.md): a provider-neutral canonical model, loopback FastAPI API, deterministic in-memory UTM backend, Flight Blender HTTP adapter, non-commanding MAVLink normalization, QGroundControl `.plan` parsing, metre-correct corridor generation, mission drift classification, an operator console, and tests.
+The repository contains the working connector, operator console, provider adapter,
+non-commanding MAVLink integration, QGroundControl and Mission Planner mission
+imports, onboard-mission drift checks, and supervised Flight Blender/SITL demo
+paths described in [`utm_connector_plan.md`](utm_connector_plan.md). The
+implementation is intentionally GCS-first: operators use the browser console
+for UTM workflow while QGroundControl or Mission Planner remains the vehicle
+control application.
 
 See [`docs/local-development.md`](docs/local-development.md) for setup and API examples.
 For the complete Flight Blender + SITL + QGroundControl/Mission Planner path,
