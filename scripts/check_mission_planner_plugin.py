@@ -51,9 +51,12 @@ def validate(source_root: Path, expected_version: str) -> list[str]:
     project = required["Mission Planner project"]
     plugin = PLUGIN.read_text(encoding="utf-8-sig")
     source_csharp_files = source_root.rglob("*.cs")
+    source_text = "\n".join(
+        path.read_text(encoding="utf-8-sig", errors="ignore") for path in source_csharp_files
+    )
     has_settings_getter = any(
         "GetString(" in path.read_text(encoding="utf-8-sig", errors="ignore")
-        for path in source_csharp_files
+        for path in source_root.rglob("*.cs")
     )
     expectations = (
         ("plugin base class", "public abstract class Plugin" in api),
@@ -66,6 +69,14 @@ def validate(source_root: Path, expected_version: str) -> list[str]:
         ("connector plugin uses the Flight Data menu", "Host.FDMenuMap.Items.Add" in plugin),
         ("connector plugin remains non-commanding", "Host.comPort." not in plugin),
         ("connector plugin has no MAVLink command path", "COMMAND_LONG" not in plugin and "sendPacket" not in plugin),
+        (
+            "connector plugin uses geographic mission commands",
+            all(f"MAVLink.MAV_CMD.{name}" in plugin for name in ("WAYPOINT", "LAND", "TAKEOFF")),
+        ),
+        (
+            "Mission Planner exposes the LAND mission enum",
+            "MAV_CMD.LAND" in source_text,
+        ),
     )
     for label, passed in expectations:
         if not passed:
