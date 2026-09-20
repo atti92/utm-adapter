@@ -61,7 +61,7 @@ public class UtmConnectorPlugin : Plugin
         connectorMenu.DropDownItems.Add(configure);
 
         var openConsole = new ToolStripMenuItem("Open operator console");
-        openConsole.Click += delegate { OpenUrl(ResolveConnectorBaseUrl() + "/ui/"); };
+        openConsole.Click += delegate { OpenOperatorConsole(); };
         connectorMenu.DropDownItems.Add(openConsole);
 
         var checkConnector = new ToolStripMenuItem("Check connector");
@@ -519,6 +519,24 @@ public class UtmConnectorPlugin : Plugin
         {
             ShowMessage("Could not open the UTM Connector console: " + ex.Message);
         }
+    }
+
+    private void OpenOperatorConsole()
+    {
+        SetStatus("locating operator console...");
+        Task.Run(delegate
+        {
+            try
+            {
+                OpenUrl(ResolveConnectorBaseUrl() + "/ui/");
+                SetStatus("operator console opened");
+            }
+            catch (Exception ex)
+            {
+                SetStatus("error");
+                ShowMessage("Could not open the UTM Connector console: " + ex.Message);
+            }
+        });
     }
 
     private string StatusText(string value)
