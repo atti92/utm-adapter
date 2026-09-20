@@ -21,11 +21,20 @@ from .domain import (
 class DemoVehiclePublisher:
     """Publish a visible, non-commanding vehicle around the sample route."""
 
-    _route = (
+    DEMO_ROUTE = (
         (47.4979, 19.0402),
         (47.4992, 19.0420),
         (47.5000, 19.0390),
     )
+
+    @classmethod
+    def route_coordinates(cls) -> list[dict[str, float]]:
+        """Return the route used by the browser's built-in demo mission."""
+
+        return [
+            {"latitude": latitude, "longitude": longitude}
+            for latitude, longitude in cls.DEMO_ROUTE
+        ]
 
     def __init__(self, service, vehicle_id: str, interval_s: float = 1.0) -> None:
         self.service = service
@@ -102,11 +111,11 @@ class DemoVehiclePublisher:
 
     def _position(self) -> tuple[float, float]:
         # Complete one lap in 24 seconds and interpolate each route segment.
-        segment = (monotonic() / 8.0) % len(self._route)
+        segment = (monotonic() / 8.0) % len(self.DEMO_ROUTE)
         index = floor(segment)
         fraction = segment - index
-        start = self._route[index]
-        end = self._route[(index + 1) % len(self._route)]
+        start = self.DEMO_ROUTE[index]
+        end = self.DEMO_ROUTE[(index + 1) % len(self.DEMO_ROUTE)]
         return (
             start[0] + (end[0] - start[0]) * fraction,
             start[1] + (end[1] - start[1]) * fraction,

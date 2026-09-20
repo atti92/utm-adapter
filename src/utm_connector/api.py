@@ -181,6 +181,7 @@ def create_app(
         return {
             "backend": service.backend.name,
             "demo_mode": settings.demo_mode,
+            "demo_route": DemoVehiclePublisher.route_coordinates() if settings.demo_mode else None,
             "mission_formats": ["canonical", "qgroundcontrol", "mission-planner"],
             "mission_commands": list(NAVIGABLE_MISSION_COMMANDS_INFO),
             "integration_manifest": "/v1/integration",

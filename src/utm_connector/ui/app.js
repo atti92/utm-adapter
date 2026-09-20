@@ -956,15 +956,26 @@ function samplePlan() {
   const longitude = Number.isFinite(Number(telemetry?.longitude)) ? Number(telemetry.longitude) : 19.0402;
   const altitude = Number.isFinite(Number(telemetry?.altitude?.meters)) ? Number(telemetry.altitude.meters) : 137;
   const datum = telemetry?.altitude?.datum || "WGS84";
+  const demoRoute = state.capabilities?.demo_mode && Array.isArray(state.capabilities?.demo_route)
+    ? [...state.capabilities.demo_route, state.capabilities.demo_route[0]]
+    : null;
+  const waypoints = demoRoute?.length >= 2
+    ? demoRoute.map((point, sequence) => ({
+      sequence,
+      latitude: Number(point.latitude),
+      longitude: Number(point.longitude),
+      altitude: { meters: altitude + (sequence === 1 ? 2 : -2), datum },
+    }))
+    : [
+      { sequence: 0, latitude, longitude, altitude: { meters: altitude - 2, datum } },
+      { sequence: 1, latitude: latitude + 0.0012, longitude: longitude + 0.0018, altitude: { meters: altitude + 2, datum } },
+      { sequence: 2, latitude: latitude + 0.0021, longitude: longitude - 0.0011, altitude: { meters: altitude - 2, datum } },
+    ];
   return {
     valid_from: new Date(Date.now() + DEMO_LEAD_TIME_MS).toISOString(),
     valid_until: new Date(Date.now() + 35 * 60_000).toISOString(),
     source: "operator-console-demo",
-    waypoints: [
-      { sequence: 0, latitude, longitude, altitude: { meters: altitude - 2, datum } },
-      { sequence: 1, latitude: latitude + 0.0012, longitude: longitude + 0.0018, altitude: { meters: altitude + 2, datum } },
-      { sequence: 2, latitude: latitude + 0.0021, longitude: longitude - 0.0011, altitude: { meters: altitude - 2, datum } },
-    ],
+    waypoints,
   };
 }
 

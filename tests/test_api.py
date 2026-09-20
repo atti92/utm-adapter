@@ -273,7 +273,13 @@ def test_opt_in_demo_mode_publishes_a_vehicle_for_the_operator_console() -> None
         assert vehicle.status_code == 200
         assert vehicle.json()[0]["vehicle_id"] == "demo-1"
         assert vehicle.json()[0]["connection_state"] == "CONNECTED"
-        assert client.get("/v1/capabilities").json()["demo_mode"] is True
+        capabilities = client.get("/v1/capabilities").json()
+        assert capabilities["demo_mode"] is True
+        assert capabilities["demo_route"] == [
+            {"latitude": 47.4979, "longitude": 19.0402},
+            {"latitude": 47.4992, "longitude": 19.042},
+            {"latitude": 47.5, "longitude": 19.039},
+        ]
         status = client.get("/v1/vehicles/demo-1/status")
         assert status.status_code == 200
         assert status.json()["latest_telemetry"]["quality"] == "GOOD"

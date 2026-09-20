@@ -67,6 +67,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "status.last_error" in javascript
     assert "Link error:" in javascript
     assert "state.latestStatus?.latest_telemetry" in javascript
+    assert "state.capabilities?.demo_route" in javascript
     assert javascript.count("renderEvents(events);") == 1
     assert "telemetry.altitude.datum" in javascript
     assert javascript.count('<div><span>Altitude</span>') == 1
