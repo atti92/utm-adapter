@@ -452,10 +452,17 @@ class ConnectorService:
                 raise ConnectorError("operation must be accepted before it can start")
             if state.authorization not in (AuthorizationState.AUTHORIZED, AuthorizationState.NOT_REQUIRED):
                 raise ConnectorError("operation is not authorized")
+            if state.telemetry_publication != TelemetryPublicationState.NOT_STARTED:
+                raise ConnectorError("operation has already started")
             state.telemetry_publication = TelemetryPublicationState.ACTIVE
         elif intent.command == OperationCommand.CANCEL_OPERATION:
             if state.declaration == DeclarationState.CANCELLED:
                 raise ConnectorError("operation is already cancelled")
+            if state.declaration in {
+                DeclarationState.COMPLETED,
+                DeclarationState.REJECTED,
+            }:
+                raise ConnectorError("operation is terminal and cannot be cancelled")
             state.declaration = DeclarationState.CANCELLED
             state.telemetry_publication = TelemetryPublicationState.STOPPED
         elif intent.command == OperationCommand.COMPLETE_OPERATION:
@@ -559,6 +566,7 @@ class ConnectorService:
         candidate = operation.model_copy(deep=True)
         if provider_state == 8:
             candidate.state.declaration = DeclarationState.REJECTED
+            candidate.state.telemetry_publication = TelemetryPublicationState.STOPPED
         elif provider_state in (6, 7):
             candidate.state.declaration = DeclarationState.CANCELLED
             candidate.state.telemetry_publication = TelemetryPublicationState.STOPPED
