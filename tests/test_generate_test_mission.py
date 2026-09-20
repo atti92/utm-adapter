@@ -77,5 +77,9 @@ def test_demo_mission_artifacts_round_trip_through_production_parsers(tmp_path: 
     assert set(paths) == {"canonical", "qgroundcontrol", "mission-planner"}
     assert paths["canonical"].is_file()
     assert paths["qgroundcontrol"].read_text(encoding="utf-8").startswith('{\n  "fileType": "Plan"')
+    generated_qgc = json.loads(paths["qgroundcontrol"].read_text(encoding="utf-8"))
+    generated_item = generated_qgc["mission"]["items"][0]
+    assert generated_item["coordinate"] == [51.5074, -0.1278, 9]
+    assert generated_item["params"] == [0, 0, 0, None]
     assert paths["mission-planner"].read_text(encoding="utf-8").startswith("QGC WPL 110\n")
     assert "51.5074" in paths["mission-planner"].read_text(encoding="utf-8")

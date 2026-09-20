@@ -84,20 +84,13 @@ def build_qgroundcontrol_plan(payload: dict[str, object]) -> dict[str, object]:
                 "frame": 5,
                 "autoContinue": True,
                 "doJumpId": sequence + 1,
-                "params": [
-                    0,
-                    0,
-                    0,
-                    0,
-                    point["latitude"],
-                    point["longitude"],
-                    point["altitude"],
-                ],
+                "coordinate": [point["latitude"], point["longitude"], point["altitude"]],
+                "params": [0, 0, 0, None],
             }
         )
     return {
         "fileType": "Plan",
-        "geoFence": {"circles": [], "polygons": [], "version": 2},
+        "geoFence": {"polygon": [], "version": 1},
         "groundStation": "QGroundControl",
         "mission": {
             "cruiseSpeed": 15,
@@ -113,7 +106,7 @@ def build_qgroundcontrol_plan(payload: dict[str, object]) -> dict[str, object]:
             "vehicleType": 2,
             "version": 2,
         },
-        "rallyPoints": {"points": [], "version": 2},
+        "rallyPoints": {"points": [], "version": 1},
         "version": 1,
     }
 

@@ -121,7 +121,8 @@ def _mission_upload(
                 "frame": frame,
                 "autoContinue": True,
                 "doJumpId": sequence + 1,
-                "params": [0, 0, 0, 0, point_latitude, point_longitude, point_altitude],
+                "coordinate": [point_latitude, point_longitude, point_altitude],
+                "params": [0, 0, 0, None],
             }
             for sequence, (command, (point_latitude, point_longitude, point_altitude)) in enumerate(
                 zip((22, 16, 21), route)

@@ -34,8 +34,10 @@ def parse_qgroundcontrol_plan(
 ) -> Mission:
     """Parse basic QGroundControl SimpleItems into a canonical mission.
 
-    QGC stores geographic coordinates in ``params[4:7]``.  The MAVLink frame
-    is used to determine altitude semantics; the parser never guesses a datum.
+    Current QGC Plans store geographic coordinates in ``coordinate``. Older
+    exports may store them in ``params[4:7]``; both representations are
+    accepted for compatibility. The MAVLink frame is used to determine
+    altitude semantics; the parser never guesses a datum.
     Complex items and unsupported command types are rejected so they cannot
     silently become a different operation. Waypoint, takeoff, and landing
     items are represented by their geographic route point; vehicle-control
@@ -60,13 +62,24 @@ def parse_qgroundcontrol_plan(
             raise MissionParseError(f"unsupported QGroundControl mission command: {command}")
         frame = _integer(item.get("frame"), "frame")
         datum = _altitude_datum(frame)
-        params = item.get("params")
-        if not isinstance(params, list) or len(params) < 7:
-            raise MissionParseError("QGroundControl SimpleItem must contain seven params")
+        coordinate = item.get("coordinate")
+        if coordinate is not None:
+            if not isinstance(coordinate, (list, tuple)) or len(coordinate) < 3:
+                raise MissionParseError(
+                    "QGroundControl SimpleItem coordinate must contain latitude, longitude, and altitude"
+                )
+            coordinate_values = coordinate[:3]
+        else:
+            params = item.get("params")
+            if not isinstance(params, list) or len(params) < 7:
+                raise MissionParseError(
+                    "QGroundControl SimpleItem must contain coordinate or seven params"
+                )
+            coordinate_values = params[4:7]
         try:
-            latitude = float(params[4])
-            longitude = float(params[5])
-            altitude = float(params[6])
+            latitude = float(coordinate_values[0])
+            longitude = float(coordinate_values[1])
+            altitude = float(coordinate_values[2])
         except (TypeError, ValueError) as exc:
             raise MissionParseError("QGroundControl mission coordinates must be numeric") from exc
         waypoints.append(

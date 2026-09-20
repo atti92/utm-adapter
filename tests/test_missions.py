@@ -39,6 +39,47 @@ def test_qgroundcontrol_plan_maps_frames_and_coordinates() -> None:
     assert mission.waypoints[0].altitude.datum == AltitudeDatum.AGL
 
 
+def test_qgroundcontrol_plan_accepts_standard_coordinate_items() -> None:
+    plan = {
+        "fileType": "Plan",
+        "geoFence": {"polygon": [], "version": 1},
+        "groundStation": "QGroundControl",
+        "mission": {
+            "items": [
+                {
+                    "autoContinue": True,
+                    "command": 22,
+                    "coordinate": [47.5, 19.05, 100],
+                    "doJumpId": 1,
+                    "frame": 3,
+                    "params": [0, 0, 0, None],
+                    "type": "SimpleItem",
+                },
+                {
+                    "autoContinue": True,
+                    "command": 16,
+                    "coordinate": [47.501, 19.052, 120],
+                    "doJumpId": 2,
+                    "frame": 3,
+                    "params": [0, 0, 0, None],
+                    "type": "SimpleItem",
+                },
+            ]
+        },
+    }
+
+    mission = parse_qgroundcontrol_plan(
+        plan,
+        vehicle_id="sitl-1",
+        valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        valid_until=datetime(2026, 1, 1, 1, tzinfo=timezone.utc),
+    )
+
+    assert mission.waypoints[0].latitude == 47.5
+    assert mission.waypoints[1].longitude == 19.052
+    assert mission.waypoints[0].altitude.datum == AltitudeDatum.AGL
+
+
 def test_qgroundcontrol_plan_accepts_a_geographic_landing_endpoint() -> None:
     plan = _plan()
     plan["mission"]["items"].append(

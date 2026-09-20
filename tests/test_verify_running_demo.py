@@ -119,6 +119,9 @@ def test_running_demo_verifier_builds_a_real_qgroundcontrol_plan_upload() -> Non
     )
 
     assert path == "/v1/missions/sitl-1/qgroundcontrol"
+    first_item = payload["plan"]["mission"]["items"][0]
+    assert first_item["coordinate"] == [47.4979, 19.0402, 135]
+    assert first_item["params"] == [0, 0, 0, None]
     mission = parse_qgroundcontrol_plan(
         payload["plan"],
         vehicle_id="sitl-1",
