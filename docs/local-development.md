@@ -116,6 +116,20 @@ make integration-demo-verify
 This is useful before a presentation when the target environment is the
 ArduPilot/QGroundControl path rather than the Docker-only PX4 path.
 
+For one presentation-ready preflight that also reports optional native GCS and
+MAVLink Router integrations, run:
+
+```sh
+make demo-check
+```
+
+The required checks must pass before starting the supervised demo. QGroundControl,
+Mission Planner, and `mavlink-routerd` are reported separately because the
+browser console and the two-output SITL path remain usable without those
+optional host applications. Use `--strict-router` with
+`uv run python scripts/check_demo.py` when the router binary is part of the
+target demonstration.
+
 Set `FLIGHT_BLENDER_ROOT` and `ARDUPILOT_ROOT` when the checkouts are not in
 the sibling directories next to this repository. The same Python launcher can
 be run from PowerShell; use `--gcs mission-planner` on Windows when Mission
@@ -132,7 +146,7 @@ uv run uvicorn 'utm_connector.api:create_app' --factory
 ```
 
 Convenience targets are also available: `make setup`, `make doctor`, `make smoke`,
-`make test`, `make run`, `make demo`, and `make integration-demo-px4`. They delegate to `uv run`, so they do not depend on
+`make test`, `make run`, `make demo`, `make demo-check`, and `make integration-demo-px4`. They delegate to `uv run`, so they do not depend on
 the Unix-specific `.venv/bin` layout.
 
 The service listens on `http://127.0.0.1:8000`. Open the operator console at

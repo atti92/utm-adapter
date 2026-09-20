@@ -39,6 +39,11 @@ honor the shared `--home lat,lon,altitude,heading` option. Use `--check` to
 validate prerequisites without starting anything. Press Ctrl+C to stop the simulator,
 connector, and provider stack started by that run.
 
+Before a presentation, run `make demo-check`. It validates the required
+Flight Blender/SITL/Docker path and reports optional QGroundControl, Mission
+Planner, and MAVLink Router availability separately, so a missing native app
+does not obscure whether the browser-based demo is ready.
+
 For the shortest cross-platform full-stack demo, use PX4's official Docker SITL
 image, which does not require an ArduPilot checkout:
 

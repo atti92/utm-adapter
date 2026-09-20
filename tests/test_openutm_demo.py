@@ -258,6 +258,20 @@ def test_check_prerequisites_reports_missing_requested_gcs(tmp_path: Path, monke
     assert any("QGroundControl was requested" in failure for failure in failures)
 
 
+def test_demo_check_uses_the_selected_simulator_and_gcs(tmp_path: Path) -> None:
+    parser = openutm_demo._build_parser()
+    args = parser.parse_args(["--simulator", "px4", "--gcs", "none"])
+
+    config = openutm_demo.DemoConfig(
+        simulator=args.simulator,
+        gcs=args.gcs,
+        flight_blender_root=tmp_path / "flight-blender",
+    )
+
+    assert config.simulator == "px4"
+    assert config.gcs == "none"
+
+
 def test_qgroundcontrol_detection_is_optional_for_auto_mode(monkeypatch) -> None:
     monkeypatch.setattr(openutm_demo, "_find_qgroundcontrol_command", lambda: None)
     monkeypatch.setattr(openutm_demo, "_find_mission_planner_command", lambda: None)

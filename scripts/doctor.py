@@ -123,6 +123,7 @@ def main() -> int:
     print("  uv run utm-connector                  # start the local API")
     print("  uv run python scripts/openutm_demo.py --simulator px4 --check")
     print("                                         # full GCS + Flight Blender preflight")
+    print("  make demo-check                       # required + optional integration preflight")
     return 0
 
 
