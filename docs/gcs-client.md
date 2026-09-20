@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 
 from utm_connector.gcs_client import ConnectorClient
 
-with ConnectorClient("http://127.0.0.1:8000") as connector:
+with ConnectorClient("http://127.0.0.1:8000", correlation_id="<session-uuid>") as connector:
     diagnostics = connector.metrics()
     vehicles = connector.vehicles()
     vehicle_id = vehicles[0]["vehicle_id"]
@@ -44,6 +44,10 @@ mission yet returns HTTP 404.
 `metrics()` returns process-local diagnostics suitable for a compact GCS
 status panel: uptime, active vehicles and operations, telemetry publication
 counters, and provider request latency/error counters.
+
+Connector responses include an `X-Correlation-ID` header. Send a UUID with the
+same header when a host GCS starts an operator action to make support logs
+traceable across the request boundary.
 
 The client intentionally returns JSON dictionaries so the host GCS can map
 connector state into its own native UI models. Use

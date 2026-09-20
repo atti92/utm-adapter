@@ -206,6 +206,11 @@ last telemetry timestamps, and provider request latency/error counters. The
 current connector publishes synchronously, so `telemetry.queue_depth` is
 explicitly `0`; a non-zero value would indicate a future asynchronous backlog.
 The counters are process-local and reset when the connector restarts.
+Every API response also includes an `X-Correlation-ID` header. A GCS or support
+tool can send its own UUID in that header and reuse the returned value when
+linking UI actions, event records, and provider failures in a support log.
+The built-in browser console and `ConnectorClient` do this automatically for
+each session.
 
 For a clean disposable run, use this in `.env`:
 

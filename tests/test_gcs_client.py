@@ -50,6 +50,10 @@ def test_client_maps_gcs_workflow_to_connector_endpoints() -> None:
     assert requests[4].content.startswith(b'{"valid_from"')
     assert requests[5].url.path == "/v1/operator-intents"
     assert requests[5].url.params["vehicle_id"] == "sitl/1"
+    assert requests[0].headers["x-correlation-id"]
+    assert {request.headers["x-correlation-id"] for request in requests} == {
+        requests[0].headers["x-correlation-id"]
+    }
 
 
 def test_client_surfaces_provider_http_errors_without_provider_types() -> None:

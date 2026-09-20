@@ -34,10 +34,12 @@ class ConnectorClient:
         base_url: str = "http://127.0.0.1:8000",
         *,
         client: Optional[httpx.Client] = None,
+        correlation_id: Optional[UUID | str] = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self._owns_client = client is None
         self.client = client or httpx.Client(timeout=10.0)
+        self.correlation_id = str(correlation_id or uuid4())
 
     def close(self) -> None:
         if self._owns_client:
@@ -158,6 +160,9 @@ class ConnectorClient:
         return self._request("GET", f"/v1/operations/{self._path_value(str(operation_id))}")
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
+        headers = dict(kwargs.pop("headers", {}) or {})
+        headers.setdefault("X-Correlation-ID", self.correlation_id)
+        kwargs["headers"] = headers
         try:
             response = self.client.request(method, f"{self.base_url}{path}", **kwargs)
         except httpx.HTTPError as exc:

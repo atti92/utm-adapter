@@ -17,6 +17,7 @@ const DEFAULT_NAVIGABLE_MISSION_COMMANDS = new Set([16, 21, 22]);
 let refreshInFlight = false;
 let missionReadInFlight = false;
 const intentInFlight = new Set();
+const correlationId = newOperationId();
 
 const $ = (id) => document.getElementById(id);
 
@@ -180,7 +181,7 @@ function renderNextAction() {
 
 async function request(path, options = {}) {
   const response = await fetch(path, {
-    headers: { "content-type": "application/json", ...(options.headers || {}) },
+    headers: { "content-type": "application/json", "X-Correlation-ID": correlationId, ...(options.headers || {}) },
     ...options,
   });
   const body = await response.json().catch(() => ({}));

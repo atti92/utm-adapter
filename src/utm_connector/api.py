@@ -3,9 +3,9 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import List, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -144,6 +144,20 @@ def create_app(
     app = FastAPI(title="UTM Operations Connector", version="0.1.0", lifespan=lifespan)
     app.state.connector_service = service
     app.state.mavlink_session_manager = manager
+
+    @app.middleware("http")
+    async def correlation_id_middleware(request: Request, call_next):
+        """Make every GCS request traceable without changing API payloads."""
+
+        incoming = request.headers.get("X-Correlation-ID")
+        try:
+            correlation_id = str(UUID(incoming)) if incoming else str(uuid4())
+        except ValueError:
+            correlation_id = str(uuid4())
+        request.state.correlation_id = correlation_id
+        response = await call_next(request)
+        response.headers["X-Correlation-ID"] = correlation_id
+        return response
     app.state.demo_vehicle_publisher = demo_publisher
 
     @app.get("/v1/capabilities", response_model=dict)

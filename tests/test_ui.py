@@ -52,6 +52,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "renderVehicleStatus" in javascript
     assert "metrics-readiness" in javascript
     assert "telemetryMetrics.published_total" in javascript
+    assert '"X-Correlation-ID": correlationId' in javascript
     assert "battery_remaining_pct" in javascript
     assert "state.latestStatus?.latest_telemetry" in javascript
     assert "telemetry.altitude.datum" in javascript

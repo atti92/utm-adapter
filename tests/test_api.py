@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 
@@ -110,6 +110,21 @@ def test_health_exposes_provider_failure_and_recovery() -> None:
         recovered = client.get("/v1/health")
         assert recovered.json()["status"] == "ok"
         assert recovered.json()["backend_error"] is None
+
+
+def test_api_returns_a_correlation_id_for_gcs_support_logs() -> None:
+    correlation_id = str(uuid4())
+    with TestClient(
+        create_app(
+            ConnectorService(InMemoryBackend()),
+            ConnectorSettings(mavlink_connections=[]),
+        )
+    ) as client:
+        forwarded = client.get("/v1/health", headers={"X-Correlation-ID": correlation_id})
+        generated = client.get("/v1/health", headers={"X-Correlation-ID": "not-a-uuid"})
+
+    assert forwarded.headers["x-correlation-id"] == correlation_id
+    assert UUID(generated.headers["x-correlation-id"])
 
 
 def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
