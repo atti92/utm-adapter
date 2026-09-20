@@ -99,6 +99,32 @@ The connector retries this endpoint automatically when the router or vehicle
 is temporarily unavailable. Set `UTM_CONNECTOR_MAVLINK_RECONNECT_INTERVAL_S`
 to change the retry interval (the default is five seconds).
 
+### Physical UART deployment
+
+For a real aircraft, generate a reviewed UART-backed config on the companion
+computer instead of hand-editing the SITL file:
+
+```sh
+uv run python scripts/generate_mavlink_router_config.py \
+  --serial-device /dev/ttyUSB0 \
+  --baud 57600 \
+  --gcs-address 10.0.0.20 \
+  --connector-address 10.0.0.30 \
+  --output /tmp/mavlink-router.conf
+
+uv run python scripts/check_mavlink_router.py \
+  --router-config /tmp/mavlink-router.conf
+```
+
+On Windows, use a serial device such as `COM3`; the router itself is normally
+installed on a Linux companion computer, so the device path is the path on
+that companion. Install the reviewed file as the router configuration and
+start `mavlink-routerd --conf-file /path/to/mavlink-router.conf`. Allow UDP
+14550 from the companion to the GCS and UDP 14551 from the companion to the
+connector in the network/firewall policy. Keep the connector's
+`UTM_CONNECTOR_MAVLINK_CONNECTIONS` URI pointed at the connector address and
+port, for example `udpin:10.0.0.30:14551`.
+
 Then open `http://127.0.0.1:8000/ui/` for the operator console and start
 QGroundControl or Mission Planner normally. The connector can open a physical
 serial link directly with `serial:/dev/ttyUSB0:57600` on Linux/macOS or

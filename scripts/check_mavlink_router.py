@@ -46,7 +46,13 @@ def _section_values(parser: configparser.ConfigParser, section: str) -> dict[str
 
 
 def validate(path: Path) -> list[str]:
-    """Return configuration errors for the connector's documented topology."""
+    """Return errors for the documented consumer fan-out topology.
+
+    The consumer endpoints are shared by the local SITL example and the
+    production companion-computer example. The vehicle input can therefore be
+    either the checked-in UDP server used by SITL or a UART endpoint connected
+    to the physical telemetry link.
+    """
 
     try:
         parser = _read_config(path)
@@ -61,18 +67,11 @@ def validate(path: Path) -> list[str]:
     expected = {
         "UdpEndpoint qgroundcontrol": {
             "mode": "Normal",
-            "address": "127.0.0.1",
             "port": "14550",
         },
         "UdpEndpoint utm_connector": {
             "mode": "Normal",
-            "address": "127.0.0.1",
             "port": "14551",
-        },
-        "UdpEndpoint vehicle_input": {
-            "mode": "Server",
-            "address": "0.0.0.0",
-            "port": "14560",
         },
     }
     seen_ports: dict[str, str] = {}
@@ -86,6 +85,8 @@ def validate(path: Path) -> list[str]:
             actual = values.get(key)
             if actual != expected_value:
                 errors.append(f"[{section}] {key} must be {expected_value!r} (got {actual!r})")
+        if not values.get("address"):
+            errors.append(f"[{section}] address must not be empty")
         port = values.get("port")
         if port:
             previous = seen_ports.get(port)
@@ -93,6 +94,50 @@ def validate(path: Path) -> list[str]:
                 errors.append(f"router UDP port {port} is used by both {previous} and {section}")
             else:
                 seen_ports[port] = section
+
+    has_uart_input = parser.has_section("UartEndpoint vehicle_link")
+    has_udp_input = parser.has_section("UdpEndpoint vehicle_input")
+    if has_uart_input and has_udp_input:
+        errors.append(
+            "configure either [UartEndpoint vehicle_link] or "
+            "[UdpEndpoint vehicle_input], not both"
+        )
+    elif has_uart_input:
+        values = _section_values(parser, "UartEndpoint vehicle_link")
+        if not values.get("device"):
+            errors.append("[UartEndpoint vehicle_link] Device must not be empty")
+        baud = values.get("baud", "")
+        if not baud.isdigit() or int(baud) <= 0:
+            errors.append("[UartEndpoint vehicle_link] Baud must be a positive integer")
+    elif has_udp_input:
+        required = {
+            "mode": "Server",
+            "address": "0.0.0.0",
+            "port": "14560",
+        }
+        values = _section_values(parser, "UdpEndpoint vehicle_input")
+        for key, expected_value in required.items():
+            actual = values.get(key)
+            if actual != expected_value:
+                errors.append(
+                    f"[UdpEndpoint vehicle_input] {key} must be {expected_value!r} "
+                    f"(got {actual!r})"
+                )
+        port = values.get("port")
+        if port:
+            previous = seen_ports.get(port)
+            if previous:
+                errors.append(
+                    f"router UDP port {port} is used by both {previous} and "
+                    "[UdpEndpoint vehicle_input]"
+                )
+            else:
+                seen_ports[port] = "[UdpEndpoint vehicle_input]"
+    else:
+        errors.append(
+            "missing vehicle input: add [UartEndpoint vehicle_link] for a "
+            "physical link or [UdpEndpoint vehicle_input] for SITL"
+        )
 
     return errors
 

@@ -301,6 +301,10 @@ curl http://127.0.0.1:8000/v1/vehicles/sitl-1/status
 The recommended real-world topology is one vehicle link into a MAVLink router,
 with separate router endpoints for the GCS and connector. See
 [`examples/mavlink-router/README.md`](../examples/mavlink-router/README.md).
+For a physical UART deployment, use
+`scripts/generate_mavlink_router_config.py` to create the companion config
+with explicit serial, GCS, and connector addresses, then validate it with
+`scripts/check_mavlink_router.py` before installing it.
 The connector consumes telemetry and uses mission-protocol requests for drift
 checking only after an operator explicitly asks it to check the onboard mission;
 it does not send vehicle-control commands. The separate-output SITL shortcut
