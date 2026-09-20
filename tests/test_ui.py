@@ -30,7 +30,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
 
     assert javascript_response.headers["cache-control"] == "no-store, max-age=0"
 
-    for label in ("Open mission file", "Use vehicle mission", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action", "Connection guide", "Copy diagnostics", "Download diagnostics", "Support ID", "How the vehicle link is shared", "MAVLink router", "Validity times use your computer's local timezone", "sent to the UTM provider as UTC"):
+    for label in ("Open mission file", "Use vehicle mission", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action", "Connection guide", "Retry connection", "Copy diagnostics", "Download diagnostics", "Support ID", "How the vehicle link is shared", "MAVLink router", "Validity times use your computer's local timezone", "sent to the UTM provider as UTC"):
         assert label in html
     for element_id in ("backend-readiness", "mavlink-readiness", "recording-readiness", "metrics-readiness", "altitude-readiness", "control-readiness"):
         assert element_id in html
@@ -106,6 +106,9 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "renderNextAction" in javascript
     assert "Operation is live and conforming." in javascript
     assert "function providerReady()" in javascript
+    assert '$("retry-connection").addEventListener("click"' in javascript
+    assert 'retryButton.textContent = successful ? "Refresh status" : "Retry connection"' in javascript
+    assert 'retryButton.textContent = "Checking…"' in javascript
     assert "function providerBlockReason()" in javascript
     assert "function vehicleLinkReady()" in javascript
     assert 'state.latestHealth.status === "ok"' in javascript

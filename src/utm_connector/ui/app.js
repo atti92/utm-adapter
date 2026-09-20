@@ -819,6 +819,12 @@ async function refreshVehicle() {
 async function refresh() {
   if (refreshInFlight) return;
   refreshInFlight = true;
+  const retryButton = $("retry-connection");
+  if (retryButton) {
+    retryButton.disabled = true;
+    retryButton.textContent = "Checking…";
+  }
+  let successful = false;
   try {
     const [health, capabilities, integration, vehicles, events, metrics] = await Promise.all([
       request("/v1/health"), request("/v1/capabilities"), request("/v1/integration"), request("/v1/vehicles"), request("/v1/events?limit=12"), request("/v1/metrics").catch(() => null),
@@ -835,6 +841,7 @@ async function refresh() {
     renderVehicleDirectory(vehicles);
     renderEvents(events);
     await refreshVehicle();
+    successful = true;
   } catch (error) {
     state.latestStatus = null;
     state.latestHealth = { status: "degraded", backend_error: error.message };
@@ -844,7 +851,12 @@ async function refresh() {
     if (state.operation) renderOperation(state.operation);
   } finally {
     refreshInFlight = false;
+    if (retryButton) {
+      retryButton.disabled = false;
+      retryButton.textContent = successful ? "Refresh status" : "Retry connection";
+    }
   }
+  return successful;
 }
 
 async function checkVehicleMission() {
@@ -1111,6 +1123,13 @@ $("start-button").addEventListener("click", () => sendIntent("START_OPERATION"))
 $("cancel-button").addEventListener("click", () => sendIntent("CANCEL_OPERATION"));
 $("complete-button").addEventListener("click", () => sendIntent("COMPLETE_OPERATION"));
 $("refresh-operation-button").addEventListener("click", async () => { if (!state.operation) return; try { renderOperation(await request(`/v1/operations/${state.operation.operation_id}/refresh`, { method: "POST" })); setMessage("Provider state refreshed.", "success"); } catch (error) { setMessage(error.message, "error"); } });
+$("retry-connection").addEventListener("click", async () => {
+  const connected = await refresh();
+  if (connected) {
+    $("setup-message").textContent = "Connector status refreshed.";
+    $("setup-message").dataset.kind = "success";
+  }
+});
 $("copy-diagnostics").addEventListener("click", copyDiagnostics);
 $("download-diagnostics").addEventListener("click", downloadDiagnostics);
 ["valid-from", "valid-until", "corridor-radius"].forEach((id) => $(id).addEventListener("input", () => {
