@@ -619,6 +619,22 @@ function previewWaypoint(latitude, longitude, altitude, datum, sequence) {
   };
 }
 
+function qgroundcontrolItemCoordinates(item) {
+  if (Array.isArray(item.coordinate) && item.coordinate.length >= 3) {
+    return item.coordinate.slice(0, 3);
+  }
+  if (Array.isArray(item.params) && item.params.length >= 7) {
+    return item.params.slice(4, 7);
+  }
+  return null;
+}
+
+function qgroundcontrolAltitudeDatum(frame) {
+  if ([3, 6].includes(frame)) return "AGL";
+  if ([0, 5].includes(frame)) return "AMSL";
+  return null;
+}
+
 function buildPreviewMission() {
   if (!state.plan) return null;
   if (state.planFormat === "canonical") {
@@ -647,10 +663,11 @@ function buildPreviewMission() {
   const supportedCommands = navigableMissionCommands();
   const waypoints = items.filter((item) => supportedCommands.has(Number(item.command))).map((item, index) => {
     const frame = Number(item.frame);
-    const params = item.params || [];
+    const coordinate = qgroundcontrolItemCoordinates(item);
+    const datum = qgroundcontrolAltitudeDatum(frame);
+    if (!coordinate || !datum) return null;
     return previewWaypoint(
-      Number(params[4]), Number(params[5]), Number(params[6]),
-      [3, 6].includes(frame) ? "AGL" : "AMSL", index,
+      Number(coordinate[0]), Number(coordinate[1]), Number(coordinate[2]), datum, index,
     );
   }).filter(Boolean);
   return waypoints.length >= 2 ? waypoints : null;

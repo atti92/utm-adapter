@@ -55,6 +55,10 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "function navigableMissionCommands()" in javascript
     assert "state.capabilities?.mission_commands" in javascript
     assert "DEFAULT_NAVIGABLE_MISSION_COMMANDS" in javascript
+    assert "function qgroundcontrolItemCoordinates(item)" in javascript
+    assert "item.coordinate" in javascript
+    assert "return item.params.slice(4, 7)" in javascript
+    assert "function qgroundcontrolAltitudeDatum(frame)" in javascript
     assert "operator-console-preview" in javascript
     assert "renderMissionDrift" in javascript
     assert "renderMissionDrift(null);" in javascript
