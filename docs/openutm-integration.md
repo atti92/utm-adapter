@@ -59,6 +59,12 @@ uv run python scripts/openutm_demo.py --check
 uv run python scripts/openutm_demo.py
 ```
 
+For a presentation, the same supervised path is available through the shorter
+operator-facing targets `make gcs-demo-check` and `make gcs-demo`. Use
+`make gcs-router-demo` when the demonstration should model one physical
+vehicle telemetry link feeding a MAVLink router; its matching preflight is
+`make gcs-router-demo-check`.
+
 It starts Flight Blender, the connector, and ArduPilot SITL, opens the
 operator console, and auto-detects QGroundControl or Mission Planner. On
 Windows PowerShell, auto-detection prefers QGroundControl and falls back to

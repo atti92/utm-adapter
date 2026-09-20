@@ -71,6 +71,17 @@
           </div>
         </div>
         <p class="setup-note" id="setup-note">Use one physical vehicle link into a MAVLink router when the GCS and connector share a real aircraft.</p>
+        <details class="topology-details">
+          <summary>How the vehicle link is shared</summary>
+          <div class="topology-flow" aria-label="Vehicle link fan-out">
+            <span class="topology-node">Vehicle</span>
+            <span class="topology-arrow" aria-hidden="true">→</span>
+            <span class="topology-node">MAVLink router</span>
+            <span class="topology-arrow" aria-hidden="true">→</span>
+            <span class="topology-node">GCS + connector</span>
+          </div>
+          <p>There is one physical telemetry link on the aircraft. The router creates separate local software endpoints for QGroundControl or Mission Planner and this read-only connector. The two UDP ports shown by the simulator are a test convenience, not two aircraft ports.</p>
+        </details>
         <p class="support-id">Support ID <code id="correlation-id">Connecting…</code> · include it when reporting a problem.</p>
         <p class="inline-message" id="setup-message" role="status"></p>
       </section>

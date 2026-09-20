@@ -41,8 +41,8 @@ without using the CLI. It can also read a route already uploaded from the
 vehicle by QGroundControl or Mission Planner and import it after the operator
 supplies explicit UTM metadata.
 
-For a full Flight Blender + SITL demonstration, use
-`uv run python scripts/openutm_demo.py` or `make integration-demo` after
+For a full Flight Blender + SITL demonstration with the operator-facing GCS
+path, use `make gcs-demo` after
 installing Docker, Flight Blender, and ArduPilot beside this checkout. A
 one-time checkout setup is:
 
@@ -66,7 +66,8 @@ honor the shared `--home lat,lon,altitude,heading` option. Use `--check` to
 validate prerequisites without starting anything. Press Ctrl+C to stop the simulator,
 connector, and provider stack started by that run.
 
-Before a presentation, run `make demo-check`. It validates the required
+Before a presentation, run `make gcs-demo-check` (or `make demo-check` for the
+broader host inventory). It validates the required
 Flight Blender/SITL/Docker path and reports optional QGroundControl, Mission
 Planner, and MAVLink Router availability separately, so a missing native app
 does not obscure whether the browser-based demo is ready.
@@ -76,8 +77,8 @@ demo. It prefers a host-installed `mavlink-routerd`; when that is unavailable,
 it can build and run the router in Docker (the default on macOS/Windows):
 
 ```sh
-make demo-check
-uv run python scripts/openutm_demo.py --topology router --gcs qgroundcontrol
+make gcs-router-demo-check
+make gcs-router-demo
 ```
 
 ArduPilot emits one MAVLink stream to the router; the router exposes the

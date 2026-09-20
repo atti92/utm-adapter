@@ -83,6 +83,9 @@ launcher provides the shortest path to a realistic GCS-facing demonstration:
 ```sh
 uv run python scripts/openutm_demo.py --check
 uv run python scripts/openutm_demo.py
+# equivalent short entry points:
+make gcs-demo-check
+make gcs-demo
 ```
 
 It starts the local Flight Blender Compose stack, the connector configured for

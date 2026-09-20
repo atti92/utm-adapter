@@ -22,7 +22,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     html = client.get("/ui/").text
     javascript = client.get("/ui/app.js").text
 
-    for label in ("Open mission file", "Use vehicle mission", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action", "Connection guide", "Copy diagnostics", "Support ID"):
+    for label in ("Open mission file", "Use vehicle mission", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action", "Connection guide", "Copy diagnostics", "Support ID", "How the vehicle link is shared", "MAVLink router"):
         assert label in html
     for element_id in ("backend-readiness", "mavlink-readiness", "recording-readiness", "metrics-readiness", "altitude-readiness", "control-readiness"):
         assert element_id in html
@@ -67,6 +67,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "status.last_error" in javascript
     assert "Link error:" in javascript
     assert "state.latestStatus?.latest_telemetry" in javascript
+    assert javascript.count("renderEvents(events);") == 1
     assert "telemetry.altitude.datum" in javascript
     assert javascript.count('<div><span>Altitude</span>') == 1
     assert "altitude - 2" in javascript
