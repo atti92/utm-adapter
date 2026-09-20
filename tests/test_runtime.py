@@ -1,14 +1,19 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from threading import Event
+from time import sleep
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
 from utm_connector.api import create_app
-from utm_connector.backends import InMemoryBackend
+from utm_connector.backends import BackendError, InMemoryBackend
 from utm_connector.config import ConnectorSettings, MavlinkConnectionConfig
 from utm_connector.domain import (
     AltitudeDatum,
     Altitude,
+    Mission,
+    OperationCommand,
+    OperationIntent,
     TelemetryQuality,
     VehicleConnectionState,
     VehicleHealth,
@@ -93,6 +98,74 @@ def test_configured_session_publishes_live_status() -> None:
     assert response.status_code == 200
     assert response.json()["vehicle_state"]["connection_state"] == "CONNECTED"
     assert response.json()["latest_telemetry"]["latitude"] == 47.5
+
+
+def test_provider_failure_does_not_make_mavlink_session_look_disconnected() -> None:
+    class FailingProvider(InMemoryBackend):
+        def publish_telemetry(self, telemetry, operation=None) -> None:
+            raise BackendError("provider temporarily unavailable")
+
+    service = ConnectorService(FailingProvider())
+    now = datetime.now(timezone.utc)
+    service.put_mission(
+        "sitl-1",
+        Mission(
+            vehicle_id="sitl-1",
+            valid_from=now - timedelta(minutes=1),
+            valid_until=now + timedelta(minutes=30),
+            waypoints=[
+                {
+                    "sequence": 0,
+                    "latitude": 47.5,
+                    "longitude": 19.0,
+                    "altitude": {"meters": 20, "datum": "AMSL"},
+                },
+                {
+                    "sequence": 1,
+                    "latitude": 47.501,
+                    "longitude": 19.001,
+                    "altitude": {"meters": 25, "datum": "AMSL"},
+                },
+            ],
+        ),
+    )
+    operation_id = uuid4()
+    service.submit_operation(
+        OperationIntent(operation_id=operation_id, command=OperationCommand.SUBMIT_OPERATION),
+        "sitl-1",
+    )
+    service.apply_intent(
+        OperationIntent(operation_id=operation_id, command=OperationCommand.START_OPERATION)
+    )
+
+    created: list[FakeSession] = []
+    delivered = Event()
+
+    def factory(_vehicle_id: str, _uri: str) -> FakeSession:
+        session = FakeSession(_snapshot())
+        created.append(session)
+        return session
+
+    def on_snapshot(snapshot: VehicleStateSnapshot) -> None:
+        service.ingest_vehicle_snapshot(snapshot)
+        delivered.set()
+
+    manager = MavlinkSessionManager(
+        [MavlinkConnectionConfig(vehicle_id="sitl-1", connection_uri="udp:127.0.0.1:14550")],
+        on_snapshot,
+        poll_interval_s=0.01,
+        reconnect_interval_s=0.01,
+        session_factory=factory,
+    )
+    manager.start()
+    assert delivered.wait(1)
+    sleep(0.05)
+    manager.stop()
+
+    assert len(created) == 1
+    assert manager.last_errors == {}
+    assert service.last_backend_error == "provider temporarily unavailable"
+    assert service.vehicle_snapshots["sitl-1"].connection_state == VehicleConnectionState.CONNECTED
 
 
 def test_session_manager_closes_sessions_and_can_restart() -> None:

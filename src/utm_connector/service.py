@@ -385,13 +385,28 @@ class ConnectorService:
         return telemetry
 
     def ingest_vehicle_snapshot(self, snapshot: VehicleStateSnapshot) -> VehicleStateSnapshot:
+        """Store one MAVLink snapshot without letting provider outages drop the link.
+
+        Snapshot ingestion runs on the MAVLink worker thread. A provider or
+        altitude-conversion failure is an independent publication problem, not
+        evidence that the vehicle transport failed. Keep the source snapshot
+        and the operation's degraded/failed state visible, while allowing the
+        session manager to continue polling and reconnect only for actual
+        MAVLink errors.
+        """
         vehicle_id = snapshot.identity.connector_vehicle_id
         previous = self.vehicle_snapshots.get(vehicle_id)
         self.vehicle_snapshots[vehicle_id] = snapshot
         if self.state_store is not None:
             self.state_store.save_vehicle_snapshot(snapshot)
         if snapshot.telemetry is not None:
-            self.put_telemetry(vehicle_id, snapshot.telemetry)
+            try:
+                self.put_telemetry(vehicle_id, snapshot.telemetry)
+            except BackendError:
+                # put_telemetry already records the provider failure and
+                # updates the operation state. Do not propagate it into the
+                # MAVLink session loop, where it would look like a link drop.
+                pass
         if previous is None or any(
             (
                 previous.connection_state != snapshot.connection_state,
