@@ -229,10 +229,24 @@ make router-check
 uv run python scripts/check_mavlink_router.py --strict
 ```
 
-The configuration check is cross-platform. Running the actual router requires
-the platform package for `mavlink-routerd`; it is not bundled with the Python
-connector. A live router test is only complete when the router forwards one
-vehicle stream to both the GCS endpoint and the connector endpoint.
+The configuration check is cross-platform. The Python connector does not bundle
+the router binary; a live router test requires either a platform installation
+of `mavlink-routerd` or the Docker fallback below. A live test is only complete
+when one vehicle stream reaches both the GCS endpoint and the connector
+endpoint.
+
+On macOS or Windows, the supervised launcher can use Docker for the router as
+well as Flight Blender. With a MAVLink Router checkout at `../mavlink-router`
+or `MAVLINK_ROUTER_ROOT` set, run:
+
+```sh
+uv run python scripts/openutm_demo.py --topology router --router-runtime docker --gcs qgroundcontrol
+```
+
+The default `--router-runtime auto` selects native `mavlink-routerd` first and
+then falls back to the Docker image. This keeps the physical-drone deployment
+model (one vehicle link into a companion router) while making the local demo
+portable across the three supported host operating systems.
 
 The supervised single-link demo uses the checked-in router configuration and
 keeps the entire session easy to stop:

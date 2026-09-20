@@ -57,6 +57,7 @@ def test_router_topology_is_carried_into_demo_config() -> None:
     assert config.topology == "router"
     assert config.router_port == openutm_demo.DEFAULT_ROUTER_INPUT_PORT
     assert config.router_config == openutm_demo.DEFAULT_ROUTER_CONFIG
+    assert config.router_runtime == openutm_demo.DEFAULT_ROUTER_RUNTIME
 
 
 def test_check_run_hint_preserves_the_selected_px4_demo_path() -> None:
@@ -177,6 +178,7 @@ def test_router_prerequisites_require_native_router_and_ardupilot(
     config = openutm_demo.DemoConfig(
         topology="router",
         simulator="px4",
+        router_runtime="native",
         flight_blender_root=tmp_path / "missing-flight-blender",
     )
     monkeypatch.setattr(openutm_demo, "_find_router_command", lambda: None)
@@ -188,6 +190,30 @@ def test_router_prerequisites_require_native_router_and_ardupilot(
 
     assert any("requires the ArduPilot SITL launcher" in failure for failure in failures)
     assert any("mavlink-routerd was not found" in failure for failure in failures)
+
+
+def test_router_runtime_auto_uses_docker_when_native_binary_is_missing(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source_root = tmp_path / "mavlink-router"
+    (source_root / "examples").mkdir(parents=True)
+    (source_root / "examples" / "Dockerfile.ubuntu").touch()
+    config = openutm_demo.DemoConfig(
+        topology="router",
+        router_source_root=source_root,
+        router_image="router:test",
+    )
+    monkeypatch.setattr(openutm_demo, "_find_router_command", lambda: None)
+    monkeypatch.setattr(openutm_demo, "_command_available", lambda _command: (True, "ok"))
+    monkeypatch.setattr(openutm_demo, "_router_image_is_available", lambda _config: False)
+
+    assert openutm_demo._select_router_runtime(config) == "docker"
+
+
+def test_docker_router_host_ip_accepts_explicit_ipv4_override(monkeypatch) -> None:
+    monkeypatch.setenv("MAVLINK_ROUTER_DOCKER_HOST", "192.168.65.254")
+
+    assert openutm_demo._docker_router_host_ip(openutm_demo.DemoConfig()) == "192.168.65.254"
 
 
 def test_router_sitl_command_uses_single_output(tmp_path: Path, monkeypatch) -> None:
@@ -237,6 +263,45 @@ def test_router_process_uses_checked_in_config(tmp_path: Path, monkeypatch) -> N
         "--conf-file",
         str(openutm_demo.DEFAULT_ROUTER_CONFIG),
     ]
+
+
+def test_router_process_uses_docker_fallback_command(tmp_path: Path, monkeypatch) -> None:
+    config = openutm_demo.DemoConfig(
+        topology="router",
+        router_runtime="docker",
+        adapter_root=tmp_path,
+        router_image="router:test",
+    )
+    observed: dict[str, object] = {}
+
+    def fake_start(name, command, **kwargs):
+        observed["name"] = name
+        observed["command"] = list(command)
+        observed.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(openutm_demo, "_select_router_runtime", lambda _config: "docker")
+    monkeypatch.setattr(openutm_demo, "_ensure_router_image", lambda _config: None)
+    monkeypatch.setattr(openutm_demo, "_docker_router_host_ip", lambda _config: "192.168.65.254")
+    monkeypatch.setattr(openutm_demo, "_start_new_process", fake_start)
+
+    runner = openutm_demo.DemoRunner(config)
+    openutm_demo._start_router(runner)
+
+    command = observed["command"]
+    assert isinstance(command, list)
+    assert command[:6] == [
+        "docker",
+        "run",
+        "--rm",
+        "--name",
+        config.router_container_name,
+        "--add-host",
+    ]
+    assert "host.docker.internal:host-gateway" in command
+    assert "router:test" in command
+    assert "192.168.65.254:14550" in command
+    assert "192.168.65.254:14551" in command
 
 
 def test_wait_for_vehicle_reports_child_process_exit(tmp_path: Path) -> None:

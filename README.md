@@ -44,16 +44,22 @@ Flight Blender/SITL/Docker path and reports optional QGroundControl, Mission
 Planner, and MAVLink Router availability separately, so a missing native app
 does not obscure whether the browser-based demo is ready.
 
-For a physical-drone-style single telemetry link, install `mavlink-routerd`
-and use the supervised fan-out demo:
+For a physical-drone-style single telemetry link, use the supervised fan-out
+demo. It prefers a host-installed `mavlink-routerd`; when that is unavailable,
+it can build and run the router in Docker (the default on macOS/Windows):
 
 ```sh
+make demo-check
 uv run python scripts/openutm_demo.py --topology router --gcs qgroundcontrol
 ```
 
 ArduPilot emits one MAVLink stream to the router; the router exposes the
-standard UDP endpoints for the GCS and connector. The default split topology
-remains the simplest cross-platform SITL path when no router is installed.
+standard UDP endpoints for the GCS and connector. Set
+`MAVLINK_ROUTER_ROOT` when the router checkout is not the sibling
+`../mavlink-router` directory, or force a runtime with
+`--router-runtime native` or `--router-runtime docker`. The default split
+topology remains the simplest cross-platform SITL path when a single-link
+router is not needed.
 
 For the shortest cross-platform full-stack demo, use PX4's official Docker SITL
 image, which does not require an ArduPilot checkout:

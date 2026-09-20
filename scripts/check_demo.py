@@ -57,6 +57,21 @@ def _parser() -> argparse.ArgumentParser:
         default=Path(os.environ.get("MAVLINK_ROUTER_CONFIG", check_mavlink_router.DEFAULT_CONFIG)),
     )
     parser.add_argument(
+        "--router-runtime",
+        choices=("auto", "native", "docker"),
+        default=os.environ.get("MAVLINK_ROUTER_RUNTIME", openutm_demo.DEFAULT_ROUTER_RUNTIME),
+        help="router runtime to check (default: auto-select native then Docker)",
+    )
+    parser.add_argument(
+        "--router-source-root",
+        type=Path,
+        default=openutm_demo._default_checkout("MAVLINK_ROUTER_ROOT", "mavlink-router"),
+    )
+    parser.add_argument(
+        "--router-image",
+        default=os.environ.get("MAVLINK_ROUTER_IMAGE", openutm_demo.DEFAULT_ROUTER_IMAGE),
+    )
+    parser.add_argument(
         "--strict-router",
         action="store_true",
         help="make the optional router binary check required",
@@ -71,6 +86,10 @@ def _demo_config(args: argparse.Namespace) -> openutm_demo.DemoConfig:
         gcs=args.gcs,
         flight_blender_root=args.flight_blender_root.expanduser().resolve(),
         ardupilot_root=args.ardupilot_root.expanduser().resolve(),
+        router_config=args.router_config.expanduser().resolve(),
+        router_runtime=args.router_runtime,
+        router_source_root=args.router_source_root.expanduser().resolve(),
+        router_image=args.router_image,
     )
 
 
@@ -92,21 +111,42 @@ def _print_optional(args: argparse.Namespace) -> bool:
     print("------------------------------")
     optional_ok = True
 
-    router_errors = check_mavlink_router.validate(args.router_config.expanduser().resolve())
+    router_config = args.router_config.expanduser().resolve()
+    router_errors = check_mavlink_router.validate(router_config)
     if router_errors:
         optional_ok = False
         for error in router_errors:
             print(f"[error] MAVLink Router: {error}")
     else:
-        print(f"[ok] MAVLink Router topology: {args.router_config.expanduser().resolve()}")
+        print(f"[ok] MAVLink Router topology: {router_config}")
+        router_config_for_runtime = openutm_demo.DemoConfig(
+            router_config=router_config,
+            router_runtime=args.router_runtime,
+            router_source_root=args.router_source_root.expanduser().resolve(),
+            router_image=args.router_image,
+        )
+        runtime = openutm_demo._select_router_runtime(router_config_for_runtime)
         router_binary = openutm_demo._find_router_command()
-        if router_binary:
+        if runtime == "native" and router_binary:
             print(f"[ok] mavlink-routerd: {router_binary}")
+        elif runtime == "docker":
+            if openutm_demo._router_image_is_available(router_config_for_runtime):
+                print(f"[ok] Docker MAVLink Router image: {args.router_image}")
+            else:
+                print(
+                    "[ok] Docker MAVLink Router fallback: source checkout available "
+                    f"at {router_config_for_runtime.router_source_root} (image will be built on first run)"
+                )
         elif args.strict_router:
             optional_ok = False
-            print("[error] mavlink-routerd is not installed or not on PATH")
+            print(
+                "[error] no usable MAVLink Router runtime; install mavlink-routerd or "
+                "prepare the Docker fallback"
+            )
         else:
-            print("[info] mavlink-routerd not installed; two-output SITL remains available")
+            print(
+                "[info] MAVLink Router not available; two-output SITL remains available"
+            )
 
     qgc = openutm_demo._find_qgroundcontrol_command()
     if qgc:

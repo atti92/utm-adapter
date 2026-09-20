@@ -40,16 +40,35 @@ uv run python scripts/check_mavlink_router.py --strict
 The first command validates the endpoint contract on every platform. The
 strict form also checks that `mavlink-routerd` is installed and on `PATH`.
 
+### Cross-platform Docker fallback
+
+The router is normally installed on the Linux companion computer that owns the
+vehicle telemetry link. For a local macOS or Windows demonstration, Docker can
+build and run the same router binary. Keep a checkout beside this repository
+(`../mavlink-router`) or set `MAVLINK_ROUTER_ROOT`, then use the supervised
+launcher:
+
+```sh
+make demo-check
+uv run python scripts/openutm_demo.py --topology router --router-runtime docker --gcs qgroundcontrol
+```
+
+The first run builds `utm-adapter-mavlink-router:local` from the router
+checkout and caches it in Docker. The launcher publishes only the vehicle input
+port and sends the two consumer streams back to the host, so QGroundControl
+and the connector continue to use their normal UDP ports. Use
+`--router-runtime native` to require a host-installed binary.
+
 For the supervised Flight Blender demo, the same topology is started with:
 
 ```sh
 uv run python scripts/openutm_demo.py --topology router --gcs qgroundcontrol
 ```
 
-The launcher starts Flight Blender, the connector, `mavlink-routerd`, and
-ArduPilot SITL as one managed session. Run `--check` first when preparing a
-new machine. The router executable must be installed on the demo host (or on
-the companion computer that owns the vehicle link for a real aircraft).
+The launcher starts Flight Blender, the connector, the router, and ArduPilot
+SITL as one managed session. Run `--check` first when preparing a new machine.
+For a real aircraft, the router executable belongs on the companion computer
+that owns the vehicle link; the Docker fallback is intended for local demos.
 
 For a manual SITL setup, start ArduPilot with one output to the router:
 

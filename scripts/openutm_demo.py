@@ -10,6 +10,7 @@ to show startup logs and to stop the demo with Ctrl+C.
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import os
 import shlex
 import shutil
@@ -51,6 +52,8 @@ DEFAULT_GCS_UDP_PORT = 14550
 DEFAULT_CONNECTOR_UDP_PORT = 14551
 DEFAULT_ROUTER_INPUT_PORT = 14560
 DEFAULT_ROUTER_CONFIG = REPO_ROOT / "examples" / "mavlink-router" / "main.conf"
+DEFAULT_ROUTER_RUNTIME = "auto"
+DEFAULT_ROUTER_IMAGE = "utm-adapter-mavlink-router:local"
 DEFAULT_PROVIDER_TIMEOUT_S = 180.0
 DEFAULT_CONNECTOR_TIMEOUT_S = 30.0
 FLIGHT_BLENDER_IMAGE = "openutm/flight-blender-dev"
@@ -76,6 +79,9 @@ class DemoConfig:
     connector_udp_port: int = DEFAULT_CONNECTOR_UDP_PORT
     router_config: Path = DEFAULT_ROUTER_CONFIG
     router_port: int = DEFAULT_ROUTER_INPUT_PORT
+    router_runtime: str = DEFAULT_ROUTER_RUNTIME
+    router_source_root: Path = REPO_ROOT.parent / "mavlink-router"
+    router_image: str = DEFAULT_ROUTER_IMAGE
     provider_timeout_s: float = DEFAULT_PROVIDER_TIMEOUT_S
     connector_timeout_s: float = DEFAULT_CONNECTOR_TIMEOUT_S
     gcs: str = "auto"
@@ -106,6 +112,14 @@ class DemoConfig:
             for character in self.vehicle_id
         )
         return f"utm-adapter-px4-{safe_vehicle_id}"
+
+    @property
+    def router_container_name(self) -> str:
+        safe_vehicle_id = "".join(
+            character if character.isalnum() or character in "-_" else "-"
+            for character in self.vehicle_id
+        )
+        return f"utm-adapter-router-{safe_vehicle_id}"
 
 
 @dataclass
@@ -308,6 +322,90 @@ def _find_router_command() -> str | None:
     return shutil.which("mavlink-routerd")
 
 
+def _router_image_is_available(config: DemoConfig) -> bool:
+    result = _run_command(["docker", "image", "inspect", config.router_image])
+    return result.returncode == 0
+
+
+def _router_docker_prerequisite_error(config: DemoConfig) -> str | None:
+    """Return why the Docker router fallback cannot run, if applicable."""
+
+    docker_ok, docker_detail = _command_available(["docker", "version"])
+    if not docker_ok:
+        return f"Docker is unavailable for the router fallback: {docker_detail or 'command failed'}"
+    if _router_image_is_available(config):
+        return None
+    if not config.router_source_root.is_dir():
+        return (
+            "MAVLink Router source checkout not found for the Docker fallback: "
+            f"{config.router_source_root} (set MAVLINK_ROUTER_ROOT)"
+        )
+    dockerfile = config.router_source_root / "examples" / "Dockerfile.ubuntu"
+    if not dockerfile.is_file():
+        return f"MAVLink Router Dockerfile not found: {dockerfile}"
+    return None
+
+
+def _select_router_runtime(config: DemoConfig) -> str | None:
+    """Select native router first, then the portable Docker fallback."""
+
+    if config.router_runtime == "native":
+        return "native" if _find_router_command() else None
+    if config.router_runtime == "docker":
+        return "docker" if _router_docker_prerequisite_error(config) is None else None
+    if config.router_runtime != "auto":
+        return None
+    if _find_router_command():
+        return "native"
+    return "docker" if _router_docker_prerequisite_error(config) is None else None
+
+
+def _docker_router_host_ip(config: DemoConfig) -> str:
+    """Resolve Docker's host-gateway to the numeric IPv4 form the router accepts."""
+
+    configured = os.environ.get("MAVLINK_ROUTER_DOCKER_HOST")
+    if configured:
+        try:
+            address = ipaddress.ip_address(configured.strip())
+        except ValueError as exc:
+            raise DemoSetupError(
+                f"MAVLINK_ROUTER_DOCKER_HOST must be an IP address (got {configured!r})"
+            ) from exc
+        if address.version != 4:
+            raise DemoSetupError("MAVLINK_ROUTER_DOCKER_HOST must be an IPv4 address")
+        return str(address)
+
+    result = _run_command(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--entrypoint",
+            "/bin/sh",
+            "--add-host",
+            "host.docker.internal:host-gateway",
+            config.router_image,
+            "-c",
+            "awk '$2 == \"host.docker.internal\" { print $1; exit }' /etc/hosts",
+        ]
+    )
+    candidate = result.stdout.strip().splitlines()
+    if result.returncode != 0 or not candidate:
+        raise DemoSetupError(
+            "Docker could not resolve host-gateway for the router; set "
+            "MAVLINK_ROUTER_DOCKER_HOST to the host IPv4 address"
+        )
+    try:
+        address = ipaddress.ip_address(candidate[-1].strip())
+    except ValueError as exc:
+        raise DemoSetupError(
+            f"Docker returned an invalid host-gateway address: {candidate[-1]!r}"
+        ) from exc
+    if address.version != 4:
+        raise DemoSetupError("Docker host-gateway resolved to IPv6; set MAVLINK_ROUTER_DOCKER_HOST")
+    return str(address)
+
+
 def _find_windows_installed_command(relative_paths: Sequence[str]) -> list[str] | None:
     roots = (
         os.environ.get("ProgramFiles"),
@@ -464,6 +562,26 @@ def _build_parser() -> argparse.ArgumentParser:
         default=Path(os.environ.get("MAVLINK_ROUTER_CONFIG", DEFAULT_ROUTER_CONFIG)),
         help="mavlink-routerd configuration for --topology router",
     )
+    parser.add_argument(
+        "--router-runtime",
+        choices=("auto", "native", "docker"),
+        default=os.environ.get("MAVLINK_ROUTER_RUNTIME", DEFAULT_ROUTER_RUNTIME),
+        help=(
+            "router process runtime: native mavlink-routerd, Docker fallback, "
+            "or auto-select native then Docker (default: auto)"
+        ),
+    )
+    parser.add_argument(
+        "--router-source-root",
+        type=Path,
+        default=_default_checkout("MAVLINK_ROUTER_ROOT", "mavlink-router"),
+        help="MAVLink Router checkout used to build the Docker fallback",
+    )
+    parser.add_argument(
+        "--router-image",
+        default=os.environ.get("MAVLINK_ROUTER_IMAGE", DEFAULT_ROUTER_IMAGE),
+        help=f"Docker router image (default: {DEFAULT_ROUTER_IMAGE})",
+    )
     parser.add_argument("--provider-timeout", type=float, default=DEFAULT_PROVIDER_TIMEOUT_S)
     parser.add_argument("--connector-timeout", type=float, default=DEFAULT_CONNECTOR_TIMEOUT_S)
     parser.add_argument(
@@ -514,6 +632,9 @@ def _config_from_args(args: argparse.Namespace) -> DemoConfig:
         connector_udp_port=connector_udp_port,
         router_config=args.router_config.expanduser().resolve(),
         router_port=DEFAULT_ROUTER_INPUT_PORT,
+        router_runtime=args.router_runtime,
+        router_source_root=args.router_source_root.expanduser().resolve(),
+        router_image=args.router_image,
         provider_timeout_s=args.provider_timeout,
         connector_timeout_s=args.connector_timeout,
         gcs=args.gcs,
@@ -560,10 +681,23 @@ def check_prerequisites(config: DemoConfig) -> list[str]:
             )
         router_errors = check_mavlink_router.validate(config.router_config)
         failures.extend(f"MAVLink Router: {error}" for error in router_errors)
-        if _find_router_command() is None:
+        if config.router_runtime not in {"auto", "native", "docker"}:
+            failures.append(
+                f"router runtime must be auto, native, or docker (got {config.router_runtime!r})"
+            )
+        elif config.router_runtime == "native" and _find_router_command() is None:
             failures.append(
                 "mavlink-routerd was not found; install it or set MAVLINK_ROUTERD "
                 "before using --topology router"
+            )
+        elif config.router_runtime == "docker":
+            docker_error = _router_docker_prerequisite_error(config)
+            if docker_error:
+                failures.append(docker_error)
+        elif config.router_runtime == "auto" and _select_router_runtime(config) is None:
+            failures.append(
+                "mavlink-routerd was not found and the Docker router fallback is unavailable; "
+                "install mavlink-routerd, set MAVLINK_ROUTERD, or prepare MAVLINK_ROUTER_ROOT"
             )
         if not 1 <= config.router_port <= 65535:
             failures.append(
@@ -670,6 +804,13 @@ def _check_run_hint(config: DemoConfig) -> str:
         command.extend(["--topology", config.topology])
     if config.router_config != DEFAULT_ROUTER_CONFIG:
         command.extend(["--router-config", str(config.router_config)])
+    if config.router_runtime != DEFAULT_ROUTER_RUNTIME:
+        command.extend(["--router-runtime", config.router_runtime])
+    default_router_source = REPO_ROOT.parent / "mavlink-router"
+    if config.router_source_root != default_router_source:
+        command.extend(["--router-source-root", str(config.router_source_root)])
+    if config.router_image != DEFAULT_ROUTER_IMAGE:
+        command.extend(["--router-image", config.router_image])
     if not config.open_browser:
         command.append("--no-browser")
     if config.verify:
@@ -683,6 +824,7 @@ class DemoRunner:
     processes: list[ManagedProcess] = field(default_factory=list)
     gcs_processes: list[ManagedProcess] = field(default_factory=list)
     provider_started_by_us: bool = False
+    router_container_name: str | None = None
 
     def start(self) -> None:
         failures = check_prerequisites(self.config)
@@ -768,9 +910,11 @@ class DemoRunner:
             f"({self.config.simulator} / {self.config.topology} MAVLink topology)"
         )
         if self.config.topology == "router":
+            router_runtime = _select_router_runtime(self.config) or "unknown"
             print(
                 f"  MAVLink Router:   vehicle UDP {self.config.router_port} -> "
-                f"GCS {self.config.gcs_udp_port}, connector {self.config.connector_udp_port}"
+                f"GCS {self.config.gcs_udp_port}, connector {self.config.connector_udp_port} "
+                f"({router_runtime})"
             )
         else:
             print(
@@ -832,6 +976,12 @@ class DemoRunner:
             for managed in reversed(self.processes):
                 managed.stop()
             self.processes.clear()
+            if self.router_container_name:
+                _run_command(
+                    ["docker", "rm", "-f", self.router_container_name],
+                    capture_output=True,
+                )
+                self.router_container_name = None
             if self.provider_started_by_us and not self.config.keep_provider:
                 result = _run_command(
                     [*_compose_base_command(self.config), "down", "--timeout", "5"],
@@ -908,18 +1058,75 @@ def _start_sitl(runner: DemoRunner) -> None:
 
 def _start_router(runner: DemoRunner) -> None:
     config = runner.config
-    command_path = _find_router_command()
-    if command_path is None:  # pragma: no cover - guarded by preflight
-        raise DemoSetupError("mavlink-routerd was not found")
+    runtime = _select_router_runtime(config)
+    if runtime is None:  # pragma: no cover - guarded by preflight
+        raise DemoSetupError(
+            "no usable MAVLink Router runtime was found; install mavlink-routerd or prepare Docker"
+        )
+    if runtime == "native":
+        command_path = _find_router_command()
+        if command_path is None:  # pragma: no cover - guarded by preflight
+            raise DemoSetupError("mavlink-routerd was not found")
+        command = [command_path, "--conf-file", str(config.router_config)]
+        print(f"[ok] MAVLink Router is forwarding {config.router_config} (native)")
+    else:
+        _ensure_router_image(config)
+        runner.router_container_name = config.router_container_name
+        router_host_ip = _docker_router_host_ip(config)
+        command = [
+            "docker",
+            "run",
+            "--rm",
+            "--name",
+            config.router_container_name,
+            "--add-host",
+            "host.docker.internal:host-gateway",
+            "--publish",
+            f"{config.router_port}:{config.router_port}/udp",
+            config.router_image,
+            "-e",
+            f"{router_host_ip}:{config.gcs_udp_port}",
+            "-e",
+            f"{router_host_ip}:{config.connector_udp_port}",
+            "-t",
+            "0",
+            f"0.0.0.0:{config.router_port}",
+        ]
+        print(
+            f"[ok] MAVLink Router is forwarding the checked-in topology (Docker image {config.router_image})"
+        )
     router = _start_new_process(
         "MAVLink Router",
-        [command_path, "--conf-file", str(config.router_config)],
+        command,
         cwd=config.adapter_root,
         env=os.environ.copy(),
         log_path=config.run_dir / "mavlink-router.log",
     )
     runner.processes.append(router)
-    print(f"[ok] MAVLink Router is forwarding {config.router_config}")
+
+
+def _ensure_router_image(config: DemoConfig) -> None:
+    if _router_image_is_available(config):
+        return
+    docker_error = _router_docker_prerequisite_error(config)
+    if docker_error:
+        raise DemoSetupError(docker_error)
+    dockerfile = config.router_source_root / "examples" / "Dockerfile.ubuntu"
+    print(f"[info] building {config.router_image} from {config.router_source_root}")
+    result = _run_command(
+        [
+            "docker",
+            "build",
+            "--tag",
+            config.router_image,
+            "--file",
+            str(dockerfile),
+            str(config.router_source_root),
+        ],
+        capture_output=False,
+    )
+    if result.returncode != 0:
+        raise DemoSetupError(f"Docker MAVLink Router image build failed: {config.router_image}")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
