@@ -59,7 +59,7 @@ jobs:
           uv run python scripts/check_mission_planner_plugin.py
           --mission-planner-source MissionPlanner
           --expected-version 1.3.83
-          --strict
+          --strict --compile
       - name: Exercise PowerShell installer and smoke check
         shell: pwsh
         run: |

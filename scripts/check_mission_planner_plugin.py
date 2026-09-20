@@ -11,7 +11,9 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 
@@ -138,6 +140,115 @@ def validate(source_root: Path, expected_version: str) -> list[str]:
     return errors
 
 
+def _compile_project(source_root: Path, configuration: str) -> tuple[str | None, list[str]]:
+    """Compile the source plugin against the pinned Mission Planner projects.
+
+    Mission Planner's normal ``*.cs`` plugin loader compiles in-process with
+    the host's loaded assemblies. A small SDK-style harness gives CI a useful
+    earlier signal without changing the upstream checkout or pretending to be
+    a desktop/menu test.
+    """
+
+    if os.name != "nt":
+        return None, ["native Mission Planner plugin compilation requires Windows"]
+
+    compiler = next(
+        (candidate for candidate in ("dotnet", "msbuild", "MSBuild.exe") if shutil.which(candidate)),
+        None,
+    )
+    if compiler is None:
+        return None, ["native Mission Planner plugin compilation requires dotnet or MSBuild"]
+
+    project_references = (
+        source_root / "MissionPlanner.csproj",
+        source_root / "ExtLibs" / "Comms" / "MissionPlanner.Comms.csproj",
+        source_root / "ExtLibs" / "Controls" / "MissionPlanner.Controls.csproj",
+        source_root / "ExtLibs" / "Mavlink" / "MAVLink.csproj",
+        source_root / "ExtLibs" / "Utilities" / "MissionPlanner.Utilities.csproj",
+    )
+    missing = [str(path) for path in project_references if not path.is_file()]
+    if missing:
+        return None, [f"Mission Planner compile reference is missing: {path}" for path in missing]
+
+    def xml_path(path: Path) -> str:
+        # MSBuild accepts absolute Windows paths in Include attributes, but
+        # XML-significant characters still need escaping.
+        from xml.sax.saxutils import escape
+
+        return escape(str(path.resolve()))
+
+    with tempfile.TemporaryDirectory(prefix="utm-mission-planner-plugin-") as temp_dir:
+        project_path = Path(temp_dir) / "UtmConnectorPlugin.CompileCheck.csproj"
+        project_lines = [
+            '<Project Sdk="Microsoft.NET.Sdk">',
+            "  <PropertyGroup>",
+            "    <TargetFramework>net472</TargetFramework>",
+            "    <OutputType>Library</OutputType>",
+            "    <UseWindowsForms>true</UseWindowsForms>",
+            "    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>",
+            "    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>",
+            "    <WarningsAsErrors>false</WarningsAsErrors>",
+            "    <AssemblyName>UtmConnectorPlugin.CompileCheck</AssemblyName>",
+            "  </PropertyGroup>",
+            "  <ItemGroup>",
+            f'    <Compile Include="{xml_path(PLUGIN)}" />',
+        ]
+        project_lines.extend(
+            f'    <ProjectReference Include="{xml_path(reference)}" />'
+            for reference in project_references
+        )
+        project_lines.extend(
+            [
+                "  </ItemGroup>",
+                "  <ItemGroup>",
+                '    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />',
+                "  </ItemGroup>",
+                "</Project>",
+                "",
+            ]
+        )
+        project_path.write_text("\n".join(project_lines), encoding="utf-8")
+
+        if Path(compiler).name.lower().startswith("dotnet"):
+            command = [
+                compiler,
+                "build",
+                str(project_path),
+                "--configuration",
+                configuration,
+                "--nologo",
+                "--verbosity",
+                "minimal",
+            ]
+        else:
+            command = [
+                compiler,
+                str(project_path),
+                f"/p:Configuration={configuration}",
+                "/nologo",
+                "/v:minimal",
+            ]
+
+        try:
+            result = subprocess.run(
+                command,
+                cwd=source_root,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        except OSError as exc:
+            return compiler, [f"could not start {compiler}: {exc}"]
+
+        if result.returncode:
+            output = "\n".join(part for part in (result.stdout, result.stderr) if part).strip()
+            if len(output) > 12000:
+                output = output[-12000:]
+            return compiler, [f"native Mission Planner plugin compilation failed:\n{output}"]
+
+    return compiler, []
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -155,6 +266,11 @@ def main() -> int:
         "--strict",
         action="store_true",
         help="fail when the Mission Planner source checkout is unavailable",
+    )
+    parser.add_argument(
+        "--compile",
+        action="store_true",
+        help="on Windows, compile the plugin against the Mission Planner project references",
     )
     args = parser.parse_args()
     source_root = args.mission_planner_source.expanduser().resolve()
@@ -177,7 +293,16 @@ def main() -> int:
     revision = _git_revision(source_root)
     if revision:
         print(f"[ok] source revision: {revision}")
-    print("[info] final C# compilation and menu verification require Windows with Mission Planner installed")
+    if args.compile:
+        compiler, compile_errors = _compile_project(source_root, "Release")
+        if compile_errors:
+            for error in compile_errors:
+                print(f"[error] {error}")
+            return 1
+        print(f"[ok] native plugin compilation passed with {compiler}")
+    else:
+        print("[info] native C# compilation is available with --compile on Windows")
+    print("[info] menu loading and operator workflow still require Windows with Mission Planner installed")
     return 0
 
 

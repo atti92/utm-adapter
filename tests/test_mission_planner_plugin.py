@@ -44,6 +44,9 @@ def test_mission_planner_compatibility_check_has_an_explicit_runtime_boundary() 
 
     assert "--mission-planner-source" in script
     assert "--expected-version" in script
+    assert "--compile" in script
+    assert "Microsoft.NETFramework.ReferenceAssemblies" in script
+    assert "native Mission Planner plugin compilation failed" in script
     assert "1.3.83" in script
     assert "Windows" in script
     assert "COMMAND_LONG" in script

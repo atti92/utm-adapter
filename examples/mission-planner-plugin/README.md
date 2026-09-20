@@ -95,12 +95,24 @@ uv run python scripts/check_mission_planner_plugin.py \
   --mission-planner-source /path/to/MissionPlanner --strict
 ```
 
+On Windows, add `--compile` to compile the plugin against the pinned Mission
+Planner project references before installing it:
+
+```powershell
+uv run python scripts/check_mission_planner_plugin.py `
+  --mission-planner-source .\MissionPlanner --strict --compile
+```
+
+From the connector repository, the equivalent shortcut is `make
+mp-compile-check` after setting `MISSION_PLANNER_SOURCE` when the checkout is
+not at `../MissionPlanner`.
+
 This repository does not include a Windows Mission Planner runtime, so final
-plugin compilation and menu verification must still be performed on a Windows
-test machine with Mission Planner installed. CI also runs the contract check
-against the pinned Mission Planner source on `windows-latest` and exercises the
-PowerShell installer/smoke-check scripts against a temporary host directory;
-that catches host API drift and script regressions, but it intentionally does
-not pretend to be a running desktop menu test. The connector itself and its
-browser console remain cross-platform; this plugin is an optional Windows GCS
-adapter.
+plugin menu loading and operator workflow must still be performed on a Windows
+test machine with Mission Planner installed. CI runs both the contract and
+native compile checks against the pinned Mission Planner source on
+`windows-latest`, and exercises the PowerShell installer/smoke-check scripts
+against a temporary host directory. Those checks catch host API drift and
+script regressions, but they intentionally do not pretend to be a running
+desktop menu test. The connector itself and its browser console remain
+cross-platform; this plugin is an optional Windows GCS adapter.
