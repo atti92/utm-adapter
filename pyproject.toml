@@ -21,6 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
+    "hypothesis==6.119.0",
     "pytest==8.3.4",
 ]
 
@@ -36,6 +37,7 @@ addopts = "-q"
 
 [dependency-groups]
 test = [
+    "hypothesis==6.119.0",
     "pytest==8.3.4",
 ]
 

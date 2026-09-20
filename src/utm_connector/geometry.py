@@ -41,6 +41,12 @@ def build_corridor(mission: Mission) -> CorridorGeometry:
         quad_segs=8,
     )
     restored = transform(reverse.transform, buffered)
+    if not restored.is_valid:
+        # Inverse projection can introduce tiny self-intersections at nearly
+        # collinear/backtracking route vertices. A centimetre-scale WGS84
+        # cleanup removes those numerical artefacts without materially
+        # increasing the operational footprint of normal metre-scale corridors.
+        restored = restored.buffer(1e-7)
     if not isinstance(restored, Polygon) or restored.is_empty or not restored.is_valid:
         raise GeometryError("generated corridor is not a valid polygon")
 
