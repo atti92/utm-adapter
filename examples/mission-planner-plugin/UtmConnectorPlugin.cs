@@ -154,6 +154,7 @@ public class UtmConnectorPlugin : Plugin
         vehicleId = selectedVehicleId;
         Settings.Instance["utm_connector_url"] = connectorBaseUrl;
         Settings.Instance["utm_connector_vehicle_id"] = vehicleId;
+        Settings.Instance.Save();
         SetStatus("configured for " + vehicleId);
     }
 

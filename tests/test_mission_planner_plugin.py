@@ -16,6 +16,7 @@ def test_mission_planner_plugin_is_thin_non_commanding_and_supports_gcs_workflow
     assert "ToolStripDropDownButton" in source
     assert '"/ui/"' in source
     assert "HttpWebRequest" in source
+    assert "Settings.Instance.Save()" in source
     assert "Host.comPort." not in source
     assert "Sync current mission" in source
     assert "Check vehicle mission" in source

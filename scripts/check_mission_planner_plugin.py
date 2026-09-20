@@ -41,6 +41,12 @@ def validate(source_root: Path, expected_version: str) -> list[str]:
     required = {
         "Mission Planner plugin API": source_root / "Plugin" / "Plugin.cs",
         "Mission Planner main form": source_root / "MainV2.Designer.cs",
+        "Mission Planner main form implementation": source_root / "MainV2.cs",
+        "Mission Planner flight planner": source_root / "GCSViews" / "FlightPlanner.cs",
+        "Mission Planner flight planner designer": source_root / "GCSViews" / "FlightPlanner.Designer.cs",
+        "Mission Planner current state": source_root / "ExtLibs" / "ArduPilot" / "CurrentState.cs",
+        "Mission Planner settings": source_root / "ExtLibs" / "Utilities" / "Settings.cs",
+        "Mission Planner MAVLink enums": source_root / "ExtLibs" / "Mavlink" / "Mavlink.cs",
         "Mission Planner project": source_root / "MissionPlanner.csproj",
         "plugin source": PLUGIN,
         "PowerShell installer": PLUGIN.parent / "Install-UtmConnectorPlugin.ps1",
@@ -51,6 +57,12 @@ def validate(source_root: Path, expected_version: str) -> list[str]:
 
     api = required["Mission Planner plugin API"].read_text(encoding="utf-8-sig")
     main_form = required["Mission Planner main form"].read_text(encoding="utf-8-sig")
+    main_form_implementation = required["Mission Planner main form implementation"].read_text(encoding="utf-8-sig")
+    flight_planner = required["Mission Planner flight planner"].read_text(encoding="utf-8-sig")
+    flight_planner_designer = required["Mission Planner flight planner designer"].read_text(encoding="utf-8-sig")
+    current_state = required["Mission Planner current state"].read_text(encoding="utf-8-sig")
+    settings = required["Mission Planner settings"].read_text(encoding="utf-8-sig")
+    mavlink = required["Mission Planner MAVLink enums"].read_text(encoding="utf-8-sig")
     project = required["Mission Planner project"]
     plugin = PLUGIN.read_text(encoding="utf-8-sig")
     installer = required["PowerShell installer"].read_text(encoding="utf-8-sig")
@@ -72,12 +84,21 @@ def validate(source_root: Path, expected_version: str) -> list[str]:
             "MenuStrip MainMenu"
             in main_form,
         ),
-        ("settings string getter", has_settings_getter),
+        ("main form flight planner surface", "public GCSViews.FlightPlanner FlightPlanner" in main_form_implementation),
+        ("flight planner mission grid", "this.Commands.Name = \"Commands\"" in flight_planner_designer),
+        ("flight planner refresh method", "public void BUT_read_Click" in flight_planner),
+        ("current home location surface", "public PointLatLngAlt HomeLocation" in current_state),
+        ("planned home location surface", "public PointLatLngAlt PlannedHomeLocation" in current_state),
+        ("settings string getter", "public string GetString(string key" in settings and has_settings_getter),
+        ("settings persistence method", "public void Save()" in settings),
+        ("MAVLink geographic frame enum", "GLOBAL_RELATIVE_ALT" in mavlink),
+        ("MAVLink geographic command enum", all(f"{name}=" in mavlink for name in ("WAYPOINT", "TAKEOFF", "LAND"))),
         ("connector plugin derives from Plugin", "class UtmConnectorPlugin : Plugin" in plugin),
         ("installer accepts a Mission Planner root", "MissionPlannerRoot" in installer),
         ("installer protects existing plugins", "-Force" in installer and ".bak" in installer),
         ("installer copies the C# plugin", "Copy-Item" in installer and "UtmConnectorPlugin.cs" in installer),
         ("connector plugin uses the main toolbar", "Host.MainForm.MainMenu.Items" in plugin and "ToolStripDropDownButton" in plugin),
+        ("connector settings persist", "Settings.Instance.Save()" in plugin),
         ("connector plugin remains non-commanding", "Host.comPort." not in plugin),
         ("connector plugin has no MAVLink command path", "COMMAND_LONG" not in plugin and "sendPacket" not in plugin),
         (
