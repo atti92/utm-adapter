@@ -280,6 +280,12 @@ UTM_CONNECTOR_MAVLINK_POLL_INTERVAL_S=0.2
 UTM_CONNECTOR_MAVLINK_RECONNECT_INTERVAL_S=5.0
 ```
 
+For a physical vehicle, use the explicit serial URI form so the connector can
+pass the baud rate correctly on every host: `serial:/dev/ttyUSB0:57600` on
+Linux/macOS or `serial:COM3:57600` on Windows. Put the router on the companion
+computer that owns this serial link, then give the connector the router's
+`udpin:` output rather than opening the serial device twice.
+
 Then start the connector with `uv run utm-connector` (or `make run`) and inspect live state at:
 
 ```sh

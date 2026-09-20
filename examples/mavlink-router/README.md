@@ -94,9 +94,11 @@ is temporarily unavailable. Set `UTM_CONNECTOR_MAVLINK_RECONNECT_INTERVAL_S`
 to change the retry interval (the default is five seconds).
 
 Then open `http://127.0.0.1:8000/ui/` for the operator console and start
-QGroundControl or Mission Planner normally. The router endpoint pattern also
-applies to a physical vehicle: replace the SITL UDP input with the vehicle's
-serial telemetry device, for example `/dev/ttyUSB0:57600` on Linux/macOS.
+QGroundControl or Mission Planner normally. The connector can open a physical
+serial link directly with `serial:/dev/ttyUSB0:57600` on Linux/macOS or
+`serial:COM3:57600` on Windows. The recommended deployment is still to give
+that one serial link to `mavlink-routerd` on the companion computer and point
+the connector at the router's `udpin:` output.
 
 The quick `--out=14550` plus `--out=14551` SITL setup remains useful for a
 minimal simulator test, but it is not the recommended physical-drone

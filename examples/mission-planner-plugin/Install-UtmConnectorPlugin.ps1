@@ -48,4 +48,4 @@ if (Test-Path -LiteralPath $target -PathType Leaf) {
 
 Copy-Item -LiteralPath $source -Destination $target -Force
 Write-Host "Installed UTM Connector Mission Planner plugin at $target"
-Write-Host "Restart Mission Planner, then open Flight Data > UTM Connector."
+Write-Host "Restart Mission Planner, then open UTM Connector in the main toolbar."

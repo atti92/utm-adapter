@@ -274,6 +274,36 @@ class MavlinkMessageNormalizer:
         return max(0.0, (now - observed_at).total_seconds())
 
 
+def _open_mavlink_connection(connection_uri: str) -> Any:
+    """Open a pymavlink transport, including an explicit cross-platform serial URI.
+
+    PyMAVLink accepts a serial device and baud rate as separate arguments, while
+    this connector intentionally stores one URI per configured vehicle. The
+    explicit ``serial:<device>:<baud>`` form keeps the configuration portable:
+    ``serial:/dev/ttyUSB0:57600`` on Linux/macOS or ``serial:COM3:57600`` on
+    Windows. Other pymavlink URI forms are passed through unchanged.
+    """
+
+    if not connection_uri.lower().startswith("serial:"):
+        return mavutil.mavlink_connection(connection_uri)
+
+    serial_spec = connection_uri[len("serial:") :]
+    if serial_spec.startswith("//"):
+        serial_spec = serial_spec[2:]
+    device = serial_spec
+    baud = 115200
+    if ":" in serial_spec:
+        candidate_device, candidate_baud = serial_spec.rsplit(":", 1)
+        if candidate_baud.isdigit():
+            device = candidate_device
+            baud = int(candidate_baud)
+    if not device:
+        raise ValueError("serial MAVLink URI must include a device path")
+    if baud <= 0:
+        raise ValueError("serial MAVLink URI baud rate must be greater than zero")
+    return mavutil.mavlink_connection(device, baud=baud)
+
+
 class MavlinkVehicleSession(MavlinkMessageNormalizer):
     """A non-commanding pymavlink session feeding the canonical normalizer.
 
@@ -298,7 +328,7 @@ class MavlinkVehicleSession(MavlinkMessageNormalizer):
 
     @classmethod
     def connect(cls, vehicle_id: str, connection_uri: str, **kwargs: Any) -> "MavlinkVehicleSession":
-        connection = mavutil.mavlink_connection(connection_uri)
+        connection = _open_mavlink_connection(connection_uri)
         return cls(vehicle_id, connection, **kwargs)
 
     def poll(self, timeout: float = 0.0) -> Optional[Any]:

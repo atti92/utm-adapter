@@ -50,6 +50,56 @@ class PollingConnection(FakeConnection):
         self.closed = True
 
 
+@pytest.mark.parametrize(
+    ("connection_uri", "expected_device", "expected_baud"),
+    (
+        ("serial:/dev/ttyUSB0:57600", "/dev/ttyUSB0", 57600),
+        ("serial:///dev/ttyUSB0:115200", "/dev/ttyUSB0", 115200),
+        ("serial:COM3:57600", "COM3", 57600),
+        ("serial:COM3", "COM3", 115200),
+    ),
+)
+def test_connect_supports_explicit_cross_platform_serial_uri(
+    monkeypatch: pytest.MonkeyPatch,
+    connection_uri: str,
+    expected_device: str,
+    expected_baud: int,
+) -> None:
+    calls = []
+    connection = FakeConnection()
+
+    def fake_connection(device: str, **kwargs: object) -> FakeConnection:
+        calls.append((device, kwargs))
+        return connection
+
+    monkeypatch.setattr("utm_connector.mavlink.mavutil.mavlink_connection", fake_connection)
+    session = MavlinkVehicleSession.connect("sitl-1", connection_uri)
+
+    assert session.connection is connection
+    assert calls == [(expected_device, {"baud": expected_baud})]
+
+
+def test_connect_passes_non_serial_uri_through_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = []
+    connection = FakeConnection()
+
+    def fake_connection(uri: str, **kwargs: object) -> FakeConnection:
+        calls.append((uri, kwargs))
+        return connection
+
+    monkeypatch.setattr("utm_connector.mavlink.mavutil.mavlink_connection", fake_connection)
+    MavlinkVehicleSession.connect("sitl-1", "udpin:127.0.0.1:14551")
+
+    assert calls == [("udpin:127.0.0.1:14551", {})]
+
+
+def test_connect_rejects_serial_uri_without_device(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("utm_connector.mavlink.mavutil.mavlink_connection", lambda *_args, **_kwargs: None)
+
+    with pytest.raises(ValueError, match="device path"):
+        MavlinkVehicleSession.connect("sitl-1", "serial::57600")
+
+
 def test_mavlink_messages_become_one_canonical_snapshot() -> None:
     now = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
     normalizer = MavlinkMessageNormalizer("sitl-1")
