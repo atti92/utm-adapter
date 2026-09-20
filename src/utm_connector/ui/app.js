@@ -40,7 +40,7 @@ function formatStatus(value) {
 
 function statusTone(value) {
   if (["LOST", "INVALID"].includes(value)) return "error";
-  if (["DEGRADED", "UNKNOWN"].includes(value)) return "warning";
+  if (["DEGRADED", "STALE", "UNKNOWN"].includes(value)) return "warning";
   if (["GOOD", "CONNECTED", "ONLINE"].includes(value)) return "ok";
   return "neutral";
 }
@@ -119,9 +119,17 @@ function renderNextAction() {
   const declaration = state.operation?.state?.declaration;
   const telemetryPublication = state.operation?.state?.telemetry_publication;
   const conformance = state.operation?.state?.conformance;
+  const connectionState = state.latestStatus?.vehicle_state?.connection_state;
+  const telemetryQuality = state.latestStatus?.vehicle_state?.quality;
 
   if (!state.vehicleId) {
     message = "Connect a vehicle or start the simulator, then select it above.";
+  } else if (connectionState === "LOST") {
+    message = "Vehicle link lost. Restore the GCS/router link before starting or completing the operation.";
+    stateName = "warning";
+  } else if (["DEGRADED", "UNKNOWN"].includes(connectionState) || ["DEGRADED", "STALE", "LOST", "INVALID"].includes(telemetryQuality)) {
+    message = "Vehicle telemetry is degraded. Review the GCS link and telemetry quality before continuing.";
+    stateName = "warning";
   } else if (!state.plan && !state.mission) {
     message = "Load a QGroundControl or Mission Planner mission, or choose Sample route.";
   } else if (state.mission?.mission_hash === "preview") {

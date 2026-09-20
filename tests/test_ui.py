@@ -72,6 +72,8 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert 'health?.status !== "ok"' in javascript
     assert 'capabilities.mavlink?.non_commanding && capabilities.mavlink?.read_only' in javascript
     assert "GCS remains in control" in javascript
+    assert 'connectionState === "LOST"' in javascript
+    assert '"STALE"' in javascript
     assert "function statusTone(value)" in javascript
     assert 'data-state="${statusTone(snapshot.connection_state)}"' in javascript
     assert 'data-state="${statusTone(snapshot.quality)}"' in javascript
