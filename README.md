@@ -39,6 +39,14 @@ honor the shared `--home lat,lon,altitude,heading` option. Use `--check` to
 validate prerequisites without starting anything. Press Ctrl+C to stop the simulator,
 connector, and provider stack started by that run.
 
+For the shortest cross-platform full-stack demo, use PX4's official Docker SITL
+image, which does not require an ArduPilot checkout:
+
+```sh
+make integration-demo-px4-check
+make integration-demo-px4
+```
+
 The service root also opens the console directly at
 [http://127.0.0.1:8000/](http://127.0.0.1:8000/).
 

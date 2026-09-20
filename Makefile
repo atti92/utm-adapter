@@ -1,4 +1,4 @@
-.PHONY: setup doctor smoke test run demo integration-demo integration-demo-check qgc-check mp-check
+.PHONY: setup doctor smoke test run demo integration-demo integration-demo-check integration-demo-px4 integration-demo-px4-check qgc-check mp-check
 
 setup:
 	uv sync
@@ -23,6 +23,12 @@ integration-demo:
 
 integration-demo-check:
 	uv run python scripts/openutm_demo.py --check
+
+integration-demo-px4:
+	uv run python scripts/openutm_demo.py --simulator px4
+
+integration-demo-px4-check:
+	uv run python scripts/openutm_demo.py --simulator px4 --check
 
 qgc-check:
 	uv run python scripts/check_qgc_overlay.py

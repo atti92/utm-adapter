@@ -78,6 +78,22 @@ ports without editing configuration files, for example:
 uv run python scripts/openutm_demo.py --gcs-udp-port 14560 --connector-udp-port 14561
 ```
 
+For the shortest cross-platform path, use the official PX4 SITL container. It
+does not require an ArduPilot checkout; Docker Desktop is the only simulator
+prerequisite:
+
+```sh
+uv run python scripts/openutm_demo.py --simulator px4 --check
+uv run python scripts/openutm_demo.py --simulator px4
+# or:
+make integration-demo-px4-check
+make integration-demo-px4
+```
+
+This starts the same Flight Blender, connector, browser console, and detected
+GCS workflow. The operator performs the UTM actions in the browser console;
+the GCS remains the vehicle-control application.
+
 Set `FLIGHT_BLENDER_ROOT` and `ARDUPILOT_ROOT` when the checkouts are not in
 the sibling directories next to this repository. The same Python launcher can
 be run from PowerShell; use `--gcs mission-planner` on Windows when Mission
@@ -94,7 +110,7 @@ uv run uvicorn 'utm_connector.api:create_app' --factory
 ```
 
 Convenience targets are also available: `make setup`, `make doctor`, `make smoke`,
-`make test`, `make run`, and `make demo`. They delegate to `uv run`, so they do not depend on
+`make test`, `make run`, `make demo`, and `make integration-demo-px4`. They delegate to `uv run`, so they do not depend on
 the Unix-specific `.venv/bin` layout.
 
 The service listens on `http://127.0.0.1:8000`. Open the operator console at
