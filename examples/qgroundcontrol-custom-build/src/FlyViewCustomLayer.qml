@@ -22,6 +22,7 @@ Item {
     property string vehicleLabel: "No vehicle"
     property string missionLabel: "Mission not checked"
     property string operationLabel: "No operation"
+    property var _activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
 
     function setOffline(label) {
         connectorOnline = false
@@ -68,6 +69,22 @@ Item {
         request.send()
     }
 
+    function connectorVehicleFor(vehicles) {
+        if (!vehicles || vehicles.length === 0) {
+            return null
+        }
+        if (root._activeVehicle) {
+            var activeSystemId = Number(root._activeVehicle.id)
+            for (var index = 0; index < vehicles.length; index++) {
+                if (Number(vehicles[index].mavlink_system_id) === activeSystemId) {
+                    return vehicles[index]
+                }
+            }
+            return null
+        }
+        return vehicles.length === 1 ? vehicles[0] : null
+    }
+
     function refreshStatus() {
         requestJson("/v1/health", function(health, endpoint) {
             connectorOnline = health.status === "ok"
@@ -80,7 +97,13 @@ Item {
                     operationLabel = "No operation"
                     return
                 }
-                var vehicle = vehicles[0]
+                var vehicle = root.connectorVehicleFor(vehicles)
+                if (!vehicle) {
+                    vehicleLabel = root._activeVehicle ? "No connector match for active vehicle" : "Select an active vehicle"
+                    missionLabel = "Mission not checked"
+                    operationLabel = "No operation"
+                    return
+                }
                 vehicleLabel = vehicle.vehicle_id + " · " + (vehicle.quality || "unknown")
                 requestJson("/v1/vehicles/" + encodeURIComponent(vehicle.vehicle_id) + "/status", function(status) {
                     var drift = status.mission_drift || null
