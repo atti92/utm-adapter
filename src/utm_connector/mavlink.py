@@ -309,11 +309,6 @@ class MavlinkVehicleSession(MavlinkMessageNormalizer):
             self.ingest(message, received_at)
             if _message_type(message) == "HEARTBEAT":
                 self._request_telemetry_streams()
-            if self._system_id is not None and not self.mission_reader.requested:
-                self.mission_reader.request_list(
-                    system_id=self._system_id,
-                    component_id=min(self._component_ids) if self._component_ids else 1,
-                )
         return message
 
     def _request_telemetry_streams(self) -> None:

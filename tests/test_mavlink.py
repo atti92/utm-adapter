@@ -35,8 +35,9 @@ class PollingConnection(FakeConnection):
     def __init__(self, message: FakeMessage) -> None:
         super().__init__()
         self.stream_requests = []
+        self.mission_requests = []
         self.mav = SimpleNamespace(
-            mission_request_list_send=lambda *_args: None,
+            mission_request_list_send=lambda *args: self.mission_requests.append(args),
             request_data_stream_send=lambda *args: self.stream_requests.append(args),
         )
         self.message = message
@@ -170,6 +171,19 @@ def test_session_requests_read_only_telemetry_streams_once_after_heartbeat() -> 
     assert len(connection.stream_requests) == 4
     assert all(request[0:2] == (1, 1) for request in connection.stream_requests)
     assert all(request[3:] == (4, 1) for request in connection.stream_requests)
+
+
+def test_session_does_not_request_onboard_mission_until_explicitly_requested() -> None:
+    message = FakeMessage("HEARTBEAT", autopilot=3, type=2, base_mode=0)
+    connection = PollingConnection(message)
+    session = MavlinkVehicleSession("sitl-1", connection)
+
+    session.poll()
+    session.poll()
+    assert connection.mission_requests == []
+
+    session.request_mission()
+    assert connection.mission_requests == [(1, 1)]
 
 
 def test_sys_status_supplies_battery_fallback_when_battery_status_is_absent() -> None:
