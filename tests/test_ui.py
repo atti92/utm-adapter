@@ -22,7 +22,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     html = client.get("/ui/").text
     javascript = client.get("/ui/app.js").text
 
-    for label in ("Open mission file", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action", "Connection guide", "Copy diagnostics"):
+    for label in ("Open mission file", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action", "Connection guide", "Copy diagnostics", "Support ID"):
         assert label in html
     for element_id in ("backend-readiness", "mavlink-readiness", "recording-readiness", "metrics-readiness", "altitude-readiness", "control-readiness"):
         assert element_id in html
@@ -53,6 +53,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "metrics-readiness" in javascript
     assert "telemetryMetrics.published_total" in javascript
     assert '"X-Correlation-ID": correlationId' in javascript
+    assert "$('correlation-id').textContent = correlationId" in javascript
     assert "battery_remaining_pct" in javascript
     assert "state.latestStatus?.latest_telemetry" in javascript
     assert "telemetry.altitude.datum" in javascript

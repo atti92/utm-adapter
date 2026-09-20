@@ -47,6 +47,8 @@ button, input, select { font: inherit; }
 .setup-note { margin: 12px 0 0; color: var(--muted); font-size: 0.73rem; line-height: 1.4; }
 .setup-note[data-state="warning"] { color: var(--amber); }
 .setup-note[data-state="error"] { color: var(--red); }
+.support-id { margin: 8px 0 0; color: var(--muted); font-size: 0.68rem; }
+.support-id code { color: var(--text); font-size: 0.68rem; }
 .hero-grid, .lower-grid { display: grid; gap: 18px; }
 .hero-grid { grid-template-columns: minmax(0, 1.12fr) minmax(420px, 0.88fr); }
 .lower-grid { grid-template-columns: minmax(0, 1.12fr) minmax(340px, 0.88fr); margin-top: 18px; }

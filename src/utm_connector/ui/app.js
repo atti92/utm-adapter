@@ -22,6 +22,7 @@ const intentInFlight = new Set();
 const correlationId = newOperationId();
 
 const $ = (id) => document.getElementById(id);
+$('correlation-id').textContent = correlationId;
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({
