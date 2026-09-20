@@ -403,6 +403,22 @@ async function copyDiagnostics() {
   }
 }
 
+function downloadDiagnostics() {
+  const text = JSON.stringify(diagnosticsSnapshot(), null, 2);
+  const blob = new Blob([text], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  link.href = url;
+  link.download = `utm-connector-diagnostics-${stamp}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  $("setup-message").textContent = "Diagnostics downloaded. Share the redacted JSON with support.";
+  $("setup-message").dataset.kind = "success";
+}
+
 function renderVehicleDirectory(vehicles) {
   const select = $("vehicle-select");
   const previous = state.vehicleId;
@@ -1007,6 +1023,7 @@ $("cancel-button").addEventListener("click", () => sendIntent("CANCEL_OPERATION"
 $("complete-button").addEventListener("click", () => sendIntent("COMPLETE_OPERATION"));
 $("refresh-operation-button").addEventListener("click", async () => { if (!state.operation) return; try { renderOperation(await request(`/v1/operations/${state.operation.operation_id}/refresh`, { method: "POST" })); setMessage("Provider state refreshed.", "success"); } catch (error) { setMessage(error.message, "error"); } });
 $("copy-diagnostics").addEventListener("click", copyDiagnostics);
+$("download-diagnostics").addEventListener("click", downloadDiagnostics);
 ["valid-from", "valid-until", "corridor-radius"].forEach((id) => $(id).addEventListener("input", () => {
   state.windowCustomized = true;
   updateMissionActionState();

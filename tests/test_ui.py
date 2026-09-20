@@ -22,7 +22,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     html = client.get("/ui/").text
     javascript = client.get("/ui/app.js").text
 
-    for label in ("Open mission file", "Use vehicle mission", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action", "Connection guide", "Copy diagnostics", "Support ID", "How the vehicle link is shared", "MAVLink router"):
+    for label in ("Open mission file", "Use vehicle mission", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action", "Connection guide", "Copy diagnostics", "Download diagnostics", "Support ID", "How the vehicle link is shared", "MAVLink router"):
         assert label in html
     for element_id in ("backend-readiness", "mavlink-readiness", "recording-readiness", "metrics-readiness", "altitude-readiness", "control-readiness"):
         assert element_id in html
@@ -106,6 +106,8 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "function renderSetupGuide" in javascript
     assert "One physical link can feed both GCS and connector" in javascript
     assert "function copyDiagnostics" in javascript
+    assert "function downloadDiagnostics" in javascript
+    assert "utm-connector-diagnostics-" in javascript
     assert 'geoid_grid_path: capabilities.altitude.geoid_conversion_configured ? "[configured]" : null' in javascript
     assert "correlation_id: correlationId" in javascript
     assert "navigator.clipboard.writeText" in javascript
