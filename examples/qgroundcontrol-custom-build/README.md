@@ -14,8 +14,10 @@ merged into an existing custom build):
 
 - `src/FlyViewCustomLayer.qml` provides the status card and opens the connector
   console.
-- `CMakeLists.fragment.cmake` shows the resource alias required to override
-  `QGroundControl/FlyView/FlyViewCustomLayer.qml`.
+- `utm_connector.qrc` registers the resource override under QGC's `/Custom`
+  prefix.
+- `CMakeLists.fragment.cmake` adds that resource to the executable through
+  QGC's `CUSTOM_RESOURCES`/`QGC_RESOURCES` mechanism.
 
 The overlay reads only:
 
@@ -29,12 +31,24 @@ MAVLink commands, upload missions, arm, take off, or change flight modes.
 ## Use it in a QGroundControl custom build
 
 1. Start the connector, for example with `uv run utm-connector --demo`.
-2. Copy `src/FlyViewCustomLayer.qml` into the QGroundControl custom-build
-   source tree and merge `CMakeLists.fragment.cmake` into that build's CMake
-   configuration. Keep the resource alias unchanged.
-3. Change `connectorBaseUrl` in the QML file if the connector is not running at
+2. Copy `src/FlyViewCustomLayer.qml` and `utm_connector.qrc` into the
+   QGroundControl custom-build source tree, then merge
+   `CMakeLists.fragment.cmake` into that build's `CMakeLists.txt`.
+3. Keep the stock `CustomOverrideInterceptor` from QGC's custom-example (it
+   installs the `/Custom` URL interceptor). If an existing custom build has
+   replaced it, retain the equivalent `addUrlInterceptor` mapping.
+4. Change `connectorBaseUrl` in the QML file if the connector is not running at
    `http://127.0.0.1:8000`.
-4. Build and run the resulting QGroundControl custom binary.
+5. From the adapter checkout, validate the source contract before building:
+
+   ```sh
+   uv run python scripts/check_qgc_overlay.py --qgc-source /path/to/qgroundcontrol --strict
+   ```
+
+6. Build and run the resulting QGroundControl custom binary. The native build
+   needs the Qt version and compiler toolchain required by the pinned QGC
+   release; the stock QGC binary does not need to be rebuilt for the normal
+   connector demo.
 
 The stock QGroundControl binary and the provider-neutral files in
 `qgcs-config/` remain useful without rebuilding QGroundControl: use the

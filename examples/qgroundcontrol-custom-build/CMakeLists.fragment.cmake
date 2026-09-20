@@ -1,17 +1,25 @@
-# Merge this fragment into a QGroundControl custom-build CMakeLists.txt.
-# The alias is the important part: it replaces the additive Fly View layer
-# resource used by QGroundControl's custom-example build.
+# Merge this fragment into the QGroundControl custom-example CMakeLists.txt.
+# QGC adds QGC_RESOURCES to the executable after the custom directory is
+# configured. Registering a resource directly on ${CMAKE_PROJECT_NAME} here is
+# too early and makes the overlay silently disappear on QGC 5.1.x.
 
-set(UTM_CONNECTOR_QML_OVERRIDE
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/FlyViewCustomLayer.qml"
+set(UTM_CONNECTOR_CUSTOM_QRC
+    "${CMAKE_CURRENT_SOURCE_DIR}/utm_connector.qrc"
 )
 
-set_source_files_properties(
-    "${UTM_CONNECTOR_QML_OVERRIDE}"
-    PROPERTIES QT_RESOURCE_ALIAS "QGroundControl/FlyView/FlyViewCustomLayer.qml"
-)
+if(NOT EXISTS "${UTM_CONNECTOR_CUSTOM_QRC}")
+    message(FATAL_ERROR
+        "UTM connector QGC overlay resource file is missing: ${UTM_CONNECTOR_CUSTOM_QRC}"
+    )
+endif()
 
-qt_add_resources(${CMAKE_PROJECT_NAME} utm_connector_qml_overrides
-    PREFIX "/Custom/qml"
-    FILES ${UTM_CONNECTOR_QML_OVERRIDE}
+list(FIND CUSTOM_RESOURCES "${UTM_CONNECTOR_CUSTOM_QRC}" _utm_connector_qrc_index)
+if(_utm_connector_qrc_index EQUAL -1)
+    list(APPEND CUSTOM_RESOURCES "${UTM_CONNECTOR_CUSTOM_QRC}")
+endif()
+
+set(QGC_RESOURCES
+    ${QGC_RESOURCES}
+    ${CUSTOM_RESOURCES}
+    CACHE STRING "Paths to .qrc Resources" FORCE
 )

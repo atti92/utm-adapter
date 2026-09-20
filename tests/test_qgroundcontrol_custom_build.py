@@ -24,10 +24,20 @@ def test_qgroundcontrol_overlay_is_a_non_commanding_custom_build_layer() -> None
 
 def test_qgroundcontrol_overlay_uses_the_official_fly_view_resource_alias() -> None:
     cmake = (QGC_EXAMPLE / "CMakeLists.fragment.cmake").read_text()
+    qrc = (QGC_EXAMPLE / "utm_connector.qrc").read_text()
 
-    assert "QGroundControl/FlyView/FlyViewCustomLayer.qml" in cmake
-    assert "qt_add_resources" in cmake
-    assert 'PREFIX "/Custom/qml"' in cmake
+    assert "CUSTOM_RESOURCES" in cmake
+    assert 'prefix="/Custom/qml"' in qrc
+    assert 'alias="QGroundControl/FlyView/FlyViewCustomLayer.qml"' in qrc
+
+
+def test_qgroundcontrol_overlay_check_script_catches_native_build_drift() -> None:
+    script = (ROOT / "scripts" / "check_qgc_overlay.py").read_text()
+
+    assert "addUrlInterceptor" in script
+    assert "CUSTOM_RESOURCES" in script
+    assert "--strict" in script
+    assert "v5.1.4" in script
 
 
 def test_qgroundcontrol_overlay_documents_stock_binary_boundary() -> None:
