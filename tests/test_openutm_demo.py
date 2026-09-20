@@ -175,8 +175,17 @@ def test_check_prerequisites_reports_missing_requested_gcs(tmp_path: Path, monke
 
 def test_qgroundcontrol_detection_is_optional_for_auto_mode(monkeypatch) -> None:
     monkeypatch.setattr(openutm_demo, "_find_qgroundcontrol_command", lambda: None)
+    monkeypatch.setattr(openutm_demo, "_find_mission_planner_command", lambda: None)
 
     assert openutm_demo._launch_gcs("auto") == (None, None)
+
+
+def test_auto_gcs_falls_back_to_mission_planner(monkeypatch) -> None:
+    monkeypatch.setattr(openutm_demo, "_find_qgroundcontrol_command", lambda: None)
+    monkeypatch.setattr(openutm_demo, "_find_mission_planner_command", lambda: ["MissionPlanner.exe"])
+    monkeypatch.setattr(openutm_demo.subprocess, "Popen", lambda *_args, **_kwargs: object())
+
+    assert openutm_demo._launch_gcs("auto") == ("Mission Planner", None)
 
 
 def test_qgroundcontrol_detection_accepts_linux_command_name(monkeypatch) -> None:

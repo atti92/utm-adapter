@@ -51,9 +51,9 @@ uv run python scripts/openutm_demo.py
 ```
 
 It starts Flight Blender, the connector, and ArduPilot SITL, opens the
-operator console, and auto-detects QGroundControl. On Windows PowerShell use
-the same commands and add `--gcs mission-planner` when Mission Planner is the
-selected GCS. Use `--no-browser` or `--gcs none` when those applications are
+operator console, and auto-detects QGroundControl or Mission Planner. On
+Windows PowerShell, auto-detection prefers QGroundControl and falls back to
+Mission Planner. Use `--no-browser` or `--gcs none` when those applications are
 already open. Press Ctrl+C to cleanly stop the simulator, connector, and
 provider stack owned by the launcher. The detailed commands below remain
 available for diagnosing individual components or testing a router topology.

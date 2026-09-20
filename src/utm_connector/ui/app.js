@@ -10,6 +10,8 @@ const state = {
 };
 
 const DEMO_LEAD_TIME_MS = 15_000;
+const TERMINAL_DECLARATIONS = new Set(["COMPLETED", "CANCELLED", "REJECTED"]);
+let refreshInFlight = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -88,8 +90,10 @@ function updateMissionActionState() {
   const preview = state.mission?.mission_hash === "preview";
   const saved = Boolean(state.mission && !preview);
   const dirty = saved && !missionMatchesForm();
-  $("save-button").disabled = !state.vehicleId || !state.plan;
-  $("submit-button").disabled = !state.vehicleId || !saved || dirty;
+  const declaration = state.operation?.state?.declaration;
+  const operationOpen = Boolean(declaration && !TERMINAL_DECLARATIONS.has(declaration));
+  $("save-button").disabled = !state.vehicleId || !state.plan || operationOpen;
+  $("submit-button").disabled = !state.vehicleId || !saved || dirty || operationOpen;
   if (dirty && document.activeElement?.id !== "submit-button") {
     setMessage("Mission settings changed. Validate & save before submitting.");
   }
@@ -383,6 +387,7 @@ function renderOperation(operation) {
     step.dataset.state = value === "CONFORMING" || value === "ACCEPTED" || value === "AUTHORIZED" || value === "ACTIVE" ? "ok" : value && ["NON_CONFORMING", "FAILED", "REJECTED"].includes(value) ? "error" : value ? "warning" : "";
     step.querySelector("em").textContent = formatStatus(value);
   });
+  updateMissionActionState();
 }
 
 function newOperationId() {
@@ -440,6 +445,8 @@ async function refreshVehicle() {
 }
 
 async function refresh() {
+  if (refreshInFlight) return;
+  refreshInFlight = true;
   try {
     const [health, capabilities, integration, vehicles, events] = await Promise.all([
       request("/v1/health"), request("/v1/capabilities"), request("/v1/integration"), request("/v1/vehicles"), request("/v1/events?limit=12"),
@@ -455,6 +462,8 @@ async function refresh() {
   } catch (error) {
     setConnection("error", "Connector unavailable");
     setMessage(error.message, "error");
+  } finally {
+    refreshInFlight = false;
   }
 }
 
@@ -536,7 +545,10 @@ async function sendIntent(command) {
         throw new Error("Validate & save the current mission before submitting it to UTM.");
       }
     }
-    const operationId = state.operation?.operation_id || newOperationId();
+    const operationId = command === "SUBMIT_OPERATION"
+      ? newOperationId()
+      : state.operation?.operation_id;
+    if (!operationId) throw new Error("Submit an operation first, then retry this action.");
     const operation = await request(`/v1/operator-intents?vehicle_id=${encodeURIComponent(state.vehicleId)}`, { method: "POST", body: JSON.stringify({ schema_version: "1.0", command, operation_id: operationId }) });
     renderOperation(operation);
     const startsAt = state.mission?.mission?.valid_from ? new Date(state.mission.mission.valid_from) : null;

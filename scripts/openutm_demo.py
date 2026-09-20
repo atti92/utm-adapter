@@ -337,7 +337,20 @@ def _launch_gcs(
 ) -> tuple[str | None, ManagedProcess | None]:
     if selection == "none":
         return None, None
-    if selection == "mission-planner":
+    if selection == "auto":
+        candidates = (
+            ("QGroundControl", _find_qgroundcontrol_command()),
+            ("Mission Planner", _find_mission_planner_command()),
+        )
+        label, command = next(
+            (
+                (candidate_label, candidate_command)
+                for candidate_label, candidate_command in candidates
+                if candidate_command
+            ),
+            ("QGroundControl or Mission Planner", None),
+        )
+    elif selection == "mission-planner":
         command = _find_mission_planner_command()
         label = "Mission Planner"
     else:
@@ -417,7 +430,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--gcs",
         choices=("auto", "none", "qgroundcontrol", "mission-planner"),
         default="auto",
-        help="launch a GCS after the vehicle is online (default: auto-detect)",
+        help="launch a GCS after the vehicle is online (default: auto-detect QGroundControl, then Mission Planner)",
     )
     parser.add_argument("--no-browser", action="store_true", help="do not open the operator console")
     parser.add_argument(

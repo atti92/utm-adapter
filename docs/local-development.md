@@ -65,7 +65,8 @@ uv run python scripts/openutm_demo.py
 It starts the local Flight Blender Compose stack, the connector configured for
 Flight Blender, and ArduPilot SITL with one telemetry output for a GCS and one
 for the connector. It opens the browser console and launches QGroundControl if
-it is installed. The browser console is where the UTM operator workflow is
+it is installed, or Mission Planner when QGroundControl is unavailable on
+Windows. The browser console is where the UTM operator workflow is
 performed: choose the detected vehicle, select `Sample route` or open a
 QGroundControl `.plan`/Mission Planner `.waypoints` export, then validate, submit,
 and start the operation. The GCS remains the vehicle-control application.
