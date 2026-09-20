@@ -403,6 +403,12 @@ The default local UTM is the connector's in-memory backend, so no external UTM s
 UTM_CONNECTOR_BACKEND=flight-blender
 UTM_CONNECTOR_FLIGHT_BLENDER_BASE_URL=http://127.0.0.1:8989
 UTM_CONNECTOR_FLIGHT_BLENDER_BEARER_TOKEN=
+# Production deployments may use OAuth2 client credentials instead of a static token.
+# Configure all three OAuth values together and leave BEARER_TOKEN empty.
+UTM_CONNECTOR_FLIGHT_BLENDER_TOKEN_URL=
+UTM_CONNECTOR_FLIGHT_BLENDER_CLIENT_ID=
+UTM_CONNECTOR_FLIGHT_BLENDER_CLIENT_SECRET=
+UTM_CONNECTOR_FLIGHT_BLENDER_SCOPE=flightblender.write flightblender.read
 UTM_CONNECTOR_FLIGHT_BLENDER_MAX_RETRIES=3
 UTM_CONNECTOR_FLIGHT_BLENDER_RETRY_BACKOFF_S=0.25
 UTM_CONNECTOR_RECORD_PATH=connector-events.jsonl
@@ -410,6 +416,15 @@ UTM_CONNECTOR_TELEMETRY_PUBLISH_INTERVAL_S=1.0
 ```
 
 The adapter calls Flight Blender's `set_flight_declaration` endpoint with the generated WGS84 corridor and stores the provider declaration ID in the local operation record. It calls `set_telemetry` with the provider ID for subsequent telemetry. A mission whose altitude datum is AGL or AMSL is converted only when an explicit geoid grid is configured; otherwise submission is rejected because the connector does not have enough information to convert it to WGS84 safely.
+
+For a real provider, set `UTM_CONNECTOR_FLIGHT_BLENDER_TOKEN_URL`,
+`UTM_CONNECTOR_FLIGHT_BLENDER_CLIENT_ID`, and
+`UTM_CONNECTOR_FLIGHT_BLENDER_CLIENT_SECRET` together. The connector requests
+OAuth2 client-credentials tokens over the configured HTTPS endpoint, caches
+them until shortly before expiry, and refreshes once after an HTTP 401. Client
+secrets and access tokens are never written to the JSONL recorder. The static
+`UTM_CONNECTOR_FLIGHT_BLENDER_BEARER_TOKEN` remains available for the isolated
+local Flight Blender development bypass only.
 
 For a live MAVLink vehicle, `GLOBAL_POSITION_INT.alt` is AMSL while Flight
 Blender expects WGS84 ellipsoidal height. Set

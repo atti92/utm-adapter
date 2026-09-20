@@ -264,6 +264,22 @@ mission generator or recorder needs it. For repeated runs, put the same values
 in a local `.env` file instead of exporting them. Never commit the generated
 development token.
 
+For a real Flight Blender deployment, use OAuth2 client credentials instead of
+the development bypass token. Configure the provider token URL, client ID, and
+client secret together, leave `UTM_CONNECTOR_FLIGHT_BLENDER_BEARER_TOKEN`
+empty, and set the scope if the provider uses a different one:
+
+```dotenv
+UTM_CONNECTOR_FLIGHT_BLENDER_TOKEN_URL=https://auth.example.test/oauth/token
+UTM_CONNECTOR_FLIGHT_BLENDER_CLIENT_ID=utm-connector
+UTM_CONNECTOR_FLIGHT_BLENDER_CLIENT_SECRET=stored-outside-git
+UTM_CONNECTOR_FLIGHT_BLENDER_SCOPE=flightblender.write flightblender.read
+```
+
+The connector obtains tokens over HTTPS, caches them until shortly before
+expiry, retries once with a fresh token after a 401, and never records client
+secrets or access tokens in the diagnostic JSONL file.
+
 Check both services from another terminal. On Windows, use `curl.exe` rather
 than the PowerShell `curl` alias:
 

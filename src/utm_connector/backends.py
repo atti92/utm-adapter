@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 
 import httpx
 
+from .auth import OAuthClientCredentials, OAuthError
 from .domain import (
     AltitudeDatum,
     AuthorizationState,
@@ -115,6 +116,10 @@ class FlightBlenderBackend(UTMBackend):
         base_url: str,
         *,
         bearer_token: Optional[str] = None,
+        oauth_token_url: Optional[str] = None,
+        oauth_client_id: Optional[str] = None,
+        oauth_client_secret: Optional[str] = None,
+        oauth_scope: Optional[str] = None,
         timeout_s: float = 10.0,
         max_retries: int = 3,
         retry_backoff_s: float = 0.25,
@@ -142,6 +147,22 @@ class FlightBlenderBackend(UTMBackend):
         self._legacy_provider_operation_ids: Dict[str, str] = {}
         self.recorder = recorder
         self.metrics = metrics or RuntimeMetrics()
+        oauth_values = (oauth_token_url, oauth_client_id, oauth_client_secret)
+        if any(oauth_values) and bearer_token:
+            raise ValueError("configure either bearer_token or OAuth client credentials, not both")
+        if any(oauth_values) and not all(oauth_values):
+            raise ValueError("OAuth client credentials require token URL, client ID, and client secret")
+        self._oauth = (
+            OAuthClientCredentials(
+                oauth_token_url,
+                oauth_client_id,
+                oauth_client_secret,
+                scope=oauth_scope,
+                client=self.client,
+            )
+            if all(oauth_values)
+            else None
+        )
 
     def submit_operation(self, operation: Operation, mission: Mission) -> Operation:
         self._validate_declaration_window(mission)
@@ -304,14 +325,26 @@ class FlightBlenderBackend(UTMBackend):
             self.client.close()
         self._closed = True
 
-    def _request(self, method: str, path: str, *, json: Optional[dict]) -> dict:
-        headers = {"Accept": "application/json"}
+    @property
+    def authentication_mode(self) -> str:
+        if self._oauth is not None:
+            return "oauth-client-credentials"
         if self.bearer_token:
-            headers["Authorization"] = f"Bearer {self.bearer_token}"
+            return "bearer-token"
+        return "none"
+
+    def _request(self, method: str, path: str, *, json: Optional[dict]) -> dict:
         last_error: Exception | None = None
-        for attempt in range(self.max_retries + 1):
+        auth_refresh_used = False
+        total_attempts = self.max_retries + 1 + (1 if self._oauth is not None else 0)
+        for attempt in range(total_attempts):
             started = monotonic()
             try:
+                headers = {"Accept": "application/json"}
+                if self.bearer_token:
+                    headers["Authorization"] = f"Bearer {self.bearer_token}"
+                elif self._oauth is not None:
+                    headers["Authorization"] = f"Bearer {self._oauth.get_token(force_refresh=auth_refresh_used)}"
                 if self.recorder is not None:
                     self.recorder.record(
                         "backend_request",
@@ -326,6 +359,10 @@ class FlightBlenderBackend(UTMBackend):
                 if response.status_code == 204:
                     self.metrics.record_backend_request(monotonic() - started, success=True)
                     return {}
+                if response.status_code == 401 and self._oauth is not None and not auth_refresh_used:
+                    self._oauth.invalidate()
+                    auth_refresh_used = True
+                    continue
                 response.raise_for_status()
                 body = response.json()
                 if not isinstance(body, dict):
@@ -335,6 +372,9 @@ class FlightBlenderBackend(UTMBackend):
             except BackendError:
                 self.metrics.record_backend_request(monotonic() - started, success=False)
                 raise
+            except OAuthError as exc:
+                self.metrics.record_backend_request(monotonic() - started, success=False)
+                raise BackendError(f"Flight Blender authentication failed: {exc}") from exc
             except httpx.HTTPStatusError as exc:
                 self.metrics.record_backend_request(monotonic() - started, success=False)
                 if exc.response.status_code != 429 and exc.response.status_code < 500:

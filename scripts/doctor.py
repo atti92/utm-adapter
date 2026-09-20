@@ -6,7 +6,10 @@ import os
 import sys
 from pathlib import Path
 
+import httpx
+
 from utm_connector.altitude import AltitudeConversionError, AltitudeConverter
+from utm_connector.auth import OAuthClientCredentials, OAuthError
 from utm_connector.config import ConnectorSettings
 from utm_connector.diagnostics import port_is_reachable, probe_http_endpoint
 
@@ -87,19 +90,47 @@ def main() -> int:
             "Flight Blender",
             f"{settings.flight_blender_base_url} ({provider_detail})",
         )
-        if not settings.flight_blender_bearer_token:
-            _info("Flight Blender token", "empty; local development bypass may still require a generated token")
-        elif provider_ok:
-            auth_ok, auth_detail = probe_http_endpoint(
-                settings.flight_blender_base_url,
-                path="/flight_declaration_ops/flight_declaration",
-                headers={"Authorization": f"Bearer {settings.flight_blender_bearer_token}"},
-            )
-            if auth_ok:
-                _check("Flight Blender auth", auth_detail)
+        if provider_ok:
+            if (
+                settings.flight_blender_token_url
+                and settings.flight_blender_client_id
+                and settings.flight_blender_client_secret
+            ):
+                try:
+                    with httpx.Client(timeout=settings.flight_blender_timeout_s) as client:
+                        token = OAuthClientCredentials(
+                            settings.flight_blender_token_url,
+                            settings.flight_blender_client_id,
+                            settings.flight_blender_client_secret,
+                            scope=settings.flight_blender_scope,
+                            client=client,
+                        ).get_token()
+                    auth_ok, auth_detail = probe_http_endpoint(
+                        settings.flight_blender_base_url,
+                        path="/flight_declaration_ops/flight_declaration",
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
+                except (OAuthError, httpx.HTTPError) as exc:
+                    print(f"[fail] Flight Blender auth: OAuth token request failed: {exc}")
+                    return 1
+                if auth_ok:
+                    _check("Flight Blender auth", f"OAuth client credentials ({auth_detail})")
+                else:
+                    print(f"[fail] Flight Blender auth: {auth_detail}")
+                    return 1
+            elif settings.flight_blender_bearer_token:
+                auth_ok, auth_detail = probe_http_endpoint(
+                    settings.flight_blender_base_url,
+                    path="/flight_declaration_ops/flight_declaration",
+                    headers={"Authorization": f"Bearer {settings.flight_blender_bearer_token}"},
+                )
+                if auth_ok:
+                    _check("Flight Blender auth", auth_detail)
+                else:
+                    print(f"[fail] Flight Blender auth: {auth_detail}")
+                    return 1
             else:
-                print(f"[fail] Flight Blender auth: {auth_detail}")
-                return 1
+                _info("Flight Blender auth", "empty; local development bypass may still require a generated token")
         else:
             _info("Flight Blender auth", "not checked because the provider is not reachable")
     else:

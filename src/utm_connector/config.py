@@ -29,6 +29,10 @@ class ConnectorSettings(BaseSettings):
     backend: str = Field(default="in-memory", pattern=r"^(in-memory|flight-blender)$")
     flight_blender_base_url: str = "http://127.0.0.1:8989"
     flight_blender_bearer_token: str | None = None
+    flight_blender_token_url: str | None = None
+    flight_blender_client_id: str | None = None
+    flight_blender_client_secret: str | None = None
+    flight_blender_scope: str = "flightblender.write flightblender.read"
     flight_blender_timeout_s: float = Field(default=10.0, gt=0, le=120)
     flight_blender_max_retries: int = Field(default=3, ge=0, le=10)
     flight_blender_retry_backoff_s: float = Field(default=0.25, ge=0, le=60)
@@ -50,4 +54,31 @@ class ConnectorSettings(BaseSettings):
         vehicle_ids = [connection.vehicle_id for connection in self.mavlink_connections]
         if len(vehicle_ids) != len(set(vehicle_ids)):
             raise ValueError("MAVLink vehicle_id values must be unique")
+        return self
+
+    @model_validator(mode="after")
+    def validate_provider_authentication(self) -> "ConnectorSettings":
+        oauth_values = (
+            self.flight_blender_token_url,
+            self.flight_blender_client_id,
+            self.flight_blender_client_secret,
+        )
+        if any(oauth_values):
+            if self.flight_blender_bearer_token:
+                raise ValueError(
+                    "configure either FLIGHT_BLENDER_BEARER_TOKEN or OAuth client credentials, not both"
+                )
+            missing = [
+                name
+                for name, value in (
+                    ("flight_blender_token_url", self.flight_blender_token_url),
+                    ("flight_blender_client_id", self.flight_blender_client_id),
+                    ("flight_blender_client_secret", self.flight_blender_client_secret),
+                )
+                if not value
+            ]
+            if missing:
+                raise ValueError(
+                    "OAuth provider authentication requires: " + ", ".join(missing)
+                )
         return self

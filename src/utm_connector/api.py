@@ -55,6 +55,10 @@ def create_app(
             FlightBlenderBackend(
                 settings.flight_blender_base_url,
                 bearer_token=settings.flight_blender_bearer_token,
+                oauth_token_url=settings.flight_blender_token_url,
+                oauth_client_id=settings.flight_blender_client_id,
+                oauth_client_secret=settings.flight_blender_client_secret,
+                oauth_scope=settings.flight_blender_scope,
                 timeout_s=settings.flight_blender_timeout_s,
                 max_retries=settings.flight_blender_max_retries,
                 retry_backoff_s=settings.flight_blender_retry_backoff_s,
@@ -191,6 +195,10 @@ def create_app(
                 "provider_requirement": "WGS84" if service.backend.required_altitude_datum else None,
             },
             "mission_window": service.backend.mission_window_constraints(),
+            "provider_authentication": {
+                "mode": getattr(service.backend, "authentication_mode", "none"),
+                "secret_material_exposed": False,
+            },
             "operator_commands": [command.value for command in OperationCommand],
         }
 

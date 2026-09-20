@@ -203,6 +203,77 @@ def test_flight_blender_backend_retries_transient_provider_failure() -> None:
     assert attempts == 3
 
 
+def test_flight_blender_backend_acquires_and_caches_oauth_token(tmp_path) -> None:
+    requests: list[httpx.Request] = []
+    token_requests = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal token_requests
+        requests.append(request)
+        if request.url.path == "/oauth/token":
+            token_requests += 1
+            assert request.headers.get("authorization", "").startswith("Basic ")
+            assert b"grant_type=client_credentials" in request.content
+            return httpx.Response(200, json={"access_token": "oauth-token", "expires_in": 300})
+        return httpx.Response(200, json={"id": str(uuid4()), "state": 1, "is_approved": 1})
+
+    recorder = JsonlRecorder(str(tmp_path / "oauth-events.jsonl"))
+    backend = FlightBlenderBackend(
+        "http://flight-blender.test",
+        oauth_token_url="http://auth.test/oauth/token",
+        oauth_client_id="client-id",
+        oauth_client_secret="client-secret",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+        recorder=recorder,
+    )
+    mission = _mission()
+    backend.submit_operation(_operation(mission), mission)
+    backend.submit_operation(_operation(mission), mission)
+    recorder.close()
+
+    assert token_requests == 1
+    provider_requests = [request for request in requests if request.url.host == "flight-blender.test"]
+    assert provider_requests
+    assert all(request.headers["authorization"] == "Bearer oauth-token" for request in provider_requests)
+    recorded = (tmp_path / "oauth-events.jsonl").read_text()
+    assert "client-secret" not in recorded
+    assert "oauth-token" not in recorded
+    assert '"Authorization":"<redacted>"' in recorded
+
+
+def test_flight_blender_backend_refreshes_oauth_token_after_unauthorized() -> None:
+    token_requests = 0
+    provider_requests = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal token_requests, provider_requests
+        if request.url.path == "/oauth/token":
+            token_requests += 1
+            return httpx.Response(
+                200,
+                json={"access_token": f"oauth-token-{token_requests}", "expires_in": 300},
+            )
+        provider_requests += 1
+        if request.headers["authorization"] == "Bearer oauth-token-1":
+            return httpx.Response(401, json={"message": "expired"})
+        return httpx.Response(200, json={"id": str(uuid4()), "state": 1, "is_approved": 1})
+
+    backend = FlightBlenderBackend(
+        "http://flight-blender.test",
+        oauth_token_url="http://auth.test/oauth/token",
+        oauth_client_id="client-id",
+        oauth_client_secret="client-secret",
+        max_retries=0,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    mission = _mission()
+    backend.submit_operation(_operation(mission), mission)
+
+    assert token_requests == 2
+    assert provider_requests == 2
+
+
 def test_flight_blender_backend_records_request_latency_and_errors() -> None:
     metrics = RuntimeMetrics()
 

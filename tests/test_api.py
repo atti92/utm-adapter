@@ -147,6 +147,10 @@ def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
     assert capabilities.status_code == 200
     assert capabilities.json()["integration_manifest"] == "/v1/integration"
     assert capabilities.json()["recording"] == {"configured": False, "mavlink_raw": False}
+    assert capabilities.json()["provider_authentication"] == {
+        "mode": "none",
+        "secret_material_exposed": False,
+    }
     assert capabilities.json()["mavlink"] == {
         "configured": False,
         "non_commanding": True,
