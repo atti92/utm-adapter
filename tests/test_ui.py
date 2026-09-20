@@ -30,7 +30,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
 
     assert javascript_response.headers["cache-control"] == "no-store, max-age=0"
 
-    for label in ("Open mission file", "Use vehicle mission", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action", "Connection guide", "Copy diagnostics", "Download diagnostics", "Support ID", "How the vehicle link is shared", "MAVLink router"):
+    for label in ("Open mission file", "Use vehicle mission", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action", "Connection guide", "Copy diagnostics", "Download diagnostics", "Support ID", "How the vehicle link is shared", "MAVLink router", "Validity times use your computer's local timezone", "sent to the UTM provider as UTC"):
         assert label in html
     for element_id in ("backend-readiness", "mavlink-readiness", "recording-readiness", "metrics-readiness", "altitude-readiness", "control-readiness"):
         assert element_id in html

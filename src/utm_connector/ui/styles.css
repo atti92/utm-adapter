@@ -103,6 +103,7 @@ h3 { margin-bottom: 3px; font-size: 1rem; }
 .button.danger { border-color: rgba(255, 126, 131, 0.3); color: var(--red); background: rgba(255, 126, 131, 0.09); }
 .file-button { display: inline-flex; align-items: center; }
 .validity-grid { display: grid; grid-template-columns: 1fr 1fr 0.62fr; gap: 10px; margin-bottom: 18px; }
+.field-help { margin: -8px 0 16px; color: var(--muted); font-size: 0.7rem; line-height: 1.4; }
 .primary-actions { border-top: 1px solid var(--border); padding-top: 18px; }
 .inline-message { min-height: 1.2em; margin: 12px 0 0; color: var(--muted); font-size: 0.8rem; }
 .inline-message[data-kind="error"] { color: var(--red); }
