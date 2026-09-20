@@ -206,6 +206,11 @@ last telemetry timestamps, and provider request latency/error counters. The
 current connector publishes synchronously, so `telemetry.queue_depth` is
 explicitly `0`; a non-zero value would indicate a future asynchronous backlog.
 The counters are process-local and reset when the connector restarts.
+The additive `vehicle_diagnostics` list includes connection/quality state,
+heartbeat and position age when available, telemetry age, and mission drift.
+`operations.active_states` gives the active declaration, authorization,
+telemetry-publication, and conformance states without requiring a GCS to fetch
+each operation separately.
 Every API response also includes an `X-Correlation-ID` header. A GCS or support
 tool can send its own UUID in that header and reuse the returned value when
 linking UI actions, event records, and provider failures in a support log.

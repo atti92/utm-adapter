@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 from uuid import UUID, uuid4
@@ -202,6 +203,11 @@ def create_app(
     def metrics_endpoint() -> dict:
         """Expose process-local diagnostics for GCS and support tooling."""
 
+        vehicle_ids = sorted(
+            set(service.vehicles)
+            | set(service.vehicle_snapshots)
+            | {connection.vehicle_id for connection in manager.connections}
+        )
         active_operations = sum(
             operation.state.declaration in {
                 DeclarationState.SUBMITTED,
@@ -209,6 +215,63 @@ def create_app(
             }
             for operation in service.operations.values()
         )
+        now = datetime.now(timezone.utc)
+        vehicle_diagnostics = []
+        for vehicle_id in vehicle_ids:
+            telemetry = service.vehicles.get(vehicle_id)
+            snapshot_for_vehicle = service.vehicle_snapshots.get(vehicle_id)
+            drift = service.mission_drifts.get(vehicle_id)
+            telemetry_age_s = None
+            if telemetry is not None:
+                telemetry_age_s = round(
+                    max(0.0, (now - telemetry.observed_at).total_seconds()), 3
+                )
+            vehicle_diagnostics.append(
+                {
+                    "vehicle_id": vehicle_id,
+                    "connection_state": (
+                        snapshot_for_vehicle.connection_state.value
+                        if snapshot_for_vehicle
+                        else "UNKNOWN"
+                    ),
+                    "quality": (
+                        snapshot_for_vehicle.quality.value
+                        if snapshot_for_vehicle
+                        else telemetry.quality.value if telemetry else "UNKNOWN"
+                    ),
+                    "heartbeat_age_s": (
+                        snapshot_for_vehicle.health.heartbeat_age_s
+                        if snapshot_for_vehicle
+                        else None
+                    ),
+                    "position_age_s": (
+                        snapshot_for_vehicle.health.position_age_s
+                        if snapshot_for_vehicle
+                        else telemetry_age_s
+                    ),
+                    "telemetry_age_s": telemetry_age_s,
+                    "last_telemetry_at": (
+                        telemetry.observed_at.isoformat() if telemetry else None
+                    ),
+                    "mission_drift": drift.classification.value if drift else None,
+                    "mission_hash_mismatch": bool(
+                        drift and drift.classification.value != "NO_CHANGE"
+                    ),
+                }
+            )
+        active_operation_states = [
+            {
+                "operation_id": str(operation.operation_id),
+                "vehicle_id": operation.vehicle_id,
+                "declaration": operation.state.declaration.value,
+                "authorization": operation.state.authorization.value,
+                "telemetry_publication": operation.state.telemetry_publication.value,
+                "conformance": operation.state.conformance.value,
+            }
+            for operation in service.operations.values()
+            if operation.state.declaration
+            in {DeclarationState.SUBMITTED, DeclarationState.ACCEPTED}
+        ]
         snapshot = metrics.snapshot()
         snapshot.update(
             {
@@ -220,7 +283,9 @@ def create_app(
                 "operations": {
                     "active": active_operations,
                     "known": len(service.operations),
+                    "active_states": active_operation_states,
                 },
+                "vehicle_diagnostics": vehicle_diagnostics,
             }
         )
         return snapshot

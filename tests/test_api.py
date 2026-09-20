@@ -77,6 +77,12 @@ def test_local_operation_lifecycle() -> None:
     assert metrics.json()["telemetry"]["queue_depth"] == 0
     assert metrics.json()["vehicles"] == {"active": 1, "configured": 0, "session_errors": 0}
     assert metrics.json()["operations"]["active"] == 1
+    assert metrics.json()["operations"]["active_states"][0]["authorization"] == "AUTHORIZED"
+    vehicle_diagnostics = metrics.json()["vehicle_diagnostics"]
+    assert vehicle_diagnostics[0]["vehicle_id"] == "sitl-1"
+    assert vehicle_diagnostics[0]["quality"] == "GOOD"
+    assert vehicle_diagnostics[0]["mission_hash_mismatch"] is False
+    assert vehicle_diagnostics[0]["position_age_s"] >= 0
     assert len(client.get("/v1/events").json()) >= 5
 
 
@@ -243,7 +249,8 @@ def test_metrics_are_available_before_any_traffic() -> None:
     assert payload["backend"]["requests_total"] == 0
     assert payload["backend"]["errors_total"] == 0
     assert payload["vehicles"] == {"active": 0, "configured": 0, "session_errors": 0}
-    assert payload["operations"] == {"active": 0, "known": 0}
+    assert payload["operations"] == {"active": 0, "known": 0, "active_states": []}
+    assert payload["vehicle_diagnostics"] == []
 
 
 def test_opt_in_demo_mode_publishes_a_vehicle_for_the_operator_console() -> None:

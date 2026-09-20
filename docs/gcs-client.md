@@ -43,7 +43,8 @@ mission yet returns HTTP 404.
 
 `metrics()` returns process-local diagnostics suitable for a compact GCS
 status panel: uptime, active vehicles and operations, telemetry publication
-counters, and provider request latency/error counters.
+counters, provider request latency/error counters, and additive per-vehicle
+health/drift plus active operation state details.
 
 Connector responses include an `X-Correlation-ID` header. Send a UUID with the
 same header when a host GCS starts an operator action to make support logs
