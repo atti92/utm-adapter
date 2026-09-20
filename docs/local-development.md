@@ -234,6 +234,20 @@ the platform package for `mavlink-routerd`; it is not bundled with the Python
 connector. A live router test is only complete when the router forwards one
 vehicle stream to both the GCS endpoint and the connector endpoint.
 
+The supervised single-link demo uses the checked-in router configuration and
+keeps the entire session easy to stop:
+
+```sh
+uv run python scripts/openutm_demo.py --topology router --gcs qgroundcontrol
+```
+
+Use `--topology split` (the default) for the simpler two-output SITL shortcut.
+The router topology is supported for ArduPilot SITL; the stock PX4 image keeps
+its documented two-output endpoints. For a physical aircraft, place the
+router on the companion computer next to the vehicle link and point its GCS
+and connector outputs at the normal UDP endpoints. QGroundControl and Mission
+Planner remain unchanged consumers.
+
 ### ArduPilot SITL and QGroundControl
 
 For the shortest SITL-only path, use two simulator outputs so the GCS and

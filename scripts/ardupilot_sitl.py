@@ -1,8 +1,8 @@
 """Launch a built ArduPilot SITL vehicle for local connector testing.
 
-This helper deliberately starts only the simulator. The GCS and connector
-remain independently visible and stoppable processes, which makes it useful
-for both demos and integration tests.
+This helper deliberately starts only the simulator. The GCS, connector, and
+optional MAVLink router remain independently visible and stoppable processes,
+which makes it useful for both demos and integration tests.
 """
 
 from __future__ import annotations
@@ -31,6 +31,15 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--model", default="+", help="ArduPilot SITL model")
     parser.add_argument("--gcs-port", type=int, default=14550)
     parser.add_argument("--connector-port", type=int, default=14551)
+    parser.add_argument(
+        "--router-port",
+        type=int,
+        default=None,
+        help=(
+            "send the vehicle's only MAVLink output to this router UDP port; "
+            "when set, --gcs-port and --connector-port are not used"
+        ),
+    )
     return parser
 
 
@@ -59,8 +68,25 @@ def build_command(
     model: str = "+",
     gcs_port: int = 14550,
     connector_port: int = 14551,
+    router_port: int | None = None,
 ) -> list[str]:
-    """Build the portable direct-binary command used by :func:`main`."""
+    """Build the portable direct-binary command used by :func:`main`.
+
+    ``router_port`` models a physical vehicle with one telemetry link.  In
+    that mode ArduPilot emits one UDP stream and a MAVLink router is
+    responsible for fan-out to the GCS and connector.
+    """
+
+    if router_port is not None:
+        return [
+            str(binary),
+            "--model",
+            model,
+            "--home",
+            home,
+            "--serial0",
+            f"udpclient:127.0.0.1:{router_port}",
+        ]
 
     return [
         str(binary),
@@ -93,10 +119,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         model=args.model,
         gcs_port=args.gcs_port,
         connector_port=args.connector_port,
+        router_port=args.router_port,
     )
+    for label, port in (
+        ("GCS", args.gcs_port),
+        ("connector", args.connector_port),
+        ("router", args.router_port),
+    ):
+        if port is not None and not 1 <= port <= 65535:
+            raise SystemExit(f"{label} UDP port must be between 1 and 65535.")
     print(f"Starting ArduCopter SITL from {root}", flush=True)
-    print(f"  GCS output:        udp://127.0.0.1:{args.gcs_port}", flush=True)
-    print(f"  Connector output:  udp://127.0.0.1:{args.connector_port}", flush=True)
+    if args.router_port is not None:
+        print(f"  Router input:      udp://127.0.0.1:{args.router_port}", flush=True)
+        print("  Topology:           single MAVLink output via router", flush=True)
+    else:
+        print(f"  GCS output:        udp://127.0.0.1:{args.gcs_port}", flush=True)
+        print(f"  Connector output:  udp://127.0.0.1:{args.connector_port}", flush=True)
     print("Press Ctrl+C to stop SITL.", flush=True)
     return subprocess.call(command, cwd=root)
 

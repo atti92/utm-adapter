@@ -186,6 +186,18 @@ link, use the router topology in
 [`examples/mavlink-router/README.md`](../examples/mavlink-router/README.md)
 instead of assigning multiple physical MAVLink ports on the aircraft.
 
+For an operator-facing local demo, the complete router-backed stack can be
+started with one command after installing `mavlink-routerd`:
+
+```sh
+uv run python scripts/openutm_demo.py --topology router --gcs qgroundcontrol
+```
+
+The launcher validates the topology, starts the router and ArduPilot with one
+vehicle output, then starts the connector and browser console. The connector
+and GCS still use their standard endpoints, so existing GCS workflows do not
+need a custom plugin or a second aircraft port.
+
 For Mission Planner, the optional thin plugin in
 [`examples/mission-planner-plugin/`](../examples/mission-planner-plugin/) adds
 an operator-console menu and a connector health check without sending vehicle

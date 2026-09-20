@@ -36,6 +36,27 @@ def test_build_command_uses_two_independent_udp_outputs() -> None:
     ]
 
 
+def test_build_command_uses_one_router_udp_output() -> None:
+    command = build_command(
+        Path("/tmp/arducopter"),
+        home="1,2,3,4",
+        model="quad",
+        gcs_port=15000,
+        connector_port=15001,
+        router_port=15060,
+    )
+
+    assert command == [
+        "/tmp/arducopter",
+        "--model",
+        "quad",
+        "--home",
+        "1,2,3,4",
+        "--serial0",
+        "udpclient:127.0.0.1:15060",
+    ]
+
+
 def test_find_copter_binary_reports_build_guidance(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match="Build it in the ArduPilot checkout"):
         find_copter_binary(tmp_path)

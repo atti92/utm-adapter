@@ -40,7 +40,18 @@ uv run python scripts/check_mavlink_router.py --strict
 The first command validates the endpoint contract on every platform. The
 strict form also checks that `mavlink-routerd` is installed and on `PATH`.
 
-Start ArduPilot SITL with one output to the router:
+For the supervised Flight Blender demo, the same topology is started with:
+
+```sh
+uv run python scripts/openutm_demo.py --topology router --gcs qgroundcontrol
+```
+
+The launcher starts Flight Blender, the connector, `mavlink-routerd`, and
+ArduPilot SITL as one managed session. Run `--check` first when preparing a
+new machine. The router executable must be installed on the demo host (or on
+the companion computer that owns the vehicle link for a real aircraft).
+
+For a manual SITL setup, start ArduPilot with one output to the router:
 
 ```sh
 ./Tools/autotest/sim_vehicle.py \
@@ -65,4 +76,7 @@ applies to a physical vehicle: replace the SITL UDP input with the vehicle's
 serial telemetry device, for example `/dev/ttyUSB0:57600` on Linux/macOS.
 
 The quick `--out=14550` plus `--out=14551` SITL setup remains useful for a
-minimal test, but it is not the recommended physical-drone topology.
+minimal simulator test, but it is not the recommended physical-drone
+topology. A real aircraft does not need two MAVLink ports: use one telemetry
+link to a companion-computer router and let that router expose separate
+consumer endpoints.

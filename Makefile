@@ -1,4 +1,4 @@
-.PHONY: setup doctor smoke test run demo demo-check integration-demo integration-demo-check integration-demo-verify integration-demo-px4 integration-demo-px4-check integration-demo-px4-verify integration-verify qgc-check mp-check router-check
+.PHONY: setup doctor smoke test run demo demo-check integration-demo integration-demo-check integration-demo-verify integration-demo-router-check integration-demo-router-verify integration-demo-px4 integration-demo-px4-check integration-demo-px4-verify integration-verify qgc-check mp-check router-check
 
 setup:
 	uv sync
@@ -29,6 +29,12 @@ integration-demo-check:
 
 integration-demo-verify:
 	uv run python scripts/openutm_demo.py --gcs none --no-browser --verify
+
+integration-demo-router-check:
+	uv run python scripts/openutm_demo.py --topology router --gcs none --no-browser --check
+
+integration-demo-router-verify:
+	uv run python scripts/openutm_demo.py --topology router --gcs none --no-browser --verify
 
 integration-demo-px4:
 	uv run python scripts/openutm_demo.py --simulator px4

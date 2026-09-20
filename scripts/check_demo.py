@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import shutil
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -29,6 +28,12 @@ def _parser() -> argparse.ArgumentParser:
         choices=("ardupilot", "px4"),
         default="ardupilot",
         help="full-stack simulator to preflight (default: ardupilot)",
+    )
+    parser.add_argument(
+        "--topology",
+        choices=("split", "router"),
+        default="split",
+        help="MAVLink wiring to preflight (default: split)",
     )
     parser.add_argument(
         "--gcs",
@@ -62,6 +67,7 @@ def _parser() -> argparse.ArgumentParser:
 def _demo_config(args: argparse.Namespace) -> openutm_demo.DemoConfig:
     return openutm_demo.DemoConfig(
         simulator=args.simulator,
+        topology=args.topology,
         gcs=args.gcs,
         flight_blender_root=args.flight_blender_root.expanduser().resolve(),
         ardupilot_root=args.ardupilot_root.expanduser().resolve(),
@@ -93,7 +99,7 @@ def _print_optional(args: argparse.Namespace) -> bool:
             print(f"[error] MAVLink Router: {error}")
     else:
         print(f"[ok] MAVLink Router topology: {args.router_config.expanduser().resolve()}")
-        router_binary = shutil.which("mavlink-routerd")
+        router_binary = openutm_demo._find_router_command()
         if router_binary:
             print(f"[ok] mavlink-routerd: {router_binary}")
         elif args.strict_router:
@@ -152,7 +158,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
     if not optional_ok:
         print("[warn] required demo is ready; strict optional integration checks need attention")
-        return 0
+        return 1 if args.strict_router else 0
     print("[ok] demo host is ready")
     return 0
 

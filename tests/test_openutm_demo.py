@@ -48,6 +48,17 @@ def test_verify_flag_is_carried_into_demo_config() -> None:
     assert config.open_browser is False
 
 
+def test_router_topology_is_carried_into_demo_config() -> None:
+    parser = openutm_demo._build_parser()
+    args = parser.parse_args(["--topology", "router", "--no-browser"])
+
+    config = openutm_demo._config_from_args(args)
+
+    assert config.topology == "router"
+    assert config.router_port == openutm_demo.DEFAULT_ROUTER_INPUT_PORT
+    assert config.router_config == openutm_demo.DEFAULT_ROUTER_CONFIG
+
+
 def test_check_run_hint_preserves_the_selected_px4_demo_path() -> None:
     config = openutm_demo.DemoConfig(
         simulator="px4",
@@ -158,6 +169,74 @@ def test_px4_prerequisites_reject_custom_gcs_port(tmp_path: Path, monkeypatch) -
     failures = openutm_demo.check_prerequisites(config)
 
     assert any("stock SITL image requires GCS UDP port 14550" in failure for failure in failures)
+
+
+def test_router_prerequisites_require_native_router_and_ardupilot(
+    tmp_path: Path, monkeypatch
+) -> None:
+    config = openutm_demo.DemoConfig(
+        topology="router",
+        simulator="px4",
+        flight_blender_root=tmp_path / "missing-flight-blender",
+    )
+    monkeypatch.setattr(openutm_demo, "_find_router_command", lambda: None)
+    monkeypatch.setattr(openutm_demo, "_command_available", lambda _command: (True, "ok"))
+    monkeypatch.setattr(openutm_demo, "_find_geoid_grid", lambda: tmp_path / "grid.tif")
+    monkeypatch.setattr(openutm_demo, "port_is_reachable", lambda _host, _port: False)
+
+    failures = openutm_demo.check_prerequisites(config)
+
+    assert any("requires the ArduPilot SITL launcher" in failure for failure in failures)
+    assert any("mavlink-routerd was not found" in failure for failure in failures)
+
+
+def test_router_sitl_command_uses_single_output(tmp_path: Path, monkeypatch) -> None:
+    config = openutm_demo.DemoConfig(
+        topology="router",
+        adapter_root=tmp_path,
+        ardupilot_root=tmp_path / "ardupilot",
+    )
+    observed: dict[str, object] = {}
+
+    def fake_start(name, command, **kwargs):
+        observed["name"] = name
+        observed["command"] = list(command)
+        observed.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(openutm_demo, "_start_new_process", fake_start)
+    runner = openutm_demo.DemoRunner(config)
+
+    openutm_demo._start_sitl(runner)
+
+    command = observed["command"]
+    assert isinstance(command, list)
+    assert "--router-port" in command
+    assert "--gcs-port" not in command
+    assert "--connector-port" not in command
+
+
+def test_router_process_uses_checked_in_config(tmp_path: Path, monkeypatch) -> None:
+    config = openutm_demo.DemoConfig(topology="router", adapter_root=tmp_path)
+    observed: dict[str, object] = {}
+
+    def fake_start(name, command, **kwargs):
+        observed["name"] = name
+        observed["command"] = list(command)
+        observed.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(openutm_demo, "_find_router_command", lambda: "/usr/local/bin/mavlink-routerd")
+    monkeypatch.setattr(openutm_demo, "_start_new_process", fake_start)
+
+    openutm_demo._start_router(openutm_demo.DemoRunner(config))
+
+    assert observed["name"] == "MAVLink Router"
+    assert observed["command"] == [
+        "/usr/local/bin/mavlink-routerd",
+        "--conf-file",
+        str(openutm_demo.DEFAULT_ROUTER_CONFIG),
+    ]
 
 
 def test_check_prerequisites_rejects_invalid_or_duplicate_simulator_ports(tmp_path: Path, monkeypatch) -> None:

@@ -29,6 +29,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.ardupilot_sitl import DEFAULT_HOME, find_copter_binary
+from scripts import check_mavlink_router
 from scripts.generate_flight_blender_dev_token import generate_token
 from scripts.px4_sitl import (
     DEFAULT_DOCKER_IMAGE as DEFAULT_PX4_IMAGE,
@@ -48,6 +49,8 @@ DEFAULT_PROVIDER_PORT = 8000
 DEFAULT_CONNECTOR_PORT = 8001
 DEFAULT_GCS_UDP_PORT = 14550
 DEFAULT_CONNECTOR_UDP_PORT = 14551
+DEFAULT_ROUTER_INPUT_PORT = 14560
+DEFAULT_ROUTER_CONFIG = REPO_ROOT / "examples" / "mavlink-router" / "main.conf"
 DEFAULT_PROVIDER_TIMEOUT_S = 180.0
 DEFAULT_CONNECTOR_TIMEOUT_S = 30.0
 FLIGHT_BLENDER_IMAGE = "openutm/flight-blender-dev"
@@ -63,6 +66,7 @@ class DemoConfig:
     flight_blender_root: Path = REPO_ROOT.parent / "flight-blender"
     ardupilot_root: Path = REPO_ROOT.parent / "ardupilot"
     simulator: str = "ardupilot"
+    topology: str = "split"
     px4_image: str = DEFAULT_PX4_IMAGE
     home: str = DEFAULT_HOME
     vehicle_id: str = DEFAULT_VEHICLE_ID
@@ -70,6 +74,8 @@ class DemoConfig:
     connector_port: int = DEFAULT_CONNECTOR_PORT
     gcs_udp_port: int = DEFAULT_GCS_UDP_PORT
     connector_udp_port: int = DEFAULT_CONNECTOR_UDP_PORT
+    router_config: Path = DEFAULT_ROUTER_CONFIG
+    router_port: int = DEFAULT_ROUTER_INPUT_PORT
     provider_timeout_s: float = DEFAULT_PROVIDER_TIMEOUT_S
     connector_timeout_s: float = DEFAULT_CONNECTOR_TIMEOUT_S
     gcs: str = "auto"
@@ -290,6 +296,18 @@ def _find_path_command(names: Sequence[str]) -> list[str] | None:
     return None
 
 
+def _find_router_command() -> str | None:
+    """Find the native MAVLink Router executable for a router-backed demo."""
+
+    configured = os.environ.get("MAVLINK_ROUTERD")
+    if configured:
+        candidate = Path(configured).expanduser()
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+        return None
+    return shutil.which("mavlink-routerd")
+
+
 def _find_windows_installed_command(relative_paths: Sequence[str]) -> list[str] | None:
     roots = (
         os.environ.get("ProgramFiles"),
@@ -398,6 +416,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="SITL implementation (default: ardupilot; PX4 uses its official Docker image)",
     )
     parser.add_argument(
+        "--topology",
+        choices=("split", "router"),
+        default="split",
+        help=(
+            "MAVLink wiring: split sends directly to GCS and connector; router "
+            "uses one ArduPilot output and mavlink-routerd fan-out"
+        ),
+    )
+    parser.add_argument(
         "--flight-blender-root",
         type=Path,
         default=_default_checkout("FLIGHT_BLENDER_ROOT", "flight-blender"),
@@ -430,6 +457,12 @@ def _build_parser() -> argparse.ArgumentParser:
             "SITL UDP input consumed by the connector "
             "(default: 14551 for ArduPilot, 14540 for PX4; stock PX4 requires 14540)"
         ),
+    )
+    parser.add_argument(
+        "--router-config",
+        type=Path,
+        default=Path(os.environ.get("MAVLINK_ROUTER_CONFIG", DEFAULT_ROUTER_CONFIG)),
+        help="mavlink-routerd configuration for --topology router",
     )
     parser.add_argument("--provider-timeout", type=float, default=DEFAULT_PROVIDER_TIMEOUT_S)
     parser.add_argument("--connector-timeout", type=float, default=DEFAULT_CONNECTOR_TIMEOUT_S)
@@ -471,6 +504,7 @@ def _config_from_args(args: argparse.Namespace) -> DemoConfig:
         flight_blender_root=args.flight_blender_root.expanduser().resolve(),
         ardupilot_root=args.ardupilot_root.expanduser().resolve(),
         simulator=args.simulator,
+        topology=args.topology,
         px4_image=args.px4_image,
         home=args.home,
         vehicle_id=args.vehicle_id,
@@ -478,6 +512,8 @@ def _config_from_args(args: argparse.Namespace) -> DemoConfig:
         connector_port=args.connector_port,
         gcs_udp_port=args.gcs_udp_port,
         connector_udp_port=connector_udp_port,
+        router_config=args.router_config.expanduser().resolve(),
+        router_port=DEFAULT_ROUTER_INPUT_PORT,
         provider_timeout_s=args.provider_timeout,
         connector_timeout_s=args.connector_timeout,
         gcs=args.gcs,
@@ -508,6 +544,35 @@ def check_prerequisites(config: DemoConfig) -> list[str]:
             failures.append(f"{label} must be between 1 and 65535 (got {port})")
     if config.gcs_udp_port == config.connector_udp_port:
         failures.append("GCS UDP port and connector UDP port must be different")
+
+    if config.topology == "router":
+        if config.simulator != "ardupilot":
+            failures.append("router topology currently requires the ArduPilot SITL launcher")
+        if config.gcs_udp_port != DEFAULT_GCS_UDP_PORT:
+            failures.append(
+                "router topology uses the checked-in GCS endpoint 14550; "
+                "change the router config before using a custom port"
+            )
+        if config.connector_udp_port != DEFAULT_CONNECTOR_UDP_PORT:
+            failures.append(
+                "router topology uses the checked-in connector endpoint 14551; "
+                "change the router config before using a custom port"
+            )
+        router_errors = check_mavlink_router.validate(config.router_config)
+        failures.extend(f"MAVLink Router: {error}" for error in router_errors)
+        if _find_router_command() is None:
+            failures.append(
+                "mavlink-routerd was not found; install it or set MAVLINK_ROUTERD "
+                "before using --topology router"
+            )
+        if not 1 <= config.router_port <= 65535:
+            failures.append(
+                f"router UDP input port must be between 1 and 65535 (got {config.router_port})"
+            )
+        elif not udp_port_is_available("127.0.0.1", config.router_port):
+            failures.append(
+                f"router UDP input port 127.0.0.1:{config.router_port} is already in use"
+            )
 
     if config.simulator == "px4":
         for label, port in (
@@ -601,6 +666,10 @@ def _check_run_hint(config: DemoConfig) -> str:
         command.extend(["--connector-udp-port", str(config.connector_udp_port)])
     if config.gcs != "auto":
         command.extend(["--gcs", config.gcs])
+    if config.topology != "split":
+        command.extend(["--topology", config.topology])
+    if config.router_config != DEFAULT_ROUTER_CONFIG:
+        command.extend(["--router-config", str(config.router_config)])
     if not config.open_browser:
         command.append("--no-browser")
     if config.verify:
@@ -681,6 +750,8 @@ class DemoRunner:
         _wait_for_http(self.config.connector_url, self.config.connector_timeout_s, path="/v1/health")
         print(f"[ok] connector is ready at {self.config.connector_url}")
 
+        if self.config.topology == "router":
+            _start_router(self)
         if self.config.simulator != "px4":
             _start_sitl(self)
         self._wait_for_vehicle()
@@ -694,9 +765,18 @@ class DemoRunner:
         print(f"  Operator console: {self.config.connector_url}/ui/")
         print(
             f"  Vehicle:          {self.config.vehicle_id} "
-            f"({self.config.simulator} / GCS UDP {self.config.gcs_udp_port}, "
-            f"connector UDP {self.config.connector_udp_port})"
+            f"({self.config.simulator} / {self.config.topology} MAVLink topology)"
         )
+        if self.config.topology == "router":
+            print(
+                f"  MAVLink Router:   vehicle UDP {self.config.router_port} -> "
+                f"GCS {self.config.gcs_udp_port}, connector {self.config.connector_udp_port}"
+            )
+        else:
+            print(
+                f"  MAVLink outputs:  GCS UDP {self.config.gcs_udp_port}, "
+                f"connector UDP {self.config.connector_udp_port}"
+            )
         print("  Workflow:         choose Sample route or open a GCS mission, Validate & save, Submit, Start")
         if gcs_label:
             print(f"  GCS:              {gcs_label}")
@@ -795,11 +875,18 @@ def _start_sitl(runner: DemoRunner) -> None:
             str(config.ardupilot_root),
             "--home",
             config.home,
-            "--gcs-port",
-            str(config.gcs_udp_port),
-            "--connector-port",
-            str(config.connector_udp_port),
         ]
+        if config.topology == "router":
+            command.extend(["--router-port", str(config.router_port)])
+        else:
+            command.extend(
+                [
+                    "--gcs-port",
+                    str(config.gcs_udp_port),
+                    "--connector-port",
+                    str(config.connector_udp_port),
+                ]
+            )
         cwd = config.ardupilot_root
         name = "ArduPilot SITL"
     sitl = _start_new_process(
@@ -810,6 +897,22 @@ def _start_sitl(runner: DemoRunner) -> None:
         log_path=config.run_dir / "sitl.log",
     )
     runner.processes.append(sitl)
+
+
+def _start_router(runner: DemoRunner) -> None:
+    config = runner.config
+    command_path = _find_router_command()
+    if command_path is None:  # pragma: no cover - guarded by preflight
+        raise DemoSetupError("mavlink-routerd was not found")
+    router = _start_new_process(
+        "MAVLink Router",
+        [command_path, "--conf-file", str(config.router_config)],
+        cwd=config.adapter_root,
+        env=os.environ.copy(),
+        log_path=config.run_dir / "mavlink-router.log",
+    )
+    runner.processes.append(router)
+    print(f"[ok] MAVLink Router is forwarding {config.router_config}")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
