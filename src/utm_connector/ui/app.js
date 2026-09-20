@@ -341,7 +341,11 @@ function renderMission(snapshot) {
   const mission = snapshot.mission;
   $("mission-title").textContent = `${mission.waypoints.length} waypoint route`;
   $("mission-meta").textContent = `${mission.source} · ${mission.corridor_radius_m} m corridor · hash ${snapshot.mission_hash.slice(0, 12)}…`;
-  $("corridor-radius").value = mission.corridor_radius_m;
+  if (!state.windowCustomized) {
+    $("valid-from").value = localInputValue(new Date(mission.valid_from));
+    $("valid-until").value = localInputValue(new Date(mission.valid_until));
+    $("corridor-radius").value = mission.corridor_radius_m;
+  }
   $("save-button").disabled = !state.plan;
   drawRoute();
   updateMissionActionState();
@@ -607,7 +611,7 @@ $("cancel-button").addEventListener("click", () => sendIntent("CANCEL_OPERATION"
 $("complete-button").addEventListener("click", () => sendIntent("COMPLETE_OPERATION"));
 $("refresh-operation-button").addEventListener("click", async () => { if (!state.operation) return; try { renderOperation(await request(`/v1/operations/${state.operation.operation_id}/refresh`, { method: "POST" })); setMessage("Provider state refreshed.", "success"); } catch (error) { setMessage(error.message, "error"); } });
 ["valid-from", "valid-until", "corridor-radius"].forEach((id) => $(id).addEventListener("input", () => {
-  if (id === "valid-from" || id === "valid-until") state.windowCustomized = true;
+  state.windowCustomized = true;
   updateMissionActionState();
 }));
 
