@@ -38,6 +38,16 @@ def test_px4_demo_uses_px4_external_api_port_by_default() -> None:
     assert config.px4_image == openutm_demo.DEFAULT_PX4_IMAGE
 
 
+def test_verify_flag_is_carried_into_demo_config() -> None:
+    parser = openutm_demo._build_parser()
+    args = parser.parse_args(["--verify", "--no-browser"])
+
+    config = openutm_demo._config_from_args(args)
+
+    assert config.verify is True
+    assert config.open_browser is False
+
+
 def test_check_run_hint_preserves_the_selected_px4_demo_path() -> None:
     config = openutm_demo.DemoConfig(
         simulator="px4",

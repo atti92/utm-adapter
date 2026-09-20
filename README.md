@@ -45,7 +45,13 @@ image, which does not require an ArduPilot checkout:
 ```sh
 make integration-demo-px4-check
 make integration-demo-px4
+# optional automated lifecycle verification (starts and stops its own stack)
+make integration-demo-px4-verify
 ```
+
+The verification target is for demo preparation and regression checks. It
+validates the live vehicle/provider/connector lifecycle through the same API
+used by the operator console; it is not required for normal operator use.
 
 The service root also opens the console directly at
 [http://127.0.0.1:8000/](http://127.0.0.1:8000/).

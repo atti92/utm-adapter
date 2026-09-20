@@ -40,6 +40,7 @@ from utm_connector.diagnostics import (
     probe_http_endpoint,
     udp_port_is_available,
 )
+from scripts.verify_running_demo import DemoVerificationError, verify_running_demo
 
 
 DEFAULT_VEHICLE_ID = "sitl-1"
@@ -74,6 +75,7 @@ class DemoConfig:
     gcs: str = "auto"
     open_browser: bool = True
     keep_provider: bool = False
+    verify: bool = False
 
     @property
     def provider_url(self) -> str:
@@ -444,6 +446,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="leave the Flight Blender Compose stack running after Ctrl+C",
     )
     parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="run the browser-console lifecycle check after startup, then exit",
+    )
+    parser.add_argument(
         "--check",
         action="store_true",
         help="only validate prerequisites; do not start Docker, SITL, or the connector",
@@ -476,6 +483,7 @@ def _config_from_args(args: argparse.Namespace) -> DemoConfig:
         gcs=args.gcs,
         open_browser=not args.no_browser,
         keep_provider=args.keep_provider,
+        verify=args.verify,
     )
 
 
@@ -586,6 +594,8 @@ def _check_run_hint(config: DemoConfig) -> str:
         command.extend(["--gcs", config.gcs])
     if not config.open_browser:
         command.append("--no-browser")
+    if config.verify:
+        command.append("--verify")
     return shlex.join(command)
 
 
@@ -809,6 +819,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     runner = DemoRunner(config)
     try:
         runner.start()
+        if config.verify:
+            result = verify_running_demo(
+                config.connector_url,
+                config.vehicle_id,
+                timeout_s=config.connector_timeout_s,
+            )
+            print(
+                "[ok] full-stack verification passed: "
+                f"vehicle={result.vehicle_id} operation={result.operation_id} "
+                f"elapsed={result.elapsed_s:.1f}s"
+            )
+            return 0
         while True:
             for managed in runner.processes:
                 return_code = managed.process.poll()
@@ -820,6 +842,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     except KeyboardInterrupt:
         print("\nStopping UTM demo…")
         return 0
+    except DemoVerificationError as exc:
+        print(f"[fail] full-stack verification: {exc}")
+        return 1
     except DemoSetupError as exc:
         print(f"[fail] {exc}")
         return 1

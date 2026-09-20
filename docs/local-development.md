@@ -94,6 +94,19 @@ This starts the same Flight Blender, connector, browser console, and detected
 GCS workflow. The operator performs the UTM actions in the browser console;
 the GCS remains the vehicle-control application.
 
+For a disposable automated check of that live stack, use the PX4 shortcut:
+
+```sh
+make integration-demo-px4-verify
+```
+
+It starts the provider, connector, and PX4, drives the same mission and
+operator-intent endpoints as the browser console, waits for live telemetry to
+become `CONFORMING`, completes the operation, and shuts everything down. It
+does not open a browser or GCS because it is a validation command; the normal
+demo remains `make integration-demo-px4`. The equivalent reusable verifier for
+an already-running demo is `make integration-verify`.
+
 Set `FLIGHT_BLENDER_ROOT` and `ARDUPILOT_ROOT` when the checkouts are not in
 the sibling directories next to this repository. The same Python launcher can
 be run from PowerShell; use `--gcs mission-planner` on Windows when Mission
