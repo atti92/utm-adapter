@@ -1,3 +1,5 @@
+import pytest
+
 from utm_connector import main
 
 
@@ -64,3 +66,18 @@ def test_run_demo_flag_configures_a_self_contained_vehicle(monkeypatch) -> None:
     assert main.ConnectorSettings().demo_mode is True
     assert main.ConnectorSettings().mavlink_connections == []
     assert main.ConnectorSettings().state_db_path == ":memory:"
+
+
+def test_run_reports_configuration_errors_without_a_traceback(monkeypatch, capsys) -> None:
+    def fail_settings() -> None:
+        raise ValueError("MAVLink connection_uri values must be unique")
+
+    monkeypatch.setattr(main, "ConnectorSettings", fail_settings)
+
+    with pytest.raises(SystemExit, match="2"):
+        main.run()
+
+    captured = capsys.readouterr()
+    assert "UTM Connector configuration error:" in captured.err
+    assert "connection_uri values must be unique" in captured.err
+    assert "scripts/doctor.py" in captured.err

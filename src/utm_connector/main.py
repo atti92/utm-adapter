@@ -39,7 +39,13 @@ def run() -> None:
         # runs keep the configured SQLite history; only the explicit demo
         # shortcut uses an in-memory store.
         os.environ["UTM_CONNECTOR_STATE_DB_PATH"] = ":memory:"
-    settings = ConnectorSettings()
+    try:
+        settings = ConnectorSettings()
+    except Exception as exc:
+        print("UTM Connector configuration error:", file=sys.stderr)
+        print(f"{exc}", file=sys.stderr)
+        print("Run `uv run python scripts/doctor.py` for setup guidance.", file=sys.stderr)
+        raise SystemExit(2) from exc
     if args.open_browser:
         url = f"http://{settings.host}:{settings.port}/"
         browser_timer = threading.Timer(1.0, webbrowser.open, args=(url,))
