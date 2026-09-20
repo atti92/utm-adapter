@@ -1,7 +1,10 @@
-.PHONY: setup doctor smoke test run demo demo-check gcs-demo gcs-demo-check gcs-demo-verify gcs-custom-qgc-demo gcs-custom-qgc-demo-check gcs-custom-qgc-demo-verify gcs-router-demo gcs-router-demo-check gcs-router-demo-verify integration-demo integration-demo-check integration-demo-verify integration-demo-router-check integration-demo-router-verify integration-demo-px4 integration-demo-px4-check integration-demo-px4-verify integration-verify mavlink-stream-check manifest-check qgc-check qgc-stage mp-check router-check
+.PHONY: setup demo-setup doctor smoke test run demo demo-check gcs-demo gcs-demo-check gcs-demo-verify gcs-custom-qgc-demo gcs-custom-qgc-demo-check gcs-custom-qgc-demo-verify gcs-router-demo gcs-router-demo-check gcs-router-demo-verify integration-demo integration-demo-check integration-demo-verify integration-demo-router-check integration-demo-router-verify integration-demo-px4 integration-demo-px4-check integration-demo-px4-verify integration-verify mavlink-stream-check manifest-check qgc-check qgc-stage mp-check router-check
 
 setup:
 	uv sync
+
+demo-setup:
+	uv run python scripts/setup_demo.py
 
 doctor:
 	uv run python scripts/doctor.py

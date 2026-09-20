@@ -201,19 +201,19 @@ def _print_setup_guidance(config: openutm_demo.DemoConfig) -> None:
     print("1. Install uv and Docker Desktop (or Docker Engine with Compose).")
     print("2. Use the browser operator console for the UTM workflow; a native GCS is optional.")
     print("   QGroundControl is supported on macOS, Linux, and Windows; Mission Planner is Windows-only.")
+    print("3. Prepare missing demo dependencies safely: uv run python scripts/setup_demo.py")
+    print("   Add --build-ardupilot for a fresh ArduCopter SITL build, or --simulator px4 for Docker-only PX4.")
     if config.simulator == "ardupilot":
-        print(f"3. ArduPilot SITL checkout/build: {config.ardupilot_root}")
-        print("   If missing: git clone --depth 1 https://github.com/ArduPilot/ardupilot.git ../ardupilot")
+        print(f"4. ArduPilot SITL checkout/build: {config.ardupilot_root}")
     else:
-        print("3. PX4 uses the official Docker SITL image; no PX4 or ArduPilot checkout is required.")
-    print(f"4. Flight Blender checkout: {config.flight_blender_root}")
-    print("   If missing: git clone --depth 1 https://github.com/openutm/flight-blender.git ../flight-blender")
+        print("4. PX4 uses the official Docker SITL image; no PX4 or ArduPilot checkout is required.")
+    print(f"5. Flight Blender checkout: {config.flight_blender_root}")
     if config.topology == "router":
-        print("5. Router topology: install mavlink-routerd or provide the Docker router fallback.")
-        print("   Fallback source: git clone --depth 1 https://github.com/mavlink-router/mavlink-router.git ../mavlink-router")
-        print("6. Run this check again, then start the printed supervised-demo command.")
+        print("6. Router topology: install mavlink-routerd or provide the Docker router fallback.")
+        print("   The setup helper prepares the fallback source when --topology router is selected.")
+        print("7. Run this check again, then start the printed supervised-demo command.")
     else:
-        print("5. Run this check again, then start the printed supervised-demo command.")
+        print("6. Run this check again, then start the printed supervised-demo command.")
     print("   The connector remains non-commanding and the GCS remains the vehicle-control application.")
 
 

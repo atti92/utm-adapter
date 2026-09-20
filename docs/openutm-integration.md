@@ -13,14 +13,17 @@ together if you want to test somewhere else.
 ## Prerequisites and checkout paths
 
 Install `uv`, Docker, and one GCS. From the connector checkout, the complete
-one-time checkout setup for the ArduPilot and router paths is:
+one-time setup for the ArduPilot and router paths is:
 
 ```sh
-git clone --depth 1 https://github.com/openutm/flight-blender.git ../flight-blender
-git clone --depth 1 https://github.com/ArduPilot/ardupilot.git ../ardupilot
-# Required only when using the single-link MAVLink Router topology.
-git clone --depth 1 https://github.com/mavlink-router/mavlink-router.git ../mavlink-router
+uv run python scripts/setup_demo.py
 ```
+
+The setup helper clones only missing checkouts and reuses existing directories
+without pulling, resetting, or overwriting local work. Add
+`--build-ardupilot` when the ArduCopter SITL binary is not built yet, or add
+`--topology router` when preparing the single-link MAVLink Router path. PX4
+does not require an ArduPilot checkout; use `--simulator px4` for that path.
 
 PX4 can use the official Docker SITL image and does not require a PX4 checkout
 for the supervised demo. Keep

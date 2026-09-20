@@ -9,14 +9,16 @@ vehicle-control application.
 From the repository root:
 
 ```sh
-uv sync
-uv run python scripts/openutm_demo.py --check
+uv run python scripts/setup_demo.py
+uv run python scripts/check_demo.py
 ```
 
-The full demo also needs Docker Desktop (or Docker Engine with Compose), the
-Flight Blender checkout, and the ArduPilot checkout beside this repository.
-The check command prints the exact missing path. The browser-only demo needs
-only `uv`.
+The setup command installs the locked Python environment and clones only
+missing Flight Blender and ArduPilot checkouts beside this repository. It
+reuses existing directories without pulling, resetting, or overwriting local
+work. Add `--build-ardupilot` if the SITL binary has not been built yet. The
+full demo also needs Docker Desktop (or Docker Engine with Compose). The
+browser-only demo needs only `uv`.
 
 For the optional native GCS integrations:
 
@@ -32,7 +34,7 @@ Use the full Flight Blender + ArduPilot demo when the simulator environment is
 already prepared:
 
 ```sh
-make gcs-demo
+uv run python scripts/openutm_demo.py --gcs auto
 ```
 
 For a custom QGroundControl build:
@@ -127,4 +129,3 @@ docker ps
 Then rerun `make demo-check`. If port 14550, 14551, 8000, or 8001 is already
 occupied, either stop the old process or start the demo with alternate GCS and
 connector UDP ports as described in `docs/local-development.md`.
-

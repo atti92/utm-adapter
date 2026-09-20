@@ -194,7 +194,7 @@ direct Uvicorn command is:
 uv run uvicorn 'utm_connector.api:create_app' --factory
 ```
 
-Convenience targets are also available: `make setup`, `make doctor`, `make smoke`,
+Convenience targets are also available: `make setup`, `make demo-setup`, `make doctor`, `make smoke`,
 `make test`, `make run`, `make demo`, `make demo-check`, `make integration-demo-px4`,
 `make gcs-demo-verify`, and `make gcs-router-demo-verify`. The GCS verify targets
 launch the detected native GCS, confirm that it stays alive, and run the

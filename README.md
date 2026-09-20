@@ -44,19 +44,26 @@ vehicle by QGroundControl or Mission Planner and import it after the operator
 supplies explicit UTM metadata.
 
 For a full Flight Blender + SITL demonstration with the operator-facing GCS
-path, use `make gcs-demo` after
-installing Docker, Flight Blender, and ArduPilot beside this checkout. A
-one-time checkout setup is:
+path, use the safe one-time bootstrap command below. It installs the locked
+Python environment and clones only missing dependencies beside this checkout;
+existing simulator directories are validated and reused without pulling,
+resetting, or overwriting local work:
 
 ```sh
-git clone --depth 1 https://github.com/openutm/flight-blender.git ../flight-blender
-git clone --depth 1 https://github.com/ArduPilot/ardupilot.git ../ardupilot
-# Needed only for the physical-drone-style single-link router demo.
-git clone --depth 1 https://github.com/mavlink-router/mavlink-router.git ../mavlink-router
+uv run python scripts/setup_demo.py
+# or: make demo-setup
 ```
 
-The PX4 Docker path needs no ArduPilot or PX4 checkout. The
-`openutm_demo.py --check` command reports any missing checkout before startup.
+Add `--build-ardupilot` when the ArduCopter SITL binary is not already built;
+the build is intentionally opt-in because it can take several minutes. The
+PX4 Docker path needs no ArduPilot or PX4 checkout, and can be prepared with
+`uv run python scripts/setup_demo.py --simulator px4`. Add
+`--topology router` to also prepare the MAVLink Router source used by the
+single-link physical-drone-style demo. Set `FLIGHT_BLENDER_ROOT`,
+`ARDUPILOT_ROOT`, or `MAVLINK_ROUTER_ROOT` when using non-default paths.
+
+The `openutm_demo.py --check` command reports any missing build or runtime
+prerequisite before startup.
 The
 launcher prepares Flight Blender's local environment, starts the provider,
 connector, and simulator, opens the operator console, and detects an installed
