@@ -138,6 +138,64 @@ def test_session_manager_keeps_last_connection_error_for_diagnostics() -> None:
 
     assert manager.last_errors == {"sitl-1": "simulator is offline"}
     assert errors == [("sitl-1", "simulator is offline")]
+    manager.stop()
+
+
+def test_session_manager_reconnects_after_link_failure() -> None:
+    delivered = Event()
+    created: list[FakeSession] = []
+
+    class BrokenSession(FakeSession):
+        def poll(self, timeout: float = 0.0) -> object:
+            raise RuntimeError("vehicle link dropped")
+
+    def factory(_vehicle_id: str, _uri: str) -> FakeSession:
+        session = BrokenSession(_snapshot()) if not created else FakeSession(_snapshot())
+        created.append(session)
+        return session
+
+    manager = MavlinkSessionManager(
+        [MavlinkConnectionConfig(vehicle_id="sitl-1", connection_uri="udpin:127.0.0.1:14551")],
+        lambda _snapshot: delivered.set(),
+        poll_interval_s=0.01,
+        reconnect_interval_s=0.01,
+        session_factory=factory,
+    )
+    manager.start()
+
+    assert delivered.wait(1)
+    manager.stop()
+
+    assert len(created) >= 2
+    assert created[0].closed is True
+    assert manager.last_errors == {}
+
+
+def test_session_manager_retries_an_unavailable_link() -> None:
+    delivered = Event()
+    attempts = 0
+
+    def factory(_vehicle_id: str, _uri: str) -> FakeSession:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("vehicle is offline")
+        return FakeSession(_snapshot())
+
+    manager = MavlinkSessionManager(
+        [MavlinkConnectionConfig(vehicle_id="sitl-1", connection_uri="udpin:127.0.0.1:14551")],
+        lambda _snapshot: delivered.set(),
+        poll_interval_s=0.01,
+        reconnect_interval_s=0.01,
+        session_factory=factory,
+    )
+    manager.start()
+
+    assert delivered.wait(1)
+    manager.stop()
+
+    assert attempts >= 2
+    assert manager.last_errors == {}
 
 
 def test_session_manager_delivers_quiet_period_connection_transitions() -> None:

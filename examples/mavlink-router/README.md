@@ -44,6 +44,10 @@ Run the connector with one router endpoint:
 UTM_CONNECTOR_MAVLINK_CONNECTIONS=[{"vehicle_id":"sitl-1","connection_uri":"udpin:127.0.0.1:14551"}]
 ```
 
+The connector retries this endpoint automatically when the router or vehicle
+is temporarily unavailable. Set `UTM_CONNECTOR_MAVLINK_RECONNECT_INTERVAL_S`
+to change the retry interval (the default is five seconds).
+
 Then open `http://127.0.0.1:8000/ui/` for the operator console and start
 QGroundControl or Mission Planner normally. The router endpoint pattern also
 applies to a physical vehicle: replace the SITL UDP input with the vehicle's

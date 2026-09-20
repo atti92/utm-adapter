@@ -86,6 +86,7 @@ def create_app(
             settings.mavlink_connections,
             service.ingest_vehicle_snapshot,
             poll_interval_s=settings.mavlink_poll_interval_s,
+            reconnect_interval_s=settings.mavlink_reconnect_interval_s,
             session_factory=session_factory,
             on_mission=service.ingest_onboard_mission,
             on_error=lambda vehicle_id, error: service.record_event(
@@ -153,6 +154,7 @@ def create_app(
                 "mission_download": True,
                 "recommended_topology": "single_router_endpoint",
                 "telemetry_publish_interval_s": settings.telemetry_publish_interval_s,
+                "reconnect_interval_s": settings.mavlink_reconnect_interval_s,
             },
             "altitude": {
                 "geoid_conversion_configured": settings.altitude_geoid_grid_path is not None,

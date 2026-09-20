@@ -121,6 +121,7 @@ def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
         "mission_download": True,
         "recommended_topology": "single_router_endpoint",
         "telemetry_publish_interval_s": 1.0,
+        "reconnect_interval_s": 5.0,
     }
     assert capabilities.json()["mission_window"] == {
         "requires_future_start": False,

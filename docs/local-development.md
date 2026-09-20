@@ -150,6 +150,7 @@ The connector can run one or more non-commanding MAVLink sessions in the backgro
 ```dotenv
 UTM_CONNECTOR_MAVLINK_CONNECTIONS=[{"vehicle_id":"sitl-1","connection_uri":"udpin:127.0.0.1:14551"}]
 UTM_CONNECTOR_MAVLINK_POLL_INTERVAL_S=0.2
+UTM_CONNECTOR_MAVLINK_RECONNECT_INTERVAL_S=5.0
 ```
 
 Then start the connector with `uv run utm-connector` (or `make run`) and inspect live state at:
@@ -163,7 +164,9 @@ with separate router endpoints for the GCS and connector. See
 [`examples/mavlink-router/README.md`](../examples/mavlink-router/README.md).
 The connector consumes telemetry and uses mission-protocol requests for drift
 checking; it does not send vehicle-control commands. The separate-output SITL
-shortcut below is still useful when a router is not installed.
+shortcut below is still useful when a router is not installed. A vehicle link
+that is unavailable at startup or drops later is retried automatically; the
+operator console keeps the vehicle/link health visible while it reconnects.
 
 ### ArduPilot SITL and QGroundControl
 

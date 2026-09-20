@@ -44,15 +44,19 @@ class MavlinkSessionManager:
         on_snapshot: SnapshotHandler,
         *,
         poll_interval_s: float = 0.2,
+        reconnect_interval_s: float = 5.0,
         session_factory: SessionFactory = MavlinkVehicleSession.connect,
         on_mission: Optional[MissionHandler] = None,
         on_error: Optional[ErrorHandler] = None,
     ) -> None:
         if poll_interval_s <= 0:
             raise ValueError("poll_interval_s must be greater than zero")
+        if reconnect_interval_s <= 0:
+            raise ValueError("reconnect_interval_s must be greater than zero")
         self.connections = connections
         self.on_snapshot = on_snapshot
         self.poll_interval_s = poll_interval_s
+        self.reconnect_interval_s = reconnect_interval_s
         self.session_factory = session_factory
         self.on_mission = on_mission
         self.on_error = on_error
@@ -71,16 +75,17 @@ class MavlinkSessionManager:
             self._stop.clear()
             self._last_snapshot_signatures.clear()
             for connection in self.connections:
+                session: Optional[PollableSession] = None
                 try:
                     session = self.session_factory(connection.vehicle_id, connection.connection_uri)
                 except Exception as exc:
                     self._report_error(connection.vehicle_id, exc)
-                    continue
-                self._clear_error(connection.vehicle_id)
-                self.sessions[connection.vehicle_id] = session
+                else:
+                    self._clear_error(connection.vehicle_id)
+                    self.sessions[connection.vehicle_id] = session
                 thread = threading.Thread(
                     target=self._run_session,
-                    args=(connection.vehicle_id, session),
+                    args=(connection, session),
                     name=f"mavlink-{connection.vehicle_id}",
                     daemon=True,
                 )
@@ -140,8 +145,24 @@ class MavlinkSessionManager:
                 self._report_error(vehicle_id, exc)
         return messages
 
-    def _run_session(self, vehicle_id: str, session: PollableSession) -> None:
+    def _run_session(
+        self,
+        connection: MavlinkConnectionConfig,
+        session: Optional[PollableSession],
+    ) -> None:
+        vehicle_id = connection.vehicle_id
         while not self._stop.is_set():
+            if session is None:
+                if self._stop.wait(self.reconnect_interval_s):
+                    break
+                try:
+                    session = self.session_factory(vehicle_id, connection.connection_uri)
+                except Exception as exc:
+                    self._report_error(vehicle_id, exc)
+                    continue
+                with self._lock:
+                    self.sessions[vehicle_id] = session
+                self._clear_error(vehicle_id)
             try:
                 message = session.poll(timeout=self.poll_interval_s)
                 self._clear_error(vehicle_id)
@@ -153,7 +174,14 @@ class MavlinkSessionManager:
                 if self._stop.is_set():
                     break
                 self._report_error(vehicle_id, exc)
-                self._stop.wait(self.poll_interval_s)
+                try:
+                    session.close()
+                except Exception:
+                    pass
+                with self._lock:
+                    if self.sessions.get(vehicle_id) is session:
+                        self.sessions.pop(vehicle_id, None)
+                session = None
 
     def _report_error(self, vehicle_id: str, error: Exception) -> None:
         with self._lock:

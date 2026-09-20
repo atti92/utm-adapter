@@ -41,6 +41,7 @@ class ConnectorSettings(BaseSettings):
     demo_interval_s: float = Field(default=1.0, gt=0.1, le=10)
     mavlink_connections: List[MavlinkConnectionConfig] = Field(default_factory=list)
     mavlink_poll_interval_s: float = Field(default=0.2, gt=0, le=10)
+    mavlink_reconnect_interval_s: float = Field(default=5.0, gt=0, le=60)
     telemetry_publish_interval_s: float = Field(default=1.0, ge=0, le=60)
 
     @model_validator(mode="after")
