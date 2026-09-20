@@ -57,6 +57,8 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert '"X-Correlation-ID": correlationId' in javascript
     assert "$('correlation-id').textContent = correlationId" in javascript
     assert "battery_remaining_pct" in javascript
+    assert "Mission item" in javascript
+    assert "snapshot.mission_current" in javascript
     assert "state.latestStatus?.latest_telemetry" in javascript
     assert "telemetry.altitude.datum" in javascript
     assert javascript.count('<div><span>Altitude</span>') == 1

@@ -459,6 +459,11 @@ function renderVehicleStatus(status) {
     ? "—"
     : `${health.satellites_visible} sats${health.gps_fix_type == null ? "" : ` · fix ${health.gps_fix_type}`}`;
   const armState = health.armed == null ? "Unavailable" : health.armed ? "Armed" : "Disarmed";
+  const missionProgress = snapshot.mission_current == null
+    ? "—"
+    : snapshot.mission_count == null
+      ? `Item ${snapshot.mission_current + 1}`
+      : `Item ${snapshot.mission_current + 1} / ${snapshot.mission_count}`;
   const diagnostics = snapshot.diagnostics || [];
   const diagnostic = diagnostics.length ? diagnostics[diagnostics.length - 1] : "";
   $("vehicle-summary").innerHTML = `<div class="vehicle-card">
@@ -468,6 +473,7 @@ function renderVehicleStatus(status) {
       <div class="vehicle-metric"><span>Arm state</span><strong>${escapeHtml(armState)}</strong></div>
       <div class="vehicle-metric"><span>GPS</span><strong>${escapeHtml(gps)}</strong></div>
       <div class="vehicle-metric"><span>Battery</span><strong>${escapeHtml(battery)}</strong></div>
+      <div class="vehicle-metric"><span>Mission item</span><strong>${escapeHtml(missionProgress)}</strong></div>
     </div>
     <div class="vehicle-diagnostic" title="${escapeHtml(diagnostic || "No vehicle diagnostic received")}"><small>${escapeHtml(diagnostic || "No vehicle diagnostic received")}</small></div>
   </div>`;
