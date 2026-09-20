@@ -18,6 +18,10 @@ def test_mission_planner_plugin_is_thin_non_commanding_and_supports_gcs_workflow
     assert "Sync current mission" in source
     assert "Submit operation" in source
     assert "START_OPERATION" in source
+    assert "Refresh operation status" in source
+    assert "/v1/operations/" in source
+    assert "telemetry_publication" in source
+    assert "conformance" in source
     assert "doCommand" not in source
     assert "sendPacket" not in source
     assert "COMMAND_LONG" not in source

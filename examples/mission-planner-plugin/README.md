@@ -40,7 +40,9 @@ the common UTM steps directly from its menu:
 3. Choose `Sync current mission`. The plugin gives the declaration a 15-second
    lead time so the local demo can be started without a one-minute wait.
 4. Choose `Submit operation`, then `Start operation` when ready. `Cancel` and
-   `Complete` are available for the same operation.
+   `Complete` are available for the same operation. Use `Refresh operation
+   status` to pull the latest declaration, authorization, telemetry, and
+   conformance state from the connector.
 5. Open the operator console when you want the richer authorization,
    conformance, and telemetry view.
 

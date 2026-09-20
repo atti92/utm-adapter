@@ -85,6 +85,10 @@ public class UtmConnectorPlugin : Plugin
         completeOperation.Click += delegate { ApplyOperation("COMPLETE_OPERATION", "Completing operation"); };
         connectorMenu.DropDownItems.Add(completeOperation);
 
+        var refreshOperation = new ToolStripMenuItem("Refresh operation status");
+        refreshOperation.Click += delegate { RefreshOperationStatus(); };
+        connectorMenu.DropDownItems.Add(refreshOperation);
+
         connectorMenu.DropDownItems.Add(new ToolStripSeparator());
         statusMenu = new ToolStripMenuItem(StatusText("not checked")) { Enabled = false };
         connectorMenu.DropDownItems.Add(statusMenu);
@@ -186,7 +190,7 @@ public class UtmConnectorPlugin : Plugin
             var response = SendJson("POST", "/v1/operator-intents?vehicle_id=" +
                                     Uri.EscapeDataString(vehicleId), body);
             operationId = ReadJsonString(response, "operation_id", newOperationId);
-            return "submitted " + operationId;
+            return FormatOperationStatus(response);
         });
     }
 
@@ -202,9 +206,25 @@ public class UtmConnectorPlugin : Plugin
                    operationId + "\",\"command\":\"" + command + "\"}";
         RunRequest(description, delegate
         {
-            SendJson("POST", "/v1/operator-intents?vehicle_id=" +
-                     Uri.EscapeDataString(vehicleId), body);
-            return command.Replace("_", " ").ToLowerInvariant() + " complete";
+            var response = SendJson("POST", "/v1/operator-intents?vehicle_id=" +
+                                   Uri.EscapeDataString(vehicleId), body);
+            return FormatOperationStatus(response);
+        });
+    }
+
+    private void RefreshOperationStatus()
+    {
+        if (String.IsNullOrEmpty(operationId))
+        {
+            ShowMessage("Submit an operation first, then retry this action.");
+            return;
+        }
+
+        RunRequest("Refreshing operation status", delegate
+        {
+            var response = SendJson("POST", "/v1/operations/" +
+                                    Uri.EscapeDataString(operationId) + "/refresh", null);
+            return FormatOperationStatus(response);
         });
     }
 
@@ -399,6 +419,16 @@ public class UtmConnectorPlugin : Plugin
     {
         var match = Regex.Match(payload ?? "", "\\\"" + Regex.Escape(name) + "\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
         return match.Success ? match.Groups[1].Value : fallback;
+    }
+
+    private static string FormatOperationStatus(string payload)
+    {
+        var declaration = ReadJsonString(payload, "declaration", "UNKNOWN");
+        var authorization = ReadJsonString(payload, "authorization", "UNKNOWN");
+        var telemetry = ReadJsonString(payload, "telemetry_publication", "UNKNOWN");
+        var conformance = ReadJsonString(payload, "conformance", "UNKNOWN");
+        return "operation: " + declaration + " · auth: " + authorization +
+               " · telemetry: " + telemetry + " · conformance: " + conformance;
     }
 
     private static string JsonEscape(string value)
