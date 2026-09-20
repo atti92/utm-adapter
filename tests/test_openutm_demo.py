@@ -38,6 +38,19 @@ def test_px4_demo_uses_px4_external_api_port_by_default() -> None:
     assert config.px4_image == openutm_demo.DEFAULT_PX4_IMAGE
 
 
+def test_demo_home_coordinates_are_shared_by_generated_artifacts() -> None:
+    assert openutm_demo._parse_demo_home("51.5074,-0.1278,11,90") == (51.5074, -0.1278, 11.0)
+
+
+def test_demo_home_coordinates_reject_invalid_values() -> None:
+    for home in ("51.5074", "north,-0.1278,11", "91,-0.1278,11"):
+        try:
+            openutm_demo._parse_demo_home(home)
+        except ValueError:
+            continue
+        raise AssertionError(f"expected invalid home to fail: {home}")
+
+
 def test_verify_flag_is_carried_into_demo_config() -> None:
     parser = openutm_demo._build_parser()
     args = parser.parse_args(["--verify", "--no-browser"])

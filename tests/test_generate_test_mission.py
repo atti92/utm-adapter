@@ -67,8 +67,15 @@ def test_demo_mission_artifacts_round_trip_through_production_parsers(tmp_path: 
     assert len(mp_mission.waypoints) == 2
     assert qgc_mission.waypoints[1].longitude == mp_mission.waypoints[1].longitude
 
-    paths = write_demo_mission_files(tmp_path, vehicle_id="demo-vehicle")
+    paths = write_demo_mission_files(
+        tmp_path,
+        vehicle_id="demo-vehicle",
+        latitude=51.5074,
+        longitude=-0.1278,
+        altitude_m=11,
+    )
     assert set(paths) == {"canonical", "qgroundcontrol", "mission-planner"}
     assert paths["canonical"].is_file()
     assert paths["qgroundcontrol"].read_text(encoding="utf-8").startswith('{\n  "fileType": "Plan"')
     assert paths["mission-planner"].read_text(encoding="utf-8").startswith("QGC WPL 110\n")
+    assert "51.5074" in paths["mission-planner"].read_text(encoding="utf-8")

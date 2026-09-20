@@ -137,14 +137,21 @@ def build_mission_planner_waypoints(payload: dict[str, object]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def write_demo_mission_files(output_dir: Path, *, vehicle_id: str = "sitl-1") -> dict[str, Path]:
+def write_demo_mission_files(
+    output_dir: Path,
+    *,
+    vehicle_id: str = "sitl-1",
+    latitude: float = 47.4979,
+    longitude: float = 19.0402,
+    altitude_m: float = 120,
+) -> dict[str, Path]:
     """Write canonical, QGroundControl, and Mission Planner demo artifacts."""
 
     payload = build_mission(
         vehicle_id=vehicle_id,
-        latitude=47.4979,
-        longitude=19.0402,
-        altitude_m=120,
+        latitude=latitude,
+        longitude=longitude,
+        altitude_m=altitude_m,
         altitude_span_m=4,
         duration_minutes=20,
         start_offset_minutes=1,

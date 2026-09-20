@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import ipaddress
+import math
 import os
 import shlex
 import shutil
@@ -209,6 +210,25 @@ def _prepare_run_dir(run_dir: Path) -> None:
     run_dir.mkdir(parents=True, exist_ok=True)
     for artifact in DEMO_ARTIFACTS:
         (run_dir / artifact).unlink(missing_ok=True)
+
+
+def _parse_demo_home(home: str) -> tuple[float, float, float]:
+    """Return the numeric lat/lon/altitude shared by SITL and demo files."""
+
+    fields = [field.strip() for field in home.split(",")]
+    if len(fields) < 3:
+        raise ValueError("home must be lat,lon,altitude[,heading]")
+    try:
+        latitude, longitude, altitude = (float(value) for value in fields[:3])
+    except ValueError as exc:
+        raise ValueError("home latitude, longitude, and altitude must be numeric") from exc
+    if not all(math.isfinite(value) for value in (latitude, longitude, altitude)):
+        raise ValueError("home coordinates must be finite")
+    if not -90 <= latitude <= 90:
+        raise ValueError("home latitude must be between -90 and 90 degrees")
+    if not -180 <= longitude <= 180:
+        raise ValueError("home longitude must be between -180 and 180 degrees")
+    return latitude, longitude, altitude
 
 
 def _default_checkout(env_name: str, sibling_name: str) -> Path:
@@ -811,6 +831,10 @@ def check_prerequisites(config: DemoConfig) -> list[str]:
     """Return human-readable prerequisite failures without starting anything."""
 
     failures: list[str] = []
+    try:
+        _parse_demo_home(config.home)
+    except ValueError as exc:
+        failures.append(str(exc))
     for label, port in (
         ("Flight Blender HTTP port", config.provider_port),
         ("connector HTTP port", config.connector_port),
@@ -1003,9 +1027,13 @@ class DemoRunner:
             raise DemoSetupError("\n".join(failures))
 
         _prepare_run_dir(self.config.run_dir)
+        latitude, longitude, altitude = _parse_demo_home(self.config.home)
         mission_files = write_demo_mission_files(
             self.config.run_dir,
             vehicle_id=self.config.vehicle_id,
+            latitude=latitude,
+            longitude=longitude,
+            altitude_m=altitude,
         )
         if _provider_endpoint_is_ready(self.config):
             print(f"[info] reusing the healthy Flight Blender service at {self.config.provider_url}")
