@@ -25,7 +25,7 @@ def test_build_docker_command_keeps_qgc_and_connector_on_px4_defaults() -> None:
         "-p",
         "14550:14550/udp",
         "-p",
-        "14540:14540/udp",
+        "14541:14540/udp",
         "-e",
         "PX4_SIM_MODEL=sihsim_quadx",
         "px4io/px4-sitl:latest",

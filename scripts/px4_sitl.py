@@ -24,7 +24,11 @@ from typing import Sequence
 
 DEFAULT_MODEL = "sihsim_quadx"
 DEFAULT_GCS_PORT = 14550
-DEFAULT_CONNECTOR_PORT = 14540
+# PX4's remote external-API endpoint is 14540 inside the container.  The
+# host-side default is intentionally different so the connector can bind its
+# receiving socket while Docker publishes the container endpoint.
+DEFAULT_CONNECTOR_PORT = 14541
+PX4_EXTERNAL_API_PORT = 14540
 DEFAULT_DOCKER_IMAGE = "px4io/px4-sitl:latest"
 
 
@@ -99,7 +103,7 @@ def build_docker_command(
             "-p",
             f"{gcs_port}:14550/udp",
             "-p",
-            f"{connector_port}:14540/udp",
+            f"{connector_port}:{PX4_EXTERNAL_API_PORT}/udp",
             "-e",
             f"PX4_SIM_MODEL={model}",
             image,

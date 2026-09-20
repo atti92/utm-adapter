@@ -34,7 +34,7 @@ def test_px4_demo_uses_px4_external_api_port_by_default() -> None:
     config = openutm_demo._config_from_args(args)
 
     assert config.simulator == "px4"
-    assert config.connector_udp_port == 14540
+    assert config.connector_udp_port == 14541
     assert config.px4_image == openutm_demo.DEFAULT_PX4_IMAGE
 
 
