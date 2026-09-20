@@ -214,3 +214,21 @@ def test_flight_blender_backend_preserves_provider_validation_details() -> None:
     mission = _mission()
     with pytest.raises(BackendError, match="declaration window is in the past"):
         backend.submit_operation(_operation(mission), mission)
+
+
+def test_flight_blender_backend_rejects_past_declaration_before_http_request() -> None:
+    requests = []
+    backend = FlightBlenderBackend(
+        "http://flight-blender.test",
+        client=httpx.Client(transport=httpx.MockTransport(lambda request: requests.append(request))),
+    )
+    mission = _mission().model_copy(
+        update={
+            "valid_from": datetime.now(timezone.utc) - timedelta(seconds=1),
+            "valid_until": datetime.now(timezone.utc) + timedelta(minutes=20),
+        }
+    )
+
+    with pytest.raises(BackendError, match="must start in the future"):
+        backend.submit_operation(_operation(mission), mission)
+    assert requests == []

@@ -141,6 +141,7 @@ class FlightBlenderBackend(UTMBackend):
         self.recorder = recorder
 
     def submit_operation(self, operation: Operation, mission: Mission) -> Operation:
+        self._validate_declaration_window(mission)
         try:
             corridor = build_corridor(mission)
         except GeometryError as exc:
@@ -207,6 +208,19 @@ class FlightBlenderBackend(UTMBackend):
                 update={"state": updated.state.model_copy(update={"authorization": authorization})}
             )
         return updated
+
+    def _validate_declaration_window(self, mission: Mission) -> None:
+        now = datetime.now(timezone.utc)
+        if mission.valid_from <= now:
+            raise BackendError(
+                "Flight Blender declarations must start in the future; "
+                "move the operation validity window forward"
+            )
+        latest_allowed = now.timestamp() + self.max_declaration_horizon_s
+        if mission.valid_from.timestamp() > latest_allowed or mission.valid_until.timestamp() > latest_allowed:
+            raise BackendError(
+                "Flight Blender declarations must start and end within two days of the current time"
+            )
 
     def publish_telemetry(
         self, telemetry: VehicleTelemetry, operation: Optional[Operation] = None
