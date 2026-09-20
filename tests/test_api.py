@@ -209,8 +209,8 @@ def test_capabilities_show_configured_mavlink_endpoints_without_credentials() ->
         ]
     )
 
-    with TestClient(create_app(service, settings)) as client:
-        mavlink = client.get("/v1/capabilities").json()["mavlink"]
+    client = TestClient(create_app(service, settings))
+    mavlink = client.get("/v1/capabilities").json()["mavlink"]
 
     assert mavlink["configured"] is True
     assert mavlink["configured_connections"] == [
