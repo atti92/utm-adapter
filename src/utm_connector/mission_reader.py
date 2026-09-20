@@ -120,7 +120,13 @@ class MavlinkMissionReader:
             autopilot = getattr(message, "autopilot", None)
             if autopilot is not None and int(autopilot) == int(mavutil.mavlink.MAV_AUTOPILOT_INVALID):
                 return None
-            self.set_target(_source_id(message, "get_srcSystem"), _source_id(message, "get_srcComponent", 1))
+            system_id = _source_id(message, "get_srcSystem")
+            if self._target_system is not None and system_id != self._target_system:
+                return None
+            self.set_target(system_id, _source_id(message, "get_srcComponent", 1))
+            return None
+        source_system = _source_id(message, "get_srcSystem")
+        if self._target_system is not None and source_system and source_system != self._target_system:
             return None
         if message_type == "MISSION_COUNT":
             return self._ingest_count(message)

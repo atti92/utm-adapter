@@ -166,6 +166,27 @@ def test_reader_supports_legacy_float_items_and_request_fallback() -> None:
     ]
 
 
+def test_reader_ignores_foreign_vehicle_during_mission_transfer() -> None:
+    connection = FakeConnection()
+    reader = MavlinkMissionReader("sitl-1", connection)
+    reader.ingest(FakeMessage("HEARTBEAT", system_id=1))
+    reader.request_list()
+    reader.ingest(FakeMessage("MISSION_COUNT", system_id=1, count=2))
+    reader.ingest(FakeMessage("MISSION_COUNT", system_id=2, count=2))
+    reader.ingest(_item(0, command=16))
+    completed = reader.ingest(_item(1, command=21))
+
+    assert completed is not None
+    assert completed.mission_count == 2
+    assert [waypoint.latitude for waypoint in completed.waypoints] == [47.5, 47.501]
+    assert [entry[0] for entry in connection.mav.sent] == [
+        "MISSION_REQUEST_LIST",
+        "MISSION_REQUEST_INT",
+        "MISSION_REQUEST_INT",
+        "MISSION_ACK",
+    ]
+
+
 def test_reader_accepts_a_geographic_landing_item() -> None:
     connection = FakeConnection()
     reader = MavlinkMissionReader("sitl-1", connection)

@@ -91,16 +91,25 @@ class MavlinkMessageNormalizer:
             is_gcs_heartbeat = autopilot is not None and int(autopilot) == int(
                 mavutil.mavlink.MAV_AUTOPILOT_INVALID
             )
-            if not is_gcs_heartbeat:
-                if system_id:
-                    self._system_id = system_id
-                if component_id:
-                    self._component_ids.add(component_id)
-                self._last_heartbeat_at = received_at
-                self._autopilot_type = str(getattr(message, "autopilot", "UNKNOWN"))
-                self._vehicle_type = str(getattr(message, "type", "UNKNOWN"))
-                base_mode = int(getattr(message, "base_mode", 0))
-                self._armed = bool(base_mode & int(mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED))
+            if is_gcs_heartbeat:
+                self._refresh_quality(received_at)
+                return
+            # A single routed MAVLink link can carry several vehicles. A
+            # connector session represents one configured vehicle, so lock its
+            # identity to the first vehicle heartbeat and never let a later
+            # vehicle contaminate telemetry or health state.
+            if self._system_id is not None and system_id != self._system_id:
+                self._refresh_quality(received_at)
+                return
+            if system_id:
+                self._system_id = system_id
+            if component_id:
+                self._component_ids.add(component_id)
+            self._last_heartbeat_at = received_at
+            self._autopilot_type = str(getattr(message, "autopilot", "UNKNOWN"))
+            self._vehicle_type = str(getattr(message, "type", "UNKNOWN"))
+            base_mode = int(getattr(message, "base_mode", 0))
+            self._armed = bool(base_mode & int(mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED))
         elif self._system_id is None or system_id == self._system_id:
             if system_id:
                 self._system_id = system_id
