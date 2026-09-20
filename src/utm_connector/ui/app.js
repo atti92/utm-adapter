@@ -7,6 +7,7 @@ const state = {
   operation: null,
   latestStatus: null,
   capabilities: null,
+  windowCustomized: false,
 };
 
 const DEMO_LEAD_TIME_MS = 15_000;
@@ -47,6 +48,7 @@ function setDefaultWindow() {
   const end = new Date(Date.now() + 35 * 60_000);
   $("valid-from").value = localInputValue(start);
   $("valid-until").value = localInputValue(end);
+  state.windowCustomized = false;
 }
 
 function inputAsIso(id) {
@@ -573,8 +575,30 @@ $("vehicle-select").addEventListener("change", async (event) => {
   clearVehicleWorkspace(state.vehicleId ? "Vehicle changed. Load or create a mission for this vehicle." : "Select a vehicle to continue.");
   await refreshVehicle();
 });
-$("sample-button").addEventListener("click", () => { state.plan = samplePlan(); state.planFormat = "canonical"; state.planName = "Demo route"; renderMission(null); setMessage("Demo route loaded. Review the validity window, then validate it."); });
-$("plan-file").addEventListener("change", async (event) => { const file = event.target.files[0]; if (!file) return; try { const text = await file.text(); state.plan = text.trimStart().startsWith("QGC WPL ") ? text : JSON.parse(text); state.planFormat = typeof state.plan === "string" ? "mission-planner" : "qgroundcontrol"; state.planName = file.name; state.mission = null; renderMission(null); setMessage(file.name + " loaded."); } catch (error) { setMessage("Could not read mission file: " + error.message, "error"); } });
+$("sample-button").addEventListener("click", () => {
+  state.plan = samplePlan();
+  state.planFormat = "canonical";
+  state.planName = "Demo route";
+  if (!state.windowCustomized) setDefaultWindow();
+  renderMission(null);
+  setMessage("Demo route loaded. Review the validity window, then validate it.");
+});
+$("plan-file").addEventListener("change", async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    state.plan = text.trimStart().startsWith("QGC WPL ") ? text : JSON.parse(text);
+    state.planFormat = typeof state.plan === "string" ? "mission-planner" : "qgroundcontrol";
+    state.planName = file.name;
+    state.mission = null;
+    if (!state.windowCustomized) setDefaultWindow();
+    renderMission(null);
+    setMessage(file.name + " loaded.");
+  } catch (error) {
+    setMessage("Could not read mission file: " + error.message, "error");
+  }
+});
 $("save-button").addEventListener("click", saveMission);
 $("read-mission-button").addEventListener("click", checkVehicleMission);
 $("submit-button").addEventListener("click", () => sendIntent("SUBMIT_OPERATION"));
@@ -582,7 +606,10 @@ $("start-button").addEventListener("click", () => sendIntent("START_OPERATION"))
 $("cancel-button").addEventListener("click", () => sendIntent("CANCEL_OPERATION"));
 $("complete-button").addEventListener("click", () => sendIntent("COMPLETE_OPERATION"));
 $("refresh-operation-button").addEventListener("click", async () => { if (!state.operation) return; try { renderOperation(await request(`/v1/operations/${state.operation.operation_id}/refresh`, { method: "POST" })); setMessage("Provider state refreshed.", "success"); } catch (error) { setMessage(error.message, "error"); } });
-["valid-from", "valid-until", "corridor-radius"].forEach((id) => $(id).addEventListener("input", updateMissionActionState));
+["valid-from", "valid-until", "corridor-radius"].forEach((id) => $(id).addEventListener("input", () => {
+  if (id === "valid-from" || id === "valid-until") state.windowCustomized = true;
+  updateMissionActionState();
+}));
 
 setDefaultWindow();
 refresh();

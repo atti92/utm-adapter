@@ -52,6 +52,8 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "Validate & save the current mission before submitting it to UTM." in javascript
     assert "requires_future_start" in javascript
     assert "Mission settings changed. Validate & save before submitting." in javascript
+    assert "windowCustomized" in javascript
+    assert "if (!state.windowCustomized) setDefaultWindow()" in javascript
     assert 'command === "SUBMIT_OPERATION"' in javascript
     assert "TERMINAL_DECLARATIONS" in javascript
     assert "refreshInFlight" in javascript
