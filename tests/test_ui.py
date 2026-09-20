@@ -34,7 +34,8 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
         "/v1/operations/",
         "/v1/capabilities",
         "/v1/integration",
-        "/v1/vehicles/${encodeURIComponent(state.vehicleId)}/onboard-mission/refresh",
+        "/v1/vehicles/${encodeURIComponent(vehicleId)}/onboard-mission/refresh",
+        "const onboardPath = `/v1/vehicles/${encodeURIComponent(vehicleId)}/onboard-mission`",
         "mission-planner",
     ):
         assert endpoint in javascript
@@ -62,6 +63,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert 'command === "SUBMIT_OPERATION"' in javascript
     assert "TERMINAL_DECLARATIONS" in javascript
     assert "refreshInFlight" in javascript
+    assert "missionReadInFlight" in javascript
     assert "intentInFlight" in javascript
     assert 'operation.state.telemetry_publication !== "NOT_STARTED"' in javascript
     assert 'state.latestStatus = null' in javascript
@@ -71,6 +73,8 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert '["LOST", "INVALID"].includes(telemetry.quality)' in javascript
     assert 'health?.status !== "ok"' in javascript
     assert 'capabilities.mavlink?.non_commanding && capabilities.mavlink?.read_only' in javascript
+    assert "The vehicle did not return a mission within 8 seconds." in javascript
+    assert "Vehicle mission received" in javascript
     assert "GCS remains in control" in javascript
     assert 'connectionState === "LOST"' in javascript
     assert '"STALE"' in javascript

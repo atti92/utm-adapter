@@ -13,6 +13,7 @@ const state = {
 const DEMO_LEAD_TIME_MS = 15_000;
 const TERMINAL_DECLARATIONS = new Set(["COMPLETED", "CANCELLED", "REJECTED"]);
 let refreshInFlight = false;
+let missionReadInFlight = false;
 const intentInFlight = new Set();
 
 const $ = (id) => document.getElementById(id);
@@ -171,7 +172,11 @@ async function request(path, options = {}) {
     ...options,
   });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.detail || `${response.status} ${response.statusText}`);
+  if (!response.ok) {
+    const error = new Error(body.detail || `${response.status} ${response.statusText}`);
+    error.status = response.status;
+    throw error;
+  }
   return body;
 }
 
@@ -277,7 +282,8 @@ function renderVehicleDirectory(vehicles) {
 function updateMissionReadButton() {
   const button = $("read-mission-button");
   const configured = Boolean(state.capabilities?.mavlink?.configured);
-  button.disabled = !state.vehicleId || !configured;
+  button.disabled = !state.vehicleId || !configured || missionReadInFlight;
+  button.textContent = missionReadInFlight ? "Checking vehicle mission…" : "Check vehicle mission";
   button.title = configured
     ? "Request the current mission from the vehicle over the read-only MAVLink mission protocol."
     : "Configure a MAVLink vehicle link to read the onboard mission.";
@@ -562,12 +568,38 @@ async function refresh() {
 }
 
 async function checkVehicleMission() {
-  if (!state.vehicleId) return;
+  if (!state.vehicleId || missionReadInFlight) return;
+  const vehicleId = state.vehicleId;
+  const onboardPath = `/v1/vehicles/${encodeURIComponent(vehicleId)}/onboard-mission`;
+  missionReadInFlight = true;
+  updateMissionReadButton();
   try {
-    await request(`/v1/vehicles/${encodeURIComponent(state.vehicleId)}/onboard-mission/refresh`, { method: "POST" });
+    await request(`/v1/vehicles/${encodeURIComponent(vehicleId)}/onboard-mission/refresh`, { method: "POST" });
     setMessage("Requested the current mission from the vehicle. Waiting for the MAVLink response…");
+    const deadline = Date.now() + 8_000;
+    let onboard = null;
+    while (Date.now() < deadline) {
+      try {
+        onboard = await request(onboardPath);
+        break;
+      } catch (error) {
+        if (error.status !== 404) throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 750));
+    }
     await refreshVehicle();
-  } catch (error) { setMessage(error.message, "error"); }
+    if (onboard) {
+      const count = onboard.mission?.waypoints?.length || 0;
+      setMessage(`Vehicle mission received (${count} waypoint${count === 1 ? "" : "s"}). Review the drift result above.`, "success");
+    } else {
+      setMessage("The vehicle did not return a mission within 8 seconds. Check the MAVLink link and try again.", "error");
+    }
+  } catch (error) {
+    setMessage(error.message, "error");
+  } finally {
+    missionReadInFlight = false;
+    updateMissionReadButton();
+  }
 }
 
 function samplePlan() {
