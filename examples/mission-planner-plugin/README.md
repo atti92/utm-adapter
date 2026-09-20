@@ -39,11 +39,15 @@ the common UTM steps directly from its menu:
 2. Load or edit the mission in Mission Planner's Flight Planner view.
 3. Choose `Sync current mission`. The plugin gives the declaration a 15-second
    lead time so the local demo can be started without a one-minute wait.
-4. Choose `Submit operation`, then `Start operation` when ready. `Cancel` and
+4. Choose `Check vehicle mission` when you want the connector to request the
+   current onboard mission through the read-only MAVLink path. The plugin
+   waits briefly for a response and directs you to the operator console for
+   the detailed drift result.
+5. Choose `Submit operation`, then `Start operation` when ready. `Cancel` and
    `Complete` are available for the same operation. Use `Refresh operation
    status` to pull the latest declaration, authorization, telemetry, and
    conformance state from the connector.
-5. Open the operator console when you want the richer authorization,
+6. Open the operator console when you want the richer authorization,
    conformance, and telemetry view.
 
 The connector currently accepts navigable `WAYPOINT` and `TAKEOFF` items for

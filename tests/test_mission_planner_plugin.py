@@ -16,6 +16,10 @@ def test_mission_planner_plugin_is_thin_non_commanding_and_supports_gcs_workflow
     assert "HttpWebRequest" in source
     assert "Host.comPort." not in source
     assert "Sync current mission" in source
+    assert "Check vehicle mission" in source
+    assert 'missionPath + "/refresh"' in source
+    assert "vehicle mission received" in source
+    assert "Thread.Sleep(500)" in source
     assert "Submit operation" in source
     assert "START_OPERATION" in source
     assert "Refresh operation status" in source

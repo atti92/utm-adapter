@@ -18,6 +18,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -35,7 +36,7 @@ public class UtmConnectorPlugin : Plugin
     private string operationId;
 
     public override string Name { get { return "UTM Connector"; } }
-    public override string Version { get { return "2.1"; } }
+    public override string Version { get { return "2.2"; } }
     public override string Author { get { return "utm-adapter"; } }
 
     public override bool Init()
@@ -68,6 +69,10 @@ public class UtmConnectorPlugin : Plugin
         var syncMission = new ToolStripMenuItem("Sync current mission");
         syncMission.Click += delegate { SyncCurrentMission(); };
         connectorMenu.DropDownItems.Add(syncMission);
+
+        var checkVehicleMission = new ToolStripMenuItem("Check vehicle mission");
+        checkVehicleMission.Click += delegate { CheckVehicleMission(); };
+        connectorMenu.DropDownItems.Add(checkVehicleMission);
 
         var submitOperation = new ToolStripMenuItem("Submit operation");
         submitOperation.Click += delegate { SubmitOperation(); };
@@ -191,6 +196,33 @@ public class UtmConnectorPlugin : Plugin
                                     Uri.EscapeDataString(vehicleId), body);
             operationId = ReadJsonString(response, "operation_id", newOperationId);
             return FormatOperationStatus(response);
+        });
+    }
+
+    private void CheckVehicleMission()
+    {
+        RunRequest("Checking vehicle mission", delegate
+        {
+            var missionPath = "/v1/vehicles/" + Uri.EscapeDataString(vehicleId) + "/onboard-mission";
+            SendJson("POST", missionPath + "/refresh", null);
+
+            var deadline = DateTime.UtcNow.AddSeconds(8);
+            while (DateTime.UtcNow < deadline)
+            {
+                try
+                {
+                    SendJson("GET", missionPath, null);
+                    return "vehicle mission received; review the UTM console for drift";
+                }
+                catch (InvalidOperationException ex)
+                {
+                    if (!ex.Message.StartsWith("HTTP 404:", StringComparison.Ordinal))
+                        throw;
+                }
+                Thread.Sleep(500);
+            }
+
+            return "vehicle mission request sent; no response yet, review the UTM console";
         });
     }
 
