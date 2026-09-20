@@ -108,6 +108,7 @@ function updateMissionActionState() {
   if (dirty && document.activeElement?.id !== "submit-button") {
     setMessage("Mission settings changed. Validate & save before submitting.");
   }
+  updateMissionReadButton();
 }
 
 function renderNextAction() {
@@ -282,11 +283,15 @@ function renderVehicleDirectory(vehicles) {
 function updateMissionReadButton() {
   const button = $("read-mission-button");
   const configured = Boolean(state.capabilities?.mavlink?.configured);
-  button.disabled = !state.vehicleId || !configured || missionReadInFlight;
+  const savedMission = Boolean(state.mission?.mission_hash && state.mission.mission_hash !== "preview");
+  const missionReady = savedMission && missionMatchesForm();
+  button.disabled = !state.vehicleId || !configured || !missionReady || missionReadInFlight;
   button.textContent = missionReadInFlight ? "Checking vehicle mission…" : "Check vehicle mission";
-  button.title = configured
-    ? "Request the current mission from the vehicle over the read-only MAVLink mission protocol."
-    : "Configure a MAVLink vehicle link to read the onboard mission.";
+  button.title = !configured
+    ? "Configure a MAVLink vehicle link to read the onboard mission."
+    : !missionReady
+      ? "Validate and save the mission before checking the vehicle's onboard route."
+      : "Request the current mission from the vehicle over the read-only MAVLink mission protocol.";
 }
 
 function renderVehicle(vehicle) {
@@ -569,6 +574,11 @@ async function refresh() {
 
 async function checkVehicleMission() {
   if (!state.vehicleId || missionReadInFlight) return;
+  if (!state.mission?.mission_hash || state.mission.mission_hash === "preview" || !missionMatchesForm()) {
+    setMessage("Validate & save the current mission before checking the vehicle mission.", "error");
+    updateMissionReadButton();
+    return;
+  }
   const vehicleId = state.vehicleId;
   const onboardPath = `/v1/vehicles/${encodeURIComponent(vehicleId)}/onboard-mission`;
   missionReadInFlight = true;

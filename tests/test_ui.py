@@ -64,6 +64,9 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "TERMINAL_DECLARATIONS" in javascript
     assert "refreshInFlight" in javascript
     assert "missionReadInFlight" in javascript
+    assert "const savedMission = Boolean(state.mission?.mission_hash" in javascript
+    assert "Validate and save the mission before checking the vehicle's onboard route." in javascript
+    assert "Validate & save the current mission before checking the vehicle mission." in javascript
     assert "intentInFlight" in javascript
     assert 'operation.state.telemetry_publication !== "NOT_STARTED"' in javascript
     assert 'state.latestStatus = null' in javascript
