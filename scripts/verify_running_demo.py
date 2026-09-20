@@ -225,6 +225,17 @@ def verify_running_demo(
             raise DemoVerificationError(
                 f"final health check reported a backend error: {final_health['backend_error']}"
             )
+        metrics = _json(
+            http.get(f"{base_url}/v1/metrics"), expected=200, action="metrics check"
+        )
+        telemetry_metrics = metrics.get("telemetry")
+        received_total = telemetry_metrics.get("received_total") if isinstance(telemetry_metrics, dict) else None
+        if not isinstance(received_total, (int, float)) or received_total < 1:
+            raise DemoVerificationError("metrics check did not report received vehicle telemetry")
+        vehicle_metrics = metrics.get("vehicles")
+        active_vehicles = vehicle_metrics.get("active") if isinstance(vehicle_metrics, dict) else None
+        if not isinstance(active_vehicles, (int, float)) or active_vehicles < 1:
+            raise DemoVerificationError("metrics check did not report an active vehicle")
         return DemoVerificationResult(
             vehicle_id=vehicle_id,
             operation_id=operation_id,
