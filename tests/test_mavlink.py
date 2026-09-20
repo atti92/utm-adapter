@@ -170,3 +170,18 @@ def test_session_requests_read_only_telemetry_streams_once_after_heartbeat() -> 
     assert len(connection.stream_requests) == 4
     assert all(request[0:2] == (1, 1) for request in connection.stream_requests)
     assert all(request[3:] == (4, 1) for request in connection.stream_requests)
+
+
+def test_sys_status_supplies_battery_fallback_when_battery_status_is_absent() -> None:
+    now = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+    normalizer = MavlinkMessageNormalizer("sitl-1")
+
+    normalizer.ingest(FakeMessage("HEARTBEAT", autopilot=3, type=2), now)
+    normalizer.ingest(
+        FakeMessage("SYS_STATUS", battery_remaining=72, voltage_battery=11800),
+        now,
+    )
+
+    health = normalizer.snapshot(now).health
+    assert health.battery_remaining_pct == 72
+    assert health.battery_voltage_v == 11.8

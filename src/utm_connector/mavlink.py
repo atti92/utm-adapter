@@ -141,8 +141,20 @@ class MavlinkMessageNormalizer:
         elif message_type == "BATTERY_STATUS":
             remaining = int(getattr(message, "battery_remaining", -1))
             voltage = self._first_battery_voltage(getattr(message, "voltages", []))
-            self._battery_remaining_pct = float(remaining) if 0 <= remaining <= 100 else None
-            self._battery_voltage_v = voltage
+            if 0 <= remaining <= 100:
+                self._battery_remaining_pct = float(remaining)
+            if voltage is not None:
+                self._battery_voltage_v = voltage
+        elif message_type == "SYS_STATUS":
+            # ArduPilot and PX4 configurations do not all emit
+            # BATTERY_STATUS. SYS_STATUS is the portable fallback; retain a
+            # previously observed value when a MAVLink sentinel is present.
+            remaining = int(getattr(message, "battery_remaining", -1))
+            voltage_millivolts = int(getattr(message, "voltage_battery", 0))
+            if 0 <= remaining <= 100:
+                self._battery_remaining_pct = float(remaining)
+            if 0 < voltage_millivolts < 65535:
+                self._battery_voltage_v = voltage_millivolts / 1000
         elif message_type == "MISSION_CURRENT":
             sequence = int(getattr(message, "seq", 0))
             self._mission_current = sequence if sequence >= 0 else None
