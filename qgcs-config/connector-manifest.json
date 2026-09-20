@@ -59,6 +59,23 @@
     "qgroundcontrol",
     "mission-planner"
   ],
+  "mission_commands": [
+    {
+      "command": 16,
+      "name": "WAYPOINT",
+      "role": "route_point"
+    },
+    {
+      "command": 21,
+      "name": "LAND",
+      "role": "route_endpoint"
+    },
+    {
+      "command": 22,
+      "name": "TAKEOFF",
+      "role": "route_point"
+    }
+  ],
   "recording": {
     "configuration": "UTM_CONNECTOR_RECORD_PATH",
     "raw_mavlink_record_type": "mavlink_frame",

@@ -9,7 +9,11 @@ from typing import Any, Callable, Dict, Optional
 from pymavlink import mavutil
 
 from .domain import Altitude, Mission, Waypoint
-from .missions import MissionParseError, mavlink_altitude_datum
+from .missions import (
+    NAVIGABLE_MISSION_COMMANDS,
+    MissionParseError,
+    mavlink_altitude_datum,
+)
 
 
 def _utc_now() -> datetime:
@@ -200,7 +204,7 @@ def _source_id(message: Any, name: str, default: int = 0) -> int:
 
 def _waypoint_from_item(message: Any, message_type: str = "MISSION_ITEM_INT") -> Waypoint:
     command = int(getattr(message, "command", -1))
-    if command not in (16, 22):
+    if command not in NAVIGABLE_MISSION_COMMANDS:
         raise MissionParseError(f"unsupported MAVLink mission command: {command}")
     frame = int(getattr(message, "frame", -1))
     datum = mavlink_altitude_datum(frame)

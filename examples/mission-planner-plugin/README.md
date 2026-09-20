@@ -50,11 +50,12 @@ the common UTM steps directly from its menu:
 6. Open the operator console when you want the richer authorization,
    conformance, and telemetry view.
 
-The connector currently accepts navigable `WAYPOINT` and `TAKEOFF` items for
+The connector accepts geographic `WAYPOINT`, `TAKEOFF`, and `LAND` items for
 this direct workflow. Unsupported Mission Planner actions are rejected with a
 clear message instead of being silently dropped; they can still be handled by
 the existing file-import path after the mission is reduced to a supported
-route.
+route. The connector reads the LAND coordinates as the route endpoint; the
+GCS/autopilot remains responsible for the landing behavior itself.
 
 This source file is intentionally kept compatible with Mission Planner's
 script-plugin model and uses only the .NET Framework APIs normally available to

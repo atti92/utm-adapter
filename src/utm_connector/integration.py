@@ -8,6 +8,8 @@ the connector endpoints from ``/v1/integration``.
 
 from copy import deepcopy
 
+from .missions import NAVIGABLE_MISSION_COMMANDS_INFO
+
 
 INTEGRATION_MANIFEST = {
     "schema_version": "1.0",
@@ -66,6 +68,7 @@ INTEGRATION_MANIFEST = {
         },
     },
     "mission_formats": ["canonical", "qgroundcontrol", "mission-planner"],
+    "mission_commands": list(NAVIGABLE_MISSION_COMMANDS_INFO),
     "recording": {
         "configuration": "UTM_CONNECTOR_RECORD_PATH",
         "raw_mavlink_record_type": "mavlink_frame",

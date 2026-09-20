@@ -20,6 +20,8 @@ def test_mission_planner_plugin_is_thin_non_commanding_and_supports_gcs_workflow
     assert 'missionPath + "/refresh"' in source
     assert "vehicle mission received" in source
     assert "Thread.Sleep(500)" in source
+    assert "MAVLink.MAV_CMD.LAND" in source
+    assert "geographic WAYPOINT, TAKEOFF, and LAND" in source
     assert "Submit operation" in source
     assert "START_OPERATION" in source
     assert "Refresh operation status" in source

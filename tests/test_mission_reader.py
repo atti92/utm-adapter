@@ -164,3 +164,16 @@ def test_reader_supports_legacy_float_items_and_request_fallback() -> None:
         "MISSION_REQUEST",
         "MISSION_ACK",
     ]
+
+
+def test_reader_accepts_a_geographic_landing_item() -> None:
+    connection = FakeConnection()
+    reader = MavlinkMissionReader("sitl-1", connection)
+    reader.ingest(FakeMessage("HEARTBEAT"))
+    reader.request_list()
+    reader.ingest(FakeMessage("MISSION_COUNT", count=2))
+    reader.ingest(_item(0))
+    completed = reader.ingest(_item(1, command=21))
+
+    assert completed is not None
+    assert completed.waypoints[1].latitude == pytest.approx(47.501)

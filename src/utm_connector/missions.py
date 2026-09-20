@@ -12,6 +12,18 @@ class MissionParseError(ValueError):
     """Raised when a supported GCS mission cannot be normalized safely."""
 
 
+# These commands each describe a geographic route point. Other MAVLink
+# mission commands may change vehicle behavior without describing a point that
+# can be represented by the connector's corridor-only Mission model, so they
+# remain rejected instead of being silently discarded.
+NAVIGABLE_MISSION_COMMANDS = frozenset({16, 21, 22})
+NAVIGABLE_MISSION_COMMANDS_INFO = (
+    {"command": 16, "name": "WAYPOINT", "role": "route_point"},
+    {"command": 21, "name": "LAND", "role": "route_endpoint"},
+    {"command": 22, "name": "TAKEOFF", "role": "route_point"},
+)
+
+
 def parse_qgroundcontrol_plan(
     payload: Mapping[str, Any],
     *,
@@ -24,8 +36,10 @@ def parse_qgroundcontrol_plan(
 
     QGC stores geographic coordinates in ``params[4:7]``.  The MAVLink frame
     is used to determine altitude semantics; the parser never guesses a datum.
-    Complex items and unsupported command types are rejected for now so they
-    cannot silently become a different operation.
+    Complex items and unsupported command types are rejected so they cannot
+    silently become a different operation. Waypoint, takeoff, and landing
+    items are represented by their geographic route point; vehicle-control
+    behavior remains with the GCS/autopilot.
     """
 
     if payload.get("fileType") != "Plan":
@@ -42,7 +56,7 @@ def parse_qgroundcontrol_plan(
         if not isinstance(item, Mapping) or item.get("type") != "SimpleItem":
             raise MissionParseError("only QGroundControl SimpleItem missions are supported")
         command = _integer(item.get("command"), "command")
-        if command not in (16, 22):  # MAV_CMD_NAV_WAYPOINT / MAV_CMD_NAV_TAKEOFF
+        if command not in NAVIGABLE_MISSION_COMMANDS:
             raise MissionParseError(f"unsupported QGroundControl mission command: {command}")
         frame = _integer(item.get("frame"), "frame")
         datum = _altitude_datum(frame)
@@ -119,7 +133,7 @@ def parse_mission_planner_waypoints(
             raise MissionParseError(
                 f"Mission Planner waypoint indexes must be contiguous; expected {expected_index}"
             )
-        if command not in (16, 22):  # MAV_CMD_NAV_WAYPOINT / MAV_CMD_NAV_TAKEOFF
+        if command not in NAVIGABLE_MISSION_COMMANDS:
             raise MissionParseError(
                 f"unsupported Mission Planner mission command on line {line_number}: {command}"
             )

@@ -26,7 +26,12 @@ from .domain import (
 )
 from .mavlink import MavlinkVehicleSession
 from .runtime import MavlinkSessionManager
-from .missions import MissionParseError, parse_mission_planner_waypoints, parse_qgroundcontrol_plan
+from .missions import (
+    NAVIGABLE_MISSION_COMMANDS_INFO,
+    MissionParseError,
+    parse_mission_planner_waypoints,
+    parse_qgroundcontrol_plan,
+)
 from .service import ConnectorError, ConnectorService
 from .persistence import SQLiteStateStore
 from .recording import JsonlRecorder
@@ -143,6 +148,7 @@ def create_app(
             "backend": service.backend.name,
             "demo_mode": settings.demo_mode,
             "mission_formats": ["canonical", "qgroundcontrol", "mission-planner"],
+            "mission_commands": list(NAVIGABLE_MISSION_COMMANDS_INFO),
             "integration_manifest": "/v1/integration",
             "recording": {
                 "configured": recorder is not None,

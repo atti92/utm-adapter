@@ -39,6 +39,29 @@ def test_qgroundcontrol_plan_maps_frames_and_coordinates() -> None:
     assert mission.waypoints[0].altitude.datum == AltitudeDatum.AGL
 
 
+def test_qgroundcontrol_plan_accepts_a_geographic_landing_endpoint() -> None:
+    plan = _plan()
+    plan["mission"]["items"].append(
+        {
+            "type": "SimpleItem",
+            "command": 21,
+            "frame": 6,
+            "params": [0, 0, 0, 0, 47.502, 19.053, 0],
+        }
+    )
+
+    mission = parse_qgroundcontrol_plan(
+        plan,
+        vehicle_id="sitl-1",
+        valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        valid_until=datetime(2026, 1, 1, 1, tzinfo=timezone.utc),
+    )
+
+    assert len(mission.waypoints) == 3
+    assert mission.waypoints[-1].latitude == 47.502
+    assert mission.waypoints[-1].altitude.meters == 0
+
+
 def test_qgroundcontrol_plan_rejects_unsupported_altitude_frame() -> None:
     with pytest.raises(MissionParseError, match="altitude frame"):
         parse_qgroundcontrol_plan(
@@ -71,6 +94,22 @@ def test_mission_planner_wpl_maps_coordinates_and_altitude_frame() -> None:
     assert mission.waypoints[0].latitude == 47.5
     assert mission.waypoints[1].longitude == 19.052
     assert mission.waypoints[0].altitude.datum == AltitudeDatum.AGL
+
+
+def test_mission_planner_wpl_accepts_a_geographic_landing_endpoint() -> None:
+    payload = _mission_planner_file() + (
+        "\n2\t0\t3\t21\t0\t0\t0\t0\t47.502\t19.053\t0\t1"
+    )
+
+    mission = parse_mission_planner_waypoints(
+        payload,
+        vehicle_id="sitl-1",
+        valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        valid_until=datetime(2026, 1, 1, 1, tzinfo=timezone.utc),
+    )
+
+    assert len(mission.waypoints) == 3
+    assert mission.waypoints[-1].longitude == 19.053
 
 
 def test_mission_planner_wpl_rejects_non_route_commands() -> None:

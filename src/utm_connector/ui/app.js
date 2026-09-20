@@ -379,7 +379,7 @@ function buildPreviewMission() {
     const waypoints = [];
     String(state.plan).split(/\r?\n/).slice(1).forEach((line) => {
       const fields = line.trim().split(/\s+/);
-      if (fields.length < 11 || ![16, 22].includes(Number(fields[3]))) return;
+      if (fields.length < 11 || ![16, 21, 22].includes(Number(fields[3]))) return;
       const frame = Number(fields[2]);
       const waypoint = previewWaypoint(
         Number(fields[8]), Number(fields[9]), Number(fields[10]),
@@ -390,7 +390,7 @@ function buildPreviewMission() {
     return waypoints.length >= 2 ? waypoints : null;
   }
   const items = state.plan.mission?.items || [];
-  const waypoints = items.filter((item) => [16, 22].includes(Number(item.command))).map((item, index) => {
+  const waypoints = items.filter((item) => [16, 21, 22].includes(Number(item.command))).map((item, index) => {
     const frame = Number(item.frame);
     const params = item.params || [];
     return previewWaypoint(

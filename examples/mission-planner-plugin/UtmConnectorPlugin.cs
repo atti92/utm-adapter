@@ -281,10 +281,12 @@ public class UtmConnectorPlugin : Plugin
                 continue;
 
             var command = ParseEnumValue<MAVLink.MAV_CMD>(row.Cells["Command"].Value, "command");
-            if (command != MAVLink.MAV_CMD.WAYPOINT && command != MAVLink.MAV_CMD.TAKEOFF)
+            if (command != MAVLink.MAV_CMD.WAYPOINT &&
+                command != MAVLink.MAV_CMD.TAKEOFF &&
+                command != MAVLink.MAV_CMD.LAND)
             {
                 throw new InvalidOperationException(
-                    "The connector currently accepts only WAYPOINT and TAKEOFF items; " + command + " is present.");
+                    "The connector accepts only geographic WAYPOINT, TAKEOFF, and LAND items; " + command + " is present.");
             }
 
             var frame = ParseEnumValue<MAVLink.MAV_FRAME>(row.Cells["Frame"].Value, "frame");

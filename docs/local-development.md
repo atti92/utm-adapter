@@ -175,8 +175,11 @@ and Windows in the same way as the API.
 
 The mission picker accepts QGroundControl `.plan` files and Mission Planner
 `.waypoints`/WPL 110 exports. Both are normalized into the same canonical
-mission model; the UTM validity window and corridor are entered once in the
-connector because neither GCS file format carries that provider metadata.
+mission model. Geographic WAYPOINT, TAKEOFF, and LAND items are supported;
+other mission actions are rejected rather than silently dropped because the
+connector's corridor model cannot represent their behavior. The UTM validity
+window and corridor are entered once in the connector because neither GCS file
+format carries that provider metadata.
 
 For GCS integration, start with the discovery endpoints:
 
