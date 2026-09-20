@@ -26,6 +26,7 @@ from .domain import (
 )
 from .drift import compare_missions
 from .mission_reader import MavlinkMissionRead
+from .observability import RuntimeMetrics
 from .persistence import SQLiteStateStore
 from .recording import JsonlRecorder
 
@@ -44,6 +45,7 @@ class ConnectorService:
         altitude_converter: Optional[AltitudeConverter] = None,
         telemetry_publish_interval_s: float = 0.0,
         event_coalesce_interval_s: float = 5.0,
+        metrics: Optional[RuntimeMetrics] = None,
     ) -> None:
         if event_history_limit < 1:
             raise ValueError("event_history_limit must be greater than zero")
@@ -58,6 +60,7 @@ class ConnectorService:
         self.altitude_converter = altitude_converter
         self.telemetry_publish_interval_s = telemetry_publish_interval_s
         self.event_coalesce_interval_s = event_coalesce_interval_s
+        self.metrics = metrics or RuntimeMetrics()
         self.missions: Dict[str, MissionSnapshot] = {}
         self.onboard_missions: Dict[str, MissionSnapshot] = {}
         self.onboard_mission_reads: Dict[str, MavlinkMissionRead] = {}
@@ -205,6 +208,7 @@ class ConnectorService:
     def put_telemetry(self, vehicle_id: str, telemetry: VehicleTelemetry) -> VehicleTelemetry:
         if telemetry.vehicle_id != vehicle_id:
             raise ConnectorError("telemetry vehicle_id does not match path")
+        self.metrics.record_telemetry_received(telemetry.observed_at)
         self.vehicles[vehicle_id] = telemetry
         if self.state_store is not None:
             self.state_store.save_telemetry(telemetry)
@@ -257,6 +261,7 @@ class ConnectorService:
                     publication_withheld_reasons[operation.operation_id] = (
                         "telemetry is not fresh enough for provider publication"
                     )
+                    self.metrics.record_telemetry_withheld()
                     continue
                 if mission_window_reason is not None:
                     # Flight Blender only considers a declaration current
@@ -266,6 +271,7 @@ class ConnectorService:
                     # error.
                     publication_withheld.add(operation.operation_id)
                     publication_withheld_reasons[operation.operation_id] = mission_window_reason
+                    self.metrics.record_telemetry_withheld()
                     continue
                 last_published_at = self._last_published_at.get(operation.operation_id)
                 if (
@@ -280,8 +286,10 @@ class ConnectorService:
                 self.mark_backend_healthy()
                 self._last_published_at[operation.operation_id] = now
                 publication_succeeded.add(operation.operation_id)
+                self.metrics.record_telemetry_published(telemetry.observed_at)
             except BackendError as exc:
                 publication_errors[operation.operation_id] = exc
+                self.metrics.record_telemetry_failed()
 
         for operation in active_operations:
             if mission_snapshot is not None:

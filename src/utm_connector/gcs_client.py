@@ -58,6 +58,11 @@ class ConnectorClient:
     def integration(self) -> dict[str, Any]:
         return self._request("GET", "/v1/integration")
 
+    def metrics(self) -> dict[str, Any]:
+        """Return process-local connector diagnostics for a GCS status view."""
+
+        return self._request("GET", "/v1/metrics")
+
     def events(self, *, limit: int = 100) -> list[dict[str, Any]]:
         return self._request("GET", f"/v1/events?limit={limit}")
 

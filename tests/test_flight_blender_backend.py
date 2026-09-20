@@ -8,6 +8,7 @@ import pytest
 from utm_connector.backends import BackendError, FlightBlenderBackend
 from utm_connector.domain import AltitudeDatum, Mission, Operation, OperationState, VehicleTelemetry
 from utm_connector.domain import OperationCommand
+from utm_connector.observability import RuntimeMetrics
 from utm_connector.recording import JsonlRecorder
 
 
@@ -200,6 +201,32 @@ def test_flight_blender_backend_retries_transient_provider_failure() -> None:
     backend.submit_operation(_operation(mission), mission)
 
     assert attempts == 3
+
+
+def test_flight_blender_backend_records_request_latency_and_errors() -> None:
+    metrics = RuntimeMetrics()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("set_flight_declaration"):
+            return httpx.Response(500, json={"message": "provider unavailable"})
+        return httpx.Response(200, json={})
+
+    backend = FlightBlenderBackend(
+        "http://flight-blender.test",
+        max_retries=0,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+        metrics=metrics,
+    )
+
+    mission = _mission()
+    with pytest.raises(BackendError):
+        backend.submit_operation(_operation(mission), mission)
+
+    snapshot = metrics.snapshot()
+    assert snapshot["backend"]["requests_total"] == 1
+    assert snapshot["backend"]["errors_total"] == 1
+    assert snapshot["backend"]["last_latency_ms"] is not None
+    assert snapshot["backend"]["last_error_at"] is not None
 
 
 def test_flight_blender_backend_preserves_provider_validation_details() -> None:

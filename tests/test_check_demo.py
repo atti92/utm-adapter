@@ -40,6 +40,7 @@ def test_demo_check_strict_router_fails_when_optional_router_check_fails(
     monkeypatch.setattr(check_demo, "_print_required", lambda _config: True)
     monkeypatch.setattr(check_demo.check_mavlink_router, "validate", lambda _path: [])
     monkeypatch.setattr(check_demo.openutm_demo, "_find_router_command", lambda: None)
+    monkeypatch.setattr(check_demo.openutm_demo, "_router_image_is_available", lambda _config: False)
     monkeypatch.setattr(check_demo.openutm_demo, "_find_qgroundcontrol_command", lambda: None)
     monkeypatch.setattr(check_demo.openutm_demo, "_find_mission_planner_command", lambda: None)
     monkeypatch.setattr(check_demo.Path, "is_dir", lambda _self: False)

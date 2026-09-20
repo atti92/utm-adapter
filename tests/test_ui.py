@@ -24,7 +24,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
 
     for label in ("Open mission file", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action"):
         assert label in html
-    for element_id in ("backend-readiness", "mavlink-readiness", "recording-readiness", "altitude-readiness", "control-readiness"):
+    for element_id in ("backend-readiness", "mavlink-readiness", "recording-readiness", "metrics-readiness", "altitude-readiness", "control-readiness"):
         assert element_id in html
     for endpoint in (
         "/v1/health",
@@ -34,6 +34,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
         "/v1/operations/",
         "/v1/capabilities",
         "/v1/integration",
+        "/v1/metrics",
         "/v1/vehicles/${encodeURIComponent(vehicleId)}/onboard-mission/refresh",
         "const onboardPath = `/v1/vehicles/${encodeURIComponent(vehicleId)}/onboard-mission`",
         "mission-planner",
@@ -49,6 +50,8 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "renderMissionDrift(null);" in javascript
     assert "Vehicle mission matches the submitted route" in javascript
     assert "renderVehicleStatus" in javascript
+    assert "metrics-readiness" in javascript
+    assert "telemetryMetrics.published_total" in javascript
     assert "battery_remaining_pct" in javascript
     assert "state.latestStatus?.latest_telemetry" in javascript
     assert "telemetry.altitude.datum" in javascript

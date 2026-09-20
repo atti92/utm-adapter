@@ -25,6 +25,7 @@ from .domain import (
     VehicleTelemetry,
 )
 from .mavlink import MavlinkVehicleSession
+from .observability import RuntimeMetrics
 from .runtime import MavlinkSessionManager
 from .missions import (
     NAVIGABLE_MISSION_COMMANDS_INFO,
@@ -46,6 +47,7 @@ def create_app(
     settings = settings or ConnectorSettings()
     recorder = JsonlRecorder(settings.record_path) if settings.record_path else None
     owns_service = service is None
+    metrics = service.metrics if service is not None else RuntimeMetrics()
     if owns_service:
         backend = (
             FlightBlenderBackend(
@@ -58,6 +60,7 @@ def create_app(
                 submitted_by=settings.flight_blender_submitted_by,
                 originating_party=settings.flight_blender_originating_party,
                 recorder=recorder,
+                metrics=metrics,
             )
             if settings.backend == "flight-blender"
             else InMemoryBackend()
@@ -76,6 +79,7 @@ def create_app(
             altitude_converter=altitude_converter,
             telemetry_publish_interval_s=settings.telemetry_publish_interval_s,
             event_coalesce_interval_s=settings.event_coalesce_interval_s,
+            metrics=metrics,
         )
     if session_manager is None:
         session_factory = MavlinkVehicleSession.connect
@@ -179,6 +183,33 @@ def create_app(
         """Expose the zero-fork GCS/connector boundary for local discovery."""
 
         return integration_manifest()
+
+    @app.get("/v1/metrics", response_model=dict)
+    def metrics_endpoint() -> dict:
+        """Expose process-local diagnostics for GCS and support tooling."""
+
+        active_operations = sum(
+            operation.state.declaration in {
+                DeclarationState.SUBMITTED,
+                DeclarationState.ACCEPTED,
+            }
+            for operation in service.operations.values()
+        )
+        snapshot = metrics.snapshot()
+        snapshot.update(
+            {
+                "vehicles": {
+                    "active": len(set(service.vehicles) | set(service.vehicle_snapshots)),
+                    "configured": len(manager.connections),
+                    "session_errors": len(manager.last_errors),
+                },
+                "operations": {
+                    "active": active_operations,
+                    "known": len(service.operations),
+                },
+            }
+        )
+        return snapshot
 
     @app.get("/v1/health", response_model=HealthResponse)
     def health() -> HealthResponse:

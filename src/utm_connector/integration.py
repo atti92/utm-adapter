@@ -27,6 +27,7 @@ INTEGRATION_MANIFEST = {
         "discovery_path": "/v1/integration",
         "capabilities_path": "/v1/capabilities",
         "health_path": "/v1/health",
+        "metrics_path": "/v1/metrics",
         "vehicles_path": "/v1/vehicles",
         "telemetry_path": "/v1/vehicles/{vehicle_id}",
         "vehicle_status_path": "/v1/vehicles/{vehicle_id}/status",

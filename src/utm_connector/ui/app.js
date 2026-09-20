@@ -7,6 +7,7 @@ const state = {
   operation: null,
   latestStatus: null,
   capabilities: null,
+  metrics: null,
   windowCustomized: false,
 };
 
@@ -214,7 +215,7 @@ function clearVehicleWorkspace(message = "") {
   if (message) setMessage(message);
 }
 
-function renderReadiness(capabilities, vehicles, health) {
+function renderReadiness(capabilities, vehicles, health, metrics) {
   const backend = capabilities.backend || "unknown";
   if (health?.backend_error) {
     setReadiness("backend-readiness", "backend-readiness-label", "warning", "Provider error");
@@ -249,6 +250,19 @@ function renderReadiness(capabilities, vehicles, health) {
     capabilities.recording?.mavlink_raw ? "ok" : "neutral",
     capabilities.recording?.mavlink_raw ? "Raw capture enabled" : "Raw capture off",
   );
+
+  const telemetryMetrics = metrics?.telemetry || {};
+  const backendMetrics = metrics?.backend || {};
+  if (backendMetrics.errors_total || telemetryMetrics.failed_total) {
+    const errors = Number(backendMetrics.errors_total || 0) + Number(telemetryMetrics.failed_total || 0);
+    setReadiness("metrics-readiness", "metrics-readiness-label", "warning", `${errors} publication error${errors === 1 ? "" : "s"}`);
+  } else if (telemetryMetrics.published_total) {
+    setReadiness("metrics-readiness", "metrics-readiness-label", "ok", `${telemetryMetrics.published_total} update${telemetryMetrics.published_total === 1 ? "" : "s"} sent`);
+  } else if (telemetryMetrics.received_total) {
+    setReadiness("metrics-readiness", "metrics-readiness-label", "neutral", `${telemetryMetrics.received_total} update${telemetryMetrics.received_total === 1 ? "" : "s"} observed`);
+  } else {
+    setReadiness("metrics-readiness", "metrics-readiness-label", "neutral", "Waiting for telemetry");
+  }
 
   const altitude = capabilities.altitude || {};
   if (backend === "flight-blender" && !altitude.geoid_conversion_configured) {
@@ -566,14 +580,15 @@ async function refresh() {
   if (refreshInFlight) return;
   refreshInFlight = true;
   try {
-    const [health, capabilities, integration, vehicles, events] = await Promise.all([
-      request("/v1/health"), request("/v1/capabilities"), request("/v1/integration"), request("/v1/vehicles"), request("/v1/events?limit=12"),
+    const [health, capabilities, integration, vehicles, events, metrics] = await Promise.all([
+      request("/v1/health"), request("/v1/capabilities"), request("/v1/integration"), request("/v1/vehicles"), request("/v1/events?limit=12"), request("/v1/metrics").catch(() => null),
     ]);
     state.capabilities = capabilities;
+    state.metrics = metrics;
     setConnection(health.status === "ok" ? "ok" : "degraded", health.status === "ok" ? "Connector online" : "Connector degraded");
     $("backend-badge").textContent = capabilities.backend;
     $("backend-badge").title = integration.connector?.name || "UTM connector";
-    renderReadiness(capabilities, vehicles, health);
+    renderReadiness(capabilities, vehicles, health, metrics);
     renderVehicleDirectory(vehicles);
     renderEvents(events);
     await refreshVehicle();

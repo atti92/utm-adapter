@@ -21,6 +21,7 @@ from datetime import datetime, timedelta, timezone
 from utm_connector.gcs_client import ConnectorClient
 
 with ConnectorClient("http://127.0.0.1:8000") as connector:
+    diagnostics = connector.metrics()
     vehicles = connector.vehicles()
     vehicle_id = vehicles[0]["vehicle_id"]
     connector.upload_qgroundcontrol_plan(
@@ -39,6 +40,10 @@ subsequent `onboard_mission()` call returns the connector's latest stored
 snapshot, which lets a GCS show mission drift consistently across
 QGroundControl and Mission Planner adapters. A vehicle that has not reported a
 mission yet returns HTTP 404.
+
+`metrics()` returns process-local diagnostics suitable for a compact GCS
+status panel: uptime, active vehicles and operations, telemetry publication
+counters, and provider request latency/error counters.
 
 The client intentionally returns JSON dictionaries so the host GCS can map
 connector state into its own native UI models. Use

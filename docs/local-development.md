@@ -186,6 +186,7 @@ For GCS integration, start with the discovery endpoints:
 ```sh
 curl http://127.0.0.1:8000/v1/capabilities
 curl http://127.0.0.1:8000/v1/health
+curl http://127.0.0.1:8000/v1/metrics
 curl http://127.0.0.1:8000/v1/vehicles
 ```
 
@@ -197,6 +198,14 @@ telemetry freshness, active operation count, and the last session error when a
 simulator or router cannot be reached. A `degraded` health status means at least
 one configured MAVLink session or the selected UTM backend currently has an
 error; `backend_error` contains the latest provider error when available.
+
+`/v1/metrics` is the machine-readable diagnostics view for a GCS status panel
+or a support bundle. It reports process uptime, active/configured vehicles,
+active operations, telemetry received/published/withheld/failed counters, the
+last telemetry timestamps, and provider request latency/error counters. The
+current connector publishes synchronously, so `telemetry.queue_depth` is
+explicitly `0`; a non-zero value would indicate a future asynchronous backlog.
+The counters are process-local and reset when the connector restarts.
 
 For a clean disposable run, use this in `.env`:
 

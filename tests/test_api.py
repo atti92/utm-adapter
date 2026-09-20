@@ -27,7 +27,10 @@ def _mission() -> dict:
 
 
 def test_local_operation_lifecycle() -> None:
-    app = create_app(ConnectorService(InMemoryBackend()))
+    app = create_app(
+        ConnectorService(InMemoryBackend()),
+        ConnectorSettings(mavlink_connections=[]),
+    )
     client = TestClient(app)
     mission_response = client.put("/v1/missions/sitl-1", json=_mission())
     assert mission_response.status_code == 200
@@ -67,6 +70,13 @@ def test_local_operation_lifecycle() -> None:
     status = client.get("/v1/vehicles/sitl-1/status").json()
     assert status["operations"][0]["state"]["conformance"] == "CONFORMING"
     assert client.get("/v1/health").json()["active_vehicles"] == 1
+    metrics = client.get("/v1/metrics")
+    assert metrics.status_code == 200
+    assert metrics.json()["telemetry"]["received_total"] == 1
+    assert metrics.json()["telemetry"]["published_total"] == 1
+    assert metrics.json()["telemetry"]["queue_depth"] == 0
+    assert metrics.json()["vehicles"] == {"active": 1, "configured": 0, "session_errors": 0}
+    assert metrics.json()["operations"]["active"] == 1
     assert len(client.get("/v1/events").json()) >= 5
 
 
@@ -183,6 +193,7 @@ def test_root_launches_operator_console_and_exposes_integration_contract() -> No
     assert manifest.status_code == 200
     payload = manifest.json()
     assert payload["operator_console"]["path"] == "/ui/"
+    assert payload["api"]["metrics_path"] == "/v1/metrics"
     assert payload["api"]["mission"]["qgroundcontrol"] == {
         "method": "PUT",
         "path": "/v1/missions/{vehicle_id}/qgroundcontrol",
@@ -192,6 +203,32 @@ def test_root_launches_operator_console_and_exposes_integration_contract() -> No
         "path": "/v1/missions/{vehicle_id}/mission-planner",
     }
     assert payload["mavlink"]["vehicle_control"] == "none"
+
+
+def test_metrics_are_available_before_any_traffic() -> None:
+    with TestClient(
+        create_app(
+            ConnectorService(InMemoryBackend()),
+            ConnectorSettings(mavlink_connections=[]),
+        )
+    ) as client:
+        payload = client.get("/v1/metrics").json()
+
+    assert payload["uptime_s"] >= 0
+    assert payload["started_at"]
+    assert payload["telemetry"] == {
+        "received_total": 0,
+        "published_total": 0,
+        "withheld_total": 0,
+        "failed_total": 0,
+        "last_received_at": None,
+        "last_published_at": None,
+        "queue_depth": 0,
+    }
+    assert payload["backend"]["requests_total"] == 0
+    assert payload["backend"]["errors_total"] == 0
+    assert payload["vehicles"] == {"active": 0, "configured": 0, "session_errors": 0}
+    assert payload["operations"] == {"active": 0, "known": 0}
 
 
 def test_opt_in_demo_mode_publishes_a_vehicle_for_the_operator_console() -> None:

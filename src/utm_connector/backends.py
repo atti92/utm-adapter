@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
-from time import sleep
+from time import monotonic, sleep
 from typing import Dict, List, Optional
 
 import httpx
@@ -17,6 +17,7 @@ from .domain import (
     VehicleTelemetry,
 )
 from .geometry import GeometryError, build_corridor
+from .observability import RuntimeMetrics
 from .recording import JsonlRecorder
 
 
@@ -122,6 +123,7 @@ class FlightBlenderBackend(UTMBackend):
         originating_party: str = "utm-operations-connector",
         client: Optional[httpx.Client] = None,
         recorder: Optional[JsonlRecorder] = None,
+        metrics: Optional[RuntimeMetrics] = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.bearer_token = bearer_token
@@ -139,6 +141,7 @@ class FlightBlenderBackend(UTMBackend):
         # always resolve through the operation-specific map above.
         self._legacy_provider_operation_ids: Dict[str, str] = {}
         self.recorder = recorder
+        self.metrics = metrics or RuntimeMetrics()
 
     def submit_operation(self, operation: Operation, mission: Mission) -> Operation:
         self._validate_declaration_window(mission)
@@ -307,6 +310,7 @@ class FlightBlenderBackend(UTMBackend):
             headers["Authorization"] = f"Bearer {self.bearer_token}"
         last_error: Exception | None = None
         for attempt in range(self.max_retries + 1):
+            started = monotonic()
             try:
                 if self.recorder is not None:
                     self.recorder.record(
@@ -320,15 +324,19 @@ class FlightBlenderBackend(UTMBackend):
                         {"method": method, "path": path, "status_code": response.status_code, "body": _response_body(response)},
                     )
                 if response.status_code == 204:
+                    self.metrics.record_backend_request(monotonic() - started, success=True)
                     return {}
                 response.raise_for_status()
                 body = response.json()
                 if not isinstance(body, dict):
                     raise BackendError(f"Flight Blender request {method} {path} returned a non-object response")
+                self.metrics.record_backend_request(monotonic() - started, success=True)
                 return body
             except BackendError:
+                self.metrics.record_backend_request(monotonic() - started, success=False)
                 raise
             except httpx.HTTPStatusError as exc:
+                self.metrics.record_backend_request(monotonic() - started, success=False)
                 if exc.response.status_code != 429 and exc.response.status_code < 500:
                     detail = _response_body(exc.response)
                     raise BackendError(
@@ -340,11 +348,13 @@ class FlightBlenderBackend(UTMBackend):
                     break
                 sleep(self.retry_backoff_s * (2**attempt))
             except httpx.RequestError as exc:
+                self.metrics.record_backend_request(monotonic() - started, success=False)
                 last_error = exc
                 if attempt >= self.max_retries:
                     break
                 sleep(self.retry_backoff_s * (2**attempt))
             except ValueError as exc:
+                self.metrics.record_backend_request(monotonic() - started, success=False)
                 raise BackendError(f"Flight Blender request {method} {path} returned invalid JSON: {exc}") from exc
         raise BackendError(f"Flight Blender request {method} {path} failed after retries: {last_error}") from last_error
 
