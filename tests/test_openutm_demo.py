@@ -38,6 +38,12 @@ def test_px4_demo_uses_px4_external_api_port_by_default() -> None:
     assert config.px4_image == openutm_demo.DEFAULT_PX4_IMAGE
 
 
+def test_px4_container_name_is_safe_for_docker_and_vehicle_specific() -> None:
+    config = openutm_demo.DemoConfig(simulator="px4", vehicle_id="demo/vehicle 1")
+
+    assert config.px4_container_name == "utm-adapter-px4-demo-vehicle-1"
+
+
 def test_px4_prerequisites_do_not_require_an_ardupilot_checkout(tmp_path: Path, monkeypatch) -> None:
     config = openutm_demo.DemoConfig(
         simulator="px4",

@@ -85,6 +85,14 @@ class DemoConfig:
     def connector_record_path(self) -> Path:
         return self.run_dir / "connector-events.jsonl"
 
+    @property
+    def px4_container_name(self) -> str:
+        safe_vehicle_id = "".join(
+            character if character.isalnum() or character in "-_" else "-"
+            for character in self.vehicle_id
+        )
+        return f"utm-adapter-px4-{safe_vehicle_id}"
+
 
 @dataclass
 class ManagedProcess:
@@ -544,6 +552,14 @@ class DemoRunner:
             print("[ok] Flight Blender Compose is running")
         _wait_for_http(self.config.provider_url, self.config.provider_timeout_s)
 
+        # Docker must publish PX4's host-side UDP endpoints before the
+        # connector binds them.  The connector can share the published UDP
+        # receiver once the container is running, but the reverse order makes
+        # Docker Desktop fail with "address already in use".
+        if self.config.simulator == "px4":
+            _start_sitl(self)
+            self._wait_for_px4_container()
+
         geoid_grid = _find_geoid_grid()
         assert geoid_grid is not None
         connector_env = os.environ.copy()
@@ -574,7 +590,8 @@ class DemoRunner:
         _wait_for_http(self.config.connector_url, self.config.connector_timeout_s, path="/v1/health")
         print(f"[ok] connector is ready at {self.config.connector_url}")
 
-        _start_sitl(self)
+        if self.config.simulator != "px4":
+            _start_sitl(self)
         self._wait_for_vehicle()
         gcs_label, gcs_process = _launch_gcs(self.config.gcs, run_dir=self.config.run_dir)
         if gcs_process is not None:
@@ -610,6 +627,22 @@ class DemoRunner:
                 last_detail = str(exc)
             time.sleep(1.0)
         raise DemoSetupError(last_detail)
+
+    def _wait_for_px4_container(self) -> None:
+        deadline = time.monotonic() + self.config.connector_timeout_s
+        last_detail = "PX4 container has not been created"
+        while time.monotonic() < deadline:
+            result = _run_command(["docker", "inspect", self.config.px4_container_name])
+            if result.returncode == 0:
+                print(f"[ok] PX4 container {self.config.px4_container_name} is running")
+                return
+            if self.processes and self.processes[-1].process.poll() is not None:
+                raise DemoSetupError(
+                    f"PX4 SITL exited with code {self.processes[-1].process.returncode}; see {self.config.run_dir}"
+                )
+            last_detail = (result.stderr or result.stdout or last_detail).strip()
+            time.sleep(0.25)
+        raise DemoSetupError(f"PX4 container did not become ready: {last_detail}")
 
     def stop(self) -> None:
         previous_sigint_handler = signal.getsignal(signal.SIGINT)
@@ -656,6 +689,8 @@ def _start_sitl(runner: DemoRunner) -> None:
             str(config.gcs_udp_port),
             "--connector-port",
             str(config.connector_udp_port),
+            "--container-name",
+            config.px4_container_name,
         ]
         cwd = config.adapter_root
         name = "PX4 SITL"
