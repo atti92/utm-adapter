@@ -289,6 +289,13 @@ public class UtmConnectorPlugin : Plugin
                     "The connector accepts only geographic WAYPOINT, TAKEOFF, and LAND items; " + command + " is present.");
             }
 
+            // Mission Planner keeps its home point as row 0, while the WPL
+            // export already contains the canonical home record above. Do
+            // not submit that same point twice, but preserve a real first
+            // waypoint when it is not the current home location.
+            if (IsHomeRow(row, command, home.Lat, home.Lng))
+                continue;
+
             var frame = ParseEnumValue<MAVLink.MAV_FRAME>(row.Cells["Frame"].Value, "frame");
             lines.Add(WplLine(
                 sequence++,
@@ -307,6 +314,18 @@ public class UtmConnectorPlugin : Plugin
         if (sequence < 3)
             throw new InvalidOperationException("At least two navigable mission items are required.");
         return String.Join("\n", lines) + "\n";
+    }
+
+    private static bool IsHomeRow(DataGridViewRow row, MAVLink.MAV_CMD command,
+        double homeLatitude, double homeLongitude)
+    {
+        if (row.Index != 0 || command != MAVLink.MAV_CMD.WAYPOINT)
+            return false;
+        if (homeLatitude == 0 && homeLongitude == 0)
+            return false;
+
+        return Math.Abs(CellDouble(row, "Lat") - homeLatitude) < 0.00001 &&
+               Math.Abs(CellDouble(row, "Lon") - homeLongitude) < 0.00001;
     }
 
     private static string WplLine(int sequence, int current, int frame, int command,
