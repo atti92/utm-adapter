@@ -41,6 +41,9 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
         assert endpoint in javascript
     assert "formatDate(event.timestamp)" in javascript
     assert "buildPreviewMission" in javascript
+    assert "function navigableMissionCommands()" in javascript
+    assert "state.capabilities?.mission_commands" in javascript
+    assert "DEFAULT_NAVIGABLE_MISSION_COMMANDS" in javascript
     assert "operator-console-preview" in javascript
     assert "renderMissionDrift" in javascript
     assert "renderMissionDrift(null);" in javascript

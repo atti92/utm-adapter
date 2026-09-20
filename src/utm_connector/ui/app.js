@@ -12,6 +12,7 @@ const state = {
 
 const DEMO_LEAD_TIME_MS = 15_000;
 const TERMINAL_DECLARATIONS = new Set(["COMPLETED", "CANCELLED", "REJECTED"]);
+const DEFAULT_NAVIGABLE_MISSION_COMMANDS = new Set([16, 21, 22]);
 let refreshInFlight = false;
 let missionReadInFlight = false;
 const intentInFlight = new Set();
@@ -28,6 +29,15 @@ function setMessage(message, kind = "") {
   const element = $("action-message");
   element.textContent = message;
   element.dataset.kind = kind;
+}
+
+function navigableMissionCommands() {
+  const advertised = state.capabilities?.mission_commands;
+  if (!Array.isArray(advertised)) return DEFAULT_NAVIGABLE_MISSION_COMMANDS;
+  const commands = advertised
+    .map((item) => Number(typeof item === "object" ? item.command : item))
+    .filter((command) => Number.isInteger(command));
+  return commands.length ? new Set(commands) : DEFAULT_NAVIGABLE_MISSION_COMMANDS;
 }
 
 function formatDate(value) {
@@ -377,9 +387,10 @@ function buildPreviewMission() {
   }
   if (state.planFormat === "mission-planner") {
     const waypoints = [];
+    const supportedCommands = navigableMissionCommands();
     String(state.plan).split(/\r?\n/).slice(1).forEach((line) => {
       const fields = line.trim().split(/\s+/);
-      if (fields.length < 11 || ![16, 21, 22].includes(Number(fields[3]))) return;
+      if (fields.length < 11 || !supportedCommands.has(Number(fields[3]))) return;
       const frame = Number(fields[2]);
       const waypoint = previewWaypoint(
         Number(fields[8]), Number(fields[9]), Number(fields[10]),
@@ -390,7 +401,8 @@ function buildPreviewMission() {
     return waypoints.length >= 2 ? waypoints : null;
   }
   const items = state.plan.mission?.items || [];
-  const waypoints = items.filter((item) => [16, 21, 22].includes(Number(item.command))).map((item, index) => {
+  const supportedCommands = navigableMissionCommands();
+  const waypoints = items.filter((item) => supportedCommands.has(Number(item.command))).map((item, index) => {
     const frame = Number(item.frame);
     const params = item.params || [];
     return previewWaypoint(

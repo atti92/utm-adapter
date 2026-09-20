@@ -128,6 +128,11 @@ def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
         "requires_future_start": False,
         "max_future_seconds": None,
     }
+    assert capabilities.json()["mission_commands"] == [
+        {"command": 16, "name": "WAYPOINT", "role": "route_point"},
+        {"command": 21, "name": "LAND", "role": "route_endpoint"},
+        {"command": 22, "name": "TAKEOFF", "role": "route_point"},
+    ]
     assert "qgroundcontrol" in capabilities.json()["mission_formats"]
 
     telemetry = {
