@@ -14,6 +14,16 @@ def test_mavlink_vehicle_ids_must_be_unique() -> None:
         )
 
 
+def test_mavlink_connection_uris_must_be_unique_per_vehicle_session() -> None:
+    with pytest.raises(ValidationError, match="connection_uri values must be unique"):
+        ConnectorSettings(
+            mavlink_connections=[
+                MavlinkConnectionConfig(vehicle_id="sitl-1", connection_uri="udpin:127.0.0.1:14551"),
+                MavlinkConnectionConfig(vehicle_id="sitl-2", connection_uri="udpin:127.0.0.1:14551"),
+            ]
+        )
+
+
 def test_provider_oauth_credentials_must_be_complete_and_exclusive() -> None:
     with pytest.raises(ValidationError, match="requires: flight_blender_client_secret"):
         ConnectorSettings(

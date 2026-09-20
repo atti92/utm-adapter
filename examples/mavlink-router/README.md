@@ -89,6 +89,12 @@ Run the connector with one router endpoint:
 UTM_CONNECTOR_MAVLINK_CONNECTIONS=[{"vehicle_id":"sitl-1","connection_uri":"udpin:127.0.0.1:14551"}]
 ```
 
+The connector currently maps one configured vehicle session to one router
+output. For a multi-vehicle fleet, add a separate router output and connector
+URI for each vehicle; repeating one `udpin:` URI for multiple vehicle IDs is
+rejected during startup so a fleet cannot appear healthy while sessions are
+silently competing for the same stream.
+
 The connector retries this endpoint automatically when the router or vehicle
 is temporarily unavailable. Set `UTM_CONNECTOR_MAVLINK_RECONNECT_INTERVAL_S`
 to change the retry interval (the default is five seconds).

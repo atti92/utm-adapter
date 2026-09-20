@@ -280,6 +280,12 @@ UTM_CONNECTOR_MAVLINK_POLL_INTERVAL_S=0.2
 UTM_CONNECTOR_MAVLINK_RECONNECT_INTERVAL_S=5.0
 ```
 
+Each configured vehicle session must use a distinct connector endpoint. If a
+router carries several vehicles, configure one router output (and URI) per
+vehicle rather than repeating the same `udpin:` URI; the connector rejects
+duplicate endpoints at startup instead of allowing two sessions to claim the
+same stream ambiguously.
+
 For a physical vehicle, use the explicit serial URI form so the connector can
 pass the baud rate correctly on every host: `serial:/dev/ttyUSB0:57600` on
 Linux/macOS or `serial:COM3:57600` on Windows. Put the router on the companion

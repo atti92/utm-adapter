@@ -59,6 +59,16 @@ class ConnectorSettings(BaseSettings):
         return self
 
     @model_validator(mode="after")
+    def validate_unique_connection_uris(self) -> "ConnectorSettings":
+        connection_uris = [connection.connection_uri for connection in self.mavlink_connections]
+        if len(connection_uris) != len(set(connection_uris)):
+            raise ValueError(
+                "MAVLink connection_uri values must be unique; give each vehicle "
+                "its own router output or session"
+            )
+        return self
+
+    @model_validator(mode="after")
     def validate_provider_authentication(self) -> "ConnectorSettings":
         oauth_values = (
             self.flight_blender_token_url,
