@@ -24,6 +24,14 @@ class UTMBackend(ABC):
     name = "backend"
     required_altitude_datum: Optional[AltitudeDatum] = None
 
+    def mission_window_constraints(self) -> dict:
+        """Return provider rules the operator console can validate locally."""
+
+        return {
+            "requires_future_start": False,
+            "max_future_seconds": None,
+        }
+
     @abstractmethod
     def submit_operation(self, operation: Operation, mission: Mission) -> Operation:
         """Submit an operation and return the provider-normalized result."""
@@ -90,6 +98,16 @@ class FlightBlenderBackend(UTMBackend):
 
     name = "flight-blender"
     required_altitude_datum = AltitudeDatum.WGS84
+    max_declaration_horizon_s = 2 * 24 * 60 * 60
+
+    def mission_window_constraints(self) -> dict:
+        # Flight Blender validates both declaration timestamps against its
+        # current clock. Exposing the rule lets a browser console provide an
+        # actionable message before a declaration reaches the provider.
+        return {
+            "requires_future_start": True,
+            "max_future_seconds": self.max_declaration_horizon_s,
+        }
 
     def __init__(
         self,

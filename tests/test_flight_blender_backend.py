@@ -88,6 +88,15 @@ def test_flight_blender_backend_submits_declaration_and_publishes_telemetry(tmp_
     assert '"Authorization":"<redacted>"' in recorded
 
 
+def test_flight_blender_backend_exposes_declaration_window_constraints() -> None:
+    backend = FlightBlenderBackend("http://flight-blender.test")
+
+    assert backend.mission_window_constraints() == {
+        "requires_future_start": True,
+        "max_future_seconds": 172800,
+    }
+
+
 def test_flight_blender_backend_rejects_non_wgs84_declaration_altitude() -> None:
     backend = FlightBlenderBackend(
         "http://flight-blender.test",

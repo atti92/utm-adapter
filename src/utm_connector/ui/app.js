@@ -52,6 +52,49 @@ function inputAsIso(id) {
   return new Date(value).toISOString();
 }
 
+function validateMissionWindow() {
+  const validFrom = new Date(inputAsIso("valid-from"));
+  const validUntil = new Date(inputAsIso("valid-until"));
+  if (validUntil <= validFrom) throw new Error("Valid until must be later than valid from.");
+
+  const constraints = state.capabilities?.mission_window || {};
+  const now = Date.now();
+  if (constraints.requires_future_start && validFrom.getTime() <= now) {
+    throw new Error("Flight Blender requires the operation to start in the future. Move Valid from forward and try again.");
+  }
+  if (Number.isFinite(constraints.max_future_seconds)) {
+    const latest = now + Number(constraints.max_future_seconds) * 1000;
+    if (validFrom.getTime() > latest || validUntil.getTime() > latest) {
+      throw new Error("This provider accepts declaration times only within the next two days.");
+    }
+  }
+  return { validFrom, validUntil };
+}
+
+function missionMatchesForm() {
+  const mission = state.mission?.mission;
+  if (!mission) return false;
+  try {
+    const { validFrom, validUntil } = validateMissionWindow();
+    return Math.abs(validFrom.getTime() - new Date(mission.valid_from).getTime()) < 1000
+      && Math.abs(validUntil.getTime() - new Date(mission.valid_until).getTime()) < 1000
+      && Math.abs(Number($("corridor-radius").value) - Number(mission.corridor_radius_m)) < 0.001;
+  } catch (_error) {
+    return false;
+  }
+}
+
+function updateMissionActionState() {
+  const preview = state.mission?.mission_hash === "preview";
+  const saved = Boolean(state.mission && !preview);
+  const dirty = saved && !missionMatchesForm();
+  $("save-button").disabled = !state.vehicleId || !state.plan;
+  $("submit-button").disabled = !state.vehicleId || !saved || dirty;
+  if (dirty && document.activeElement?.id !== "submit-button") {
+    setMessage("Mission settings changed. Validate & save before submitting.");
+  }
+}
+
 async function request(path, options = {}) {
   const response = await fetch(path, {
     headers: { "content-type": "application/json", ...(options.headers || {}) },
@@ -276,6 +319,7 @@ function renderMission(snapshot) {
       $("save-button").disabled = !state.vehicleId || !state.plan;
       $("submit-button").disabled = true;
       drawRoute();
+      updateMissionActionState();
       return;
     }
     $("mission-title").textContent = "No mission loaded";
@@ -283,6 +327,7 @@ function renderMission(snapshot) {
     $("save-button").disabled = !state.plan;
     $("submit-button").disabled = true;
     drawRoute();
+    updateMissionActionState();
     return;
   }
   const mission = snapshot.mission;
@@ -290,8 +335,8 @@ function renderMission(snapshot) {
   $("mission-meta").textContent = `${mission.source} · ${mission.corridor_radius_m} m corridor · hash ${snapshot.mission_hash.slice(0, 12)}…`;
   $("corridor-radius").value = mission.corridor_radius_m;
   $("save-button").disabled = !state.plan;
-  $("submit-button").disabled = false;
   drawRoute();
+  updateMissionActionState();
 }
 
 function renderMissionDrift(report) {
@@ -442,6 +487,12 @@ function samplePlan() {
 
 async function saveMission() {
   if (!state.vehicleId || !state.plan) return;
+  try {
+    validateMissionWindow();
+  } catch (error) {
+    setMessage(error.message, "error");
+    return;
+  }
   const metadata = {
     valid_from: inputAsIso("valid-from"),
     valid_until: inputAsIso("valid-until"),
@@ -478,8 +529,14 @@ async function saveMission() {
 
 async function sendIntent(command) {
   if (!state.vehicleId) return;
-  const operationId = state.operation?.operation_id || newOperationId();
   try {
+    if (command === "SUBMIT_OPERATION") {
+      validateMissionWindow();
+      if (!state.mission || state.mission.mission_hash === "preview" || !missionMatchesForm()) {
+        throw new Error("Validate & save the current mission before submitting it to UTM.");
+      }
+    }
+    const operationId = state.operation?.operation_id || newOperationId();
     const operation = await request(`/v1/operator-intents?vehicle_id=${encodeURIComponent(state.vehicleId)}`, { method: "POST", body: JSON.stringify({ schema_version: "1.0", command, operation_id: operationId }) });
     renderOperation(operation);
     const startsAt = state.mission?.mission?.valid_from ? new Date(state.mission.mission.valid_from) : null;
@@ -508,6 +565,7 @@ $("start-button").addEventListener("click", () => sendIntent("START_OPERATION"))
 $("cancel-button").addEventListener("click", () => sendIntent("CANCEL_OPERATION"));
 $("complete-button").addEventListener("click", () => sendIntent("COMPLETE_OPERATION"));
 $("refresh-operation-button").addEventListener("click", async () => { if (!state.operation) return; try { renderOperation(await request(`/v1/operations/${state.operation.operation_id}/refresh`, { method: "POST" })); setMessage("Provider state refreshed.", "success"); } catch (error) { setMessage(error.message, "error"); } });
+["valid-from", "valid-until", "corridor-radius"].forEach((id) => $(id).addEventListener("input", updateMissionActionState));
 
 setDefaultWindow();
 refresh();

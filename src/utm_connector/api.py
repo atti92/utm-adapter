@@ -160,6 +160,7 @@ def create_app(
                 "source_mavlink_global_position": "AMSL",
                 "provider_requirement": "WGS84" if service.backend.required_altitude_datum else None,
             },
+            "mission_window": service.backend.mission_window_constraints(),
             "operator_commands": [command.value for command in OperationCommand],
         }
 

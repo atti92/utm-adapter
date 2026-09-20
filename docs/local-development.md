@@ -120,8 +120,10 @@ curl http://127.0.0.1:8000/v1/health
 curl http://127.0.0.1:8000/v1/vehicles
 ```
 
-`/v1/capabilities` describes supported mission formats, operator commands, and
-the non-commanding MAVLink behavior. `/v1/vehicles` lists discovered vehicles,
+`/v1/capabilities` describes supported mission formats, operator commands, the
+provider declaration time-window rules, and the non-commanding MAVLink behavior.
+The browser console uses those rules to reject stale Flight Blender windows
+before submission. `/v1/vehicles` lists discovered vehicles,
 telemetry freshness, active operation count, and the last session error when a
 simulator or router cannot be reached. A `degraded` health status means at least
 one configured MAVLink session or the selected UTM backend currently has an

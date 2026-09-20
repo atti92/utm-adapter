@@ -122,6 +122,10 @@ def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
         "recommended_topology": "single_router_endpoint",
         "telemetry_publish_interval_s": 1.0,
     }
+    assert capabilities.json()["mission_window"] == {
+        "requires_future_start": False,
+        "max_future_seconds": None,
+    }
     assert "qgroundcontrol" in capabilities.json()["mission_formats"]
 
     telemetry = {

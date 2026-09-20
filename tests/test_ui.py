@@ -49,6 +49,9 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "telemetry.altitude.datum" in javascript
     assert "altitude - 2" in javascript
     assert "clearVehicleWorkspace" in javascript
+    assert "Validate & save the current mission before submitting it to UTM." in javascript
+    assert "requires_future_start" in javascript
+    assert "Mission settings changed. Validate & save before submitting." in javascript
     assert "The selected vehicle went offline" in javascript
     assert "The selected vehicle changed. Load a mission for the new vehicle." in javascript
     assert '$("plan-file").value = ""' in javascript
