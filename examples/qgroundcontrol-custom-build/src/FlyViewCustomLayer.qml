@@ -15,6 +15,8 @@ Item {
     property var mapControl
     property var totalToolInsets: toolInsets
     property string connectorBaseUrl: "http://127.0.0.1:8000"
+    property string fallbackConnectorBaseUrl: "http://127.0.0.1:8001"
+    property string resolvedConnectorBaseUrl: connectorBaseUrl
     property bool connectorOnline: false
     property string connectorLabel: "UTM offline"
     property string vehicleLabel: "No vehicle"
@@ -27,34 +29,50 @@ Item {
         operationLabel = "No operation"
     }
 
-    function requestJson(path, callback) {
+    function requestJson(path, callback, baseUrl) {
+        var endpoint = baseUrl || root.connectorBaseUrl
         var request = new XMLHttpRequest()
-        request.open("GET", connectorBaseUrl + path)
+        request.open("GET", endpoint + path)
         request.onreadystatechange = function() {
             if (request.readyState !== 4) {
                 return
             }
             if (request.status < 200 || request.status >= 300) {
+                if (endpoint === root.connectorBaseUrl
+                        && root.connectorBaseUrl === "http://127.0.0.1:8000"
+                        && root.fallbackConnectorBaseUrl !== endpoint) {
+                    root.requestJson(path, callback, root.fallbackConnectorBaseUrl)
+                    return
+                }
                 setOffline("UTM unavailable")
                 return
             }
             try {
-                callback(JSON.parse(request.responseText))
+                root.resolvedConnectorBaseUrl = endpoint
+                callback(JSON.parse(request.responseText), endpoint)
             } catch (error) {
                 setOffline("UTM response error")
             }
         }
-        request.onerror = function() { setOffline("UTM unavailable") }
+        request.onerror = function() {
+            if (endpoint === root.connectorBaseUrl
+                    && root.connectorBaseUrl === "http://127.0.0.1:8000"
+                    && root.fallbackConnectorBaseUrl !== endpoint) {
+                root.requestJson(path, callback, root.fallbackConnectorBaseUrl)
+                return
+            }
+            setOffline("UTM unavailable")
+        }
         request.send()
     }
 
     function refreshStatus() {
-        requestJson("/v1/health", function(health) {
+        requestJson("/v1/health", function(health, endpoint) {
             connectorOnline = health.status === "ok"
             connectorLabel = connectorOnline
                     ? "UTM ready"
                     : (health.backend_error ? "Provider degraded" : "UTM degraded")
-            requestJson("/v1/vehicles", function(vehicles) {
+            requestJson("/v1/vehicles", function(vehicles, endpoint) {
                 if (vehicles.length === 0) {
                     vehicleLabel = "No vehicle telemetry"
                     operationLabel = "No operation"
@@ -72,9 +90,9 @@ Item {
                     var state = operation.state || {}
                     operationLabel = (state.declaration || "UNKNOWN") + " · "
                             + (state.telemetry_publication || "NOT_STARTED")
-                })
-            })
-        })
+                }, endpoint)
+            }, endpoint)
+        }, root.connectorBaseUrl)
     }
 
     Timer {
@@ -155,7 +173,7 @@ Item {
             QGCButton {
                 text: "Open UTM console"
                 height: 26
-                onClicked: Qt.openUrlExternally(root.connectorBaseUrl + "/ui/")
+                onClicked: Qt.openUrlExternally(root.resolvedConnectorBaseUrl + "/ui/")
             }
         }
     }

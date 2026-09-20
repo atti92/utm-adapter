@@ -27,6 +27,8 @@ The overlay reads only:
 
 The **Open UTM** button opens `/ui/` in the system browser. It does not send
 MAVLink commands, upload missions, arm, take off, or change flight modes.
+With the default URL it probes the standalone connector on port `8000` and
+automatically falls back to the supervised full-stack connector on `8001`.
 
 ## Use it in a QGroundControl custom build
 
@@ -37,8 +39,9 @@ MAVLink commands, upload missions, arm, take off, or change flight modes.
 3. Keep the stock `CustomOverrideInterceptor` from QGC's custom-example (it
    installs the `/Custom` URL interceptor). If an existing custom build has
    replaced it, retain the equivalent `addUrlInterceptor` mapping.
-4. Change `connectorBaseUrl` in the QML file if the connector is not running at
-   `http://127.0.0.1:8000`.
+4. Change `connectorBaseUrl` in the QML file only when the connector is not
+   running on the local machine or uses a different port. The default covers
+   both the standalone and supervised demo ports.
 5. From the adapter checkout, validate the source contract before building:
 
    ```sh

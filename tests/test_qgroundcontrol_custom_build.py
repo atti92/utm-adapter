@@ -13,8 +13,11 @@ def test_qgroundcontrol_overlay_is_a_non_commanding_custom_build_layer() -> None
     assert 'requestJson("/v1/vehicles"' in qml
     assert '"/v1/vehicles/" + encodeURIComponent(vehicle.vehicle_id) + "/status"' in qml
     assert 'property string operationLabel: "No operation"' in qml
+    assert 'property string fallbackConnectorBaseUrl: "http://127.0.0.1:8001"' in qml
+    assert "resolvedConnectorBaseUrl" in qml
+    assert "root.fallbackConnectorBaseUrl" in qml
     assert 'state.telemetry_publication' in qml
-    assert 'Qt.openUrlExternally(root.connectorBaseUrl + "/ui/")' in qml
+    assert 'Qt.openUrlExternally(root.resolvedConnectorBaseUrl + "/ui/")' in qml
     assert "QGCButton" in qml
     assert "MAV_CMD" not in qml
     assert "sendMavlink" not in qml
