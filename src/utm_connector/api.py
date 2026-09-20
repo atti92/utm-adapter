@@ -42,6 +42,16 @@ from .recording import JsonlRecorder
 from .integration import integration_manifest
 
 
+class OperatorConsoleStaticFiles(StaticFiles):
+    """Serve the local console without allowing stale UI bundles to linger."""
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code == 200:
+            response.headers["cache-control"] = "no-store, max-age=0"
+        return response
+
+
 def create_app(
     service: Optional[ConnectorService] = None,
     settings: Optional[ConnectorSettings] = None,
@@ -549,6 +559,10 @@ def create_app(
         return RedirectResponse(url="/ui/")
 
     ui_directory = Path(__file__).with_name("ui")
-    app.mount("/ui", StaticFiles(directory=ui_directory, html=True), name="ui")
+    app.mount(
+        "/ui",
+        OperatorConsoleStaticFiles(directory=ui_directory, html=True),
+        name="ui",
+    )
 
     return app

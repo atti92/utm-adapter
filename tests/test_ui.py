@@ -11,6 +11,7 @@ def test_operator_console_is_served_without_external_assets() -> None:
     response = client.get("/ui/")
 
     assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store, max-age=0"
     assert "UTM Operator Console" in response.text
     assert "/ui/app.js" in response.text
     assert "/ui/styles.css" in response.text
@@ -20,7 +21,10 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     client = TestClient(create_app(ConnectorService(InMemoryBackend())))
 
     html = client.get("/ui/").text
-    javascript = client.get("/ui/app.js").text
+    javascript_response = client.get("/ui/app.js")
+    javascript = javascript_response.text
+
+    assert javascript_response.headers["cache-control"] == "no-store, max-age=0"
 
     for label in ("Open mission file", "Use vehicle mission", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action", "Connection guide", "Copy diagnostics", "Download diagnostics", "Support ID", "How the vehicle link is shared", "MAVLink router"):
         assert label in html
