@@ -6,6 +6,8 @@ const state = {
   mission: null,
   operation: null,
   latestStatus: null,
+  latestHealth: null,
+  vehicles: [],
   capabilities: null,
   metrics: null,
   windowCustomized: false,
@@ -278,6 +280,98 @@ function renderReadiness(capabilities, vehicles, health, metrics) {
     setReadiness("control-readiness", "control-readiness-label", "ok", "GCS remains in control");
   } else {
     setReadiness("control-readiness", "control-readiness-label", "warning", "Review command boundary");
+  }
+}
+
+function setSetupStep(index, stateName, title, detail) {
+  const step = document.querySelectorAll(".setup-step")[index];
+  if (!step) return;
+  step.dataset.state = stateName;
+  step.querySelector("strong").textContent = title;
+  step.querySelector("small").textContent = detail;
+}
+
+function renderSetupGuide(capabilities, vehicles, health) {
+  const backend = capabilities.backend || "unknown";
+  const providerError = health?.backend_error;
+  const onlineVehicles = vehicles.filter((vehicle) => vehicle.connection_state === "CONNECTED");
+  const configured = Boolean(capabilities.mavlink?.configured);
+  const demoMode = Boolean(capabilities.demo_mode);
+
+  setSetupStep(
+    0,
+    capabilities.mavlink?.non_commanding && capabilities.mavlink?.read_only ? "ok" : "warning",
+    "GCS remains in control",
+    "QGroundControl or Mission Planner keeps all vehicle-control authority.",
+  );
+  if (demoMode) {
+    setSetupStep(1, "ok", "Demo vehicle online", "The connector is supplying a self-contained moving test vehicle.");
+  } else if (onlineVehicles.length) {
+    setSetupStep(
+      1,
+      "ok",
+      `${onlineVehicles.length} vehicle${onlineVehicles.length === 1 ? "" : "s"} online`,
+      "One physical link can feed both GCS and connector through separate router outputs.",
+    );
+  } else if (configured) {
+    setSetupStep(1, "warning", "Waiting for vehicle", "The link is configured; start the vehicle, simulator, or MAVLink router.");
+  } else {
+    setSetupStep(1, "warning", "Configure vehicle link", "Point the connector at a router output; no second aircraft port is required.");
+  }
+
+  if (providerError) {
+    setSetupStep(2, "warning", "Provider needs attention", String(providerError));
+  } else if (backend === "flight-blender" && !capabilities.altitude?.geoid_conversion_configured) {
+    setSetupStep(2, "warning", "Add altitude reference", "Flight Blender needs an EGM96/EGM2008 geoid grid for AMSL telemetry.");
+  } else {
+    setSetupStep(2, "ok", `${formatStatus(backend)} ready`, "UTM declarations and telemetry can use the operator workflow below.");
+  }
+
+  const note = $("setup-note");
+  if (providerError) {
+    note.dataset.state = "error";
+    note.textContent = `Provider error: ${providerError}`;
+  } else if (!vehicles.length && !demoMode) {
+    note.dataset.state = "warning";
+    note.textContent = "No vehicle is visible yet. Keep this console open, start the simulator or router, and the vehicle will appear automatically.";
+  } else {
+    note.dataset.state = "";
+    note.textContent = "Real aircraft setup: one physical vehicle link enters a MAVLink router, which exposes one output to the GCS and one to the connector.";
+  }
+}
+
+function diagnosticsSnapshot() {
+  return {
+    captured_at: new Date().toISOString(),
+    health: state.latestHealth || null,
+    capabilities: state.capabilities,
+    metrics: state.metrics,
+    vehicles: state.vehicles || [],
+    selected_vehicle: state.vehicleId || null,
+    selected_vehicle_status: state.latestStatus,
+  };
+}
+
+async function copyDiagnostics() {
+  const text = JSON.stringify(diagnosticsSnapshot(), null, 2);
+  try {
+    await navigator.clipboard.writeText(text);
+    $("setup-message").textContent = "Diagnostics copied. Share this redacted connector snapshot with support.";
+    $("setup-message").dataset.kind = "success";
+  } catch (_error) {
+    const fallback = document.createElement("textarea");
+    fallback.value = text;
+    fallback.setAttribute("readonly", "");
+    fallback.style.position = "fixed";
+    fallback.style.opacity = "0";
+    document.body.appendChild(fallback);
+    fallback.select();
+    const copied = document.execCommand("copy");
+    fallback.remove();
+    $("setup-message").textContent = copied
+      ? "Diagnostics copied. Share this redacted connector snapshot with support."
+      : "Could not access the clipboard. Allow clipboard access and try again.";
+    $("setup-message").dataset.kind = copied ? "success" : "error";
   }
 }
 
@@ -586,10 +680,13 @@ async function refresh() {
     ]);
     state.capabilities = capabilities;
     state.metrics = metrics;
+    state.latestHealth = health;
+    state.vehicles = vehicles;
     setConnection(health.status === "ok" ? "ok" : "degraded", health.status === "ok" ? "Connector online" : "Connector degraded");
     $("backend-badge").textContent = capabilities.backend;
     $("backend-badge").title = integration.connector?.name || "UTM connector";
     renderReadiness(capabilities, vehicles, health, metrics);
+    renderSetupGuide(capabilities, vehicles, health);
     renderVehicleDirectory(vehicles);
     renderEvents(events);
     await refreshVehicle();
@@ -767,6 +864,7 @@ $("start-button").addEventListener("click", () => sendIntent("START_OPERATION"))
 $("cancel-button").addEventListener("click", () => sendIntent("CANCEL_OPERATION"));
 $("complete-button").addEventListener("click", () => sendIntent("COMPLETE_OPERATION"));
 $("refresh-operation-button").addEventListener("click", async () => { if (!state.operation) return; try { renderOperation(await request(`/v1/operations/${state.operation.operation_id}/refresh`, { method: "POST" })); setMessage("Provider state refreshed.", "success"); } catch (error) { setMessage(error.message, "error"); } });
+$("copy-diagnostics").addEventListener("click", copyDiagnostics);
 ["valid-from", "valid-until", "corridor-radius"].forEach((id) => $(id).addEventListener("input", () => {
   state.windowCustomized = true;
   updateMissionActionState();

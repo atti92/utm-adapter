@@ -48,6 +48,32 @@
         </div>
       </section>
 
+      <section class="panel setup-panel" aria-labelledby="setup-title">
+        <div class="panel-heading setup-heading">
+          <div>
+            <p class="eyebrow">SETUP &amp; SUPPORT</p>
+            <h2 id="setup-title">Connection guide</h2>
+          </div>
+          <button class="button secondary" id="copy-diagnostics" type="button">Copy diagnostics</button>
+        </div>
+        <div class="setup-grid" id="setup-grid">
+          <div class="setup-step" data-state="neutral">
+            <span class="setup-step-number">1</span>
+            <div><strong>GCS</strong><small>QGroundControl or Mission Planner stays in control of the vehicle.</small></div>
+          </div>
+          <div class="setup-step" data-state="neutral">
+            <span class="setup-step-number">2</span>
+            <div><strong>Vehicle link</strong><small>Waiting for the connector to report its MAVLink link.</small></div>
+          </div>
+          <div class="setup-step" data-state="neutral">
+            <span class="setup-step-number">3</span>
+            <div><strong>UTM provider</strong><small>Waiting for backend readiness.</small></div>
+          </div>
+        </div>
+        <p class="setup-note" id="setup-note">Use one physical vehicle link into a MAVLink router when the GCS and connector share a real aircraft.</p>
+        <p class="inline-message" id="setup-message" role="status"></p>
+      </section>
+
       <section class="hero-grid">
         <article class="panel operator-panel">
           <div class="panel-heading">

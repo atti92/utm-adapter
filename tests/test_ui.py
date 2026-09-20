@@ -22,7 +22,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     html = client.get("/ui/").text
     javascript = client.get("/ui/app.js").text
 
-    for label in ("Open mission file", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action"):
+    for label in ("Open mission file", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action", "Connection guide", "Copy diagnostics"):
         assert label in html
     for element_id in ("backend-readiness", "mavlink-readiness", "recording-readiness", "metrics-readiness", "altitude-readiness", "control-readiness"):
         assert element_id in html
@@ -87,6 +87,10 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "The vehicle did not return a mission within 8 seconds." in javascript
     assert "Vehicle mission received" in javascript
     assert "GCS remains in control" in javascript
+    assert "function renderSetupGuide" in javascript
+    assert "One physical link can feed both GCS and connector" in javascript
+    assert "function copyDiagnostics" in javascript
+    assert "navigator.clipboard.writeText" in javascript
     assert 'connectionState === "LOST"' in javascript
     assert '"STALE"' in javascript
     assert "function statusTone(value)" in javascript
