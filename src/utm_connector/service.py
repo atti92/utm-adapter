@@ -43,21 +43,21 @@ class ConnectorService:
         event_history_limit: int = 1000,
         altitude_converter: Optional[AltitudeConverter] = None,
         telemetry_publish_interval_s: float = 0.0,
-        conformance_event_interval_s: float = 5.0,
+        event_coalesce_interval_s: float = 5.0,
     ) -> None:
         if event_history_limit < 1:
             raise ValueError("event_history_limit must be greater than zero")
         if telemetry_publish_interval_s < 0:
             raise ValueError("telemetry_publish_interval_s must not be negative")
-        if conformance_event_interval_s < 0:
-            raise ValueError("conformance_event_interval_s must not be negative")
+        if event_coalesce_interval_s < 0:
+            raise ValueError("event_coalesce_interval_s must not be negative")
         self.backend = backend
         self.state_store = state_store
         self.recorder = recorder
         self.event_history_limit = event_history_limit
         self.altitude_converter = altitude_converter
         self.telemetry_publish_interval_s = telemetry_publish_interval_s
-        self.conformance_event_interval_s = conformance_event_interval_s
+        self.event_coalesce_interval_s = event_coalesce_interval_s
         self.missions: Dict[str, MissionSnapshot] = {}
         self.onboard_missions: Dict[str, MissionSnapshot] = {}
         self.onboard_mission_reads: Dict[str, MavlinkMissionRead] = {}
@@ -66,7 +66,7 @@ class ConnectorService:
         self.vehicle_snapshots: Dict[str, VehicleStateSnapshot] = {}
         self.operations: Dict[UUID, Operation] = {}
         self._last_published_at: Dict[UUID, datetime] = {}
-        self._last_conformance_event: Dict[UUID, tuple[datetime, ConformanceState, str]] = {}
+        self._last_coalesced_event: Dict[tuple[str, str], tuple[datetime, str]] = {}
         self.events: List[Event] = []
         self.last_backend_error: Optional[str] = None
         if state_store is not None:
@@ -295,7 +295,10 @@ class ConnectorService:
                 else:
                     assessment = assess_conformance(provider_mission, provider_telemetry)
                 operation.state.conformance = assessment.state
-                if self._should_record_conformance_event(operation.operation_id, assessment):
+                if self._should_record_coalesced_event(
+                    ("conformance", str(operation.operation_id)),
+                    f"{assessment.state.value}:{assessment.reason}",
+                ):
                     self._event(
                         "CONFORMANCE_ASSESSED",
                         vehicle_id=vehicle_id,
@@ -326,45 +329,59 @@ class ConnectorService:
             for operation in active_operations:
                 publication_error = publication_errors.get(operation.operation_id)
                 if publication_error is not None:
-                    self._event(
-                        "TELEMETRY_PUBLICATION_FAILED",
-                        vehicle_id=vehicle_id,
-                        operation_id=operation.operation_id,
-                        severity="ERROR",
-                        details={
-                            "provider_operation_id": operation.provider_operation_id,
-                            "error": str(publication_error),
-                        },
-                    )
+                    if self._should_record_coalesced_event(
+                        ("telemetry_failed", str(operation.operation_id)),
+                        str(publication_error),
+                    ):
+                        self._event(
+                            "TELEMETRY_PUBLICATION_FAILED",
+                            vehicle_id=vehicle_id,
+                            operation_id=operation.operation_id,
+                            severity="ERROR",
+                            details={
+                                "provider_operation_id": operation.provider_operation_id,
+                                "error": str(publication_error),
+                            },
+                        )
             raise next(iter(publication_errors.values()))
         if not active_operations:
-            self._event(
-                "TELEMETRY_RECEIVED",
-                vehicle_id=vehicle_id,
-                details={"quality": telemetry.quality},
-            )
+            if self._should_record_coalesced_event(
+                ("telemetry_received", vehicle_id), telemetry.quality.value
+            ):
+                self._event(
+                    "TELEMETRY_RECEIVED",
+                    vehicle_id=vehicle_id,
+                    details={"quality": telemetry.quality},
+                )
         elif publication_withheld and not publication_succeeded:
             for operation in active_operations:
                 if operation.operation_id in publication_withheld:
-                    self._event(
-                        "TELEMETRY_PUBLICATION_WITHHELD",
-                        vehicle_id=vehicle_id,
-                        operation_id=operation.operation_id,
-                        severity="WARNING",
-                        details={
-                            "quality": telemetry.quality,
-                            "reason": publication_withheld_reasons.get(
-                                operation.operation_id,
-                                "telemetry is not fresh enough for provider publication",
-                            ),
-                        },
+                    reason = publication_withheld_reasons.get(
+                        operation.operation_id,
+                        "telemetry is not fresh enough for provider publication",
                     )
+                    if self._should_record_coalesced_event(
+                        ("telemetry_withheld", str(operation.operation_id)), reason
+                    ):
+                        self._event(
+                            "TELEMETRY_PUBLICATION_WITHHELD",
+                            vehicle_id=vehicle_id,
+                            operation_id=operation.operation_id,
+                            severity="WARNING",
+                            details={
+                                "quality": telemetry.quality,
+                                "reason": reason,
+                            },
+                        )
         elif publication_succeeded:
-            self._event(
-                "TELEMETRY_PUBLISHED",
-                vehicle_id=vehicle_id,
-                details={"quality": telemetry.quality},
-            )
+            if self._should_record_coalesced_event(
+                ("telemetry_published", vehicle_id), telemetry.quality.value
+            ):
+                self._event(
+                    "TELEMETRY_PUBLISHED",
+                    vehicle_id=vehicle_id,
+                    details={"quality": telemetry.quality},
+                )
         return telemetry
 
     def ingest_vehicle_snapshot(self, snapshot: VehicleStateSnapshot) -> VehicleStateSnapshot:
@@ -394,22 +411,18 @@ class ConnectorService:
             )
         return snapshot
 
-    def _should_record_conformance_event(
-        self, operation_id: UUID, assessment: ConformanceAssessment
-    ) -> bool:
+    def _should_record_coalesced_event(self, key: tuple[str, str], signature: str) -> bool:
         now = datetime.now(timezone.utc)
-        previous = self._last_conformance_event.get(operation_id)
-        signature = (assessment.state, assessment.reason)
+        previous = self._last_coalesced_event.get(key)
         if previous is not None:
-            previous_at, previous_state, previous_reason = previous
-            unchanged = (previous_state, previous_reason) == signature
+            previous_at, previous_signature = previous
             interval_elapsed = (
-                self.conformance_event_interval_s == 0
-                or (now - previous_at).total_seconds() >= self.conformance_event_interval_s
+                self.event_coalesce_interval_s == 0
+                or (now - previous_at).total_seconds() >= self.event_coalesce_interval_s
             )
-            if unchanged and not interval_elapsed:
+            if previous_signature == signature and not interval_elapsed:
                 return False
-        self._last_conformance_event[operation_id] = (now, *signature)
+        self._last_coalesced_event[key] = (now, signature)
         return True
 
     def apply_intent(self, intent: OperationIntent) -> Operation:
