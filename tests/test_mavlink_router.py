@@ -1,8 +1,11 @@
 from pathlib import Path
 import sys
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
+from scripts import check_mavlink_router
 from scripts.check_mavlink_router import DEFAULT_CONFIG, validate
 
 
@@ -61,3 +64,53 @@ Port = 14551
     errors = validate(config)
 
     assert "missing [UdpEndpoint vehicle_input] section" in errors
+
+
+def test_router_runtime_auto_accepts_docker_source_checkout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    source_root = tmp_path / "mavlink-router"
+    dockerfile = source_root / "examples" / "Dockerfile.ubuntu"
+    dockerfile.parent.mkdir(parents=True)
+    dockerfile.write_text("FROM scratch\n", encoding="utf-8")
+    monkeypatch.setattr(check_mavlink_router, "_router_binary", lambda: None)
+    monkeypatch.setattr(check_mavlink_router, "_docker_available", lambda: (True, ""))
+    monkeypatch.setattr(check_mavlink_router, "_docker_image_is_available", lambda _image: False)
+
+    assert check_mavlink_router._select_runtime("auto", source_root, "router:test") == "docker"
+
+
+def test_router_strict_accepts_docker_source_checkout(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source_root = tmp_path / "mavlink-router"
+    dockerfile = source_root / "examples" / "Dockerfile.ubuntu"
+    dockerfile.parent.mkdir(parents=True)
+    dockerfile.write_text("FROM scratch\n", encoding="utf-8")
+    monkeypatch.setattr(check_mavlink_router, "_router_binary", lambda: None)
+    monkeypatch.setattr(check_mavlink_router, "_docker_available", lambda: (True, ""))
+    monkeypatch.setattr(check_mavlink_router, "_docker_image_is_available", lambda _image: False)
+
+    result = check_mavlink_router.main(
+        [
+            "--strict",
+            "--router-source-root",
+            str(source_root),
+            "--router-image",
+            "router:test",
+        ]
+    )
+
+    assert result == 0
+    assert "Docker MAVLink Router fallback" in capsys.readouterr().out
+
+
+def test_router_strict_fails_without_native_or_docker_runtime(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(check_mavlink_router, "_router_binary", lambda: None)
+    monkeypatch.setattr(check_mavlink_router, "_docker_available", lambda: (False, "daemon unavailable"))
+
+    result = check_mavlink_router.main(
+        ["--strict", "--router-source-root", str(tmp_path / "missing")]
+    )
+
+    assert result == 1

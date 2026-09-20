@@ -124,7 +124,7 @@ make demo-check
 ```
 
 The required checks must pass before starting the supervised demo. QGroundControl,
-Mission Planner, and `mavlink-routerd` are reported separately because the
+Mission Planner, and the MAVLink Router runtime are reported separately because the
 browser console and the two-output SITL path remain usable without those
 optional host applications. Use `--strict-router` with
 `uv run python scripts/check_demo.py` when the router binary is part of the
@@ -225,7 +225,7 @@ Before a router-backed demo, validate the checked-in fan-out configuration:
 
 ```sh
 make router-check
-# add --strict when mavlink-routerd must also be present on PATH
+# require either native mavlink-routerd or the Docker fallback
 uv run python scripts/check_mavlink_router.py --strict
 ```
 

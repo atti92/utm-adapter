@@ -38,7 +38,11 @@ uv run python scripts/check_mavlink_router.py --strict
 ```
 
 The first command validates the endpoint contract on every platform. The
-strict form also checks that `mavlink-routerd` is installed and on `PATH`.
+strict form requires a usable runtime: it accepts either a native
+`mavlink-routerd` or the Docker fallback. Use
+`--router-runtime native` to require the host binary, or
+`--router-runtime docker --router-source-root PATH` to check the portable
+fallback explicitly.
 
 ### Cross-platform Docker fallback
 
