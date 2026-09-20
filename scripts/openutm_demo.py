@@ -714,6 +714,8 @@ def _start_sitl(runner: DemoRunner) -> None:
             str(config.adapter_root / "scripts" / "px4_sitl.py"),
             "--docker-image",
             config.px4_image,
+            "--home",
+            config.home,
             "--gcs-port",
             str(config.gcs_udp_port),
             "--connector-port",

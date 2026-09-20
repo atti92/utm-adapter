@@ -6,15 +6,17 @@ streams separate is useful for a local demo: QGroundControl can keep its
 normal port while the connector listens independently on the API port.
 
 The official PX4 SITL container is the default because it is available on
-macOS, Linux, WSL, and Windows without requiring a native PX4 toolchain.  A
-local checkout is still supported for teams that build PX4 themselves; the
-helper only starts an already-built binary in that mode and leaves the exact
-build workflow to PX4's own documentation.
+macOS, Linux, WSL, and Windows without requiring a native PX4 toolchain.  The
+shared ``--home`` setting is applied through PX4's standard home-coordinate
+environment variables.  A local checkout is still supported for teams that
+build PX4 themselves; the helper only starts an already-built binary in that
+mode and leaves the exact build workflow to PX4's own documentation.
 """
 
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import shutil
 import subprocess
@@ -31,6 +33,26 @@ DEFAULT_GCS_PORT = 14550
 DEFAULT_CONNECTOR_PORT = 14540
 PX4_EXTERNAL_API_PORT = 14540
 DEFAULT_DOCKER_IMAGE = "px4io/px4-sitl:latest"
+DEFAULT_HOME = "47.4979,19.0402,137,0"
+
+
+def parse_home(home: str) -> tuple[str, str, str]:
+    """Validate and split the shared ``lat,lon,altitude,heading`` setting."""
+
+    fields = [field.strip() for field in home.split(",")]
+    if len(fields) < 3:
+        raise ValueError("PX4 home must be lat,lon,altitude[,heading]")
+    try:
+        latitude, longitude, altitude = (float(value) for value in fields[:3])
+    except ValueError as exc:
+        raise ValueError("PX4 home latitude, longitude, and altitude must be numeric") from exc
+    if not all(math.isfinite(value) for value in (latitude, longitude, altitude)):
+        raise ValueError("PX4 home coordinates must be finite")
+    if not -90 <= latitude <= 90:
+        raise ValueError("PX4 home latitude must be between -90 and 90 degrees")
+    if not -180 <= longitude <= 180:
+        raise ValueError("PX4 home longitude must be between -180 and 180 degrees")
+    return (str(latitude), str(longitude), str(altitude))
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -49,6 +71,7 @@ def _parser() -> argparse.ArgumentParser:
         help=f"PX4 SITL container image (default: {DEFAULT_DOCKER_IMAGE})",
     )
     parser.add_argument("--model", default=DEFAULT_MODEL, help="PX4 SITL model")
+    parser.add_argument("--home", default=DEFAULT_HOME, help="lat,lon,altitude,heading")
     parser.add_argument("--gcs-port", type=int, default=DEFAULT_GCS_PORT)
     parser.add_argument("--connector-port", type=int, default=DEFAULT_CONNECTOR_PORT)
     parser.add_argument(
@@ -90,12 +113,14 @@ def build_docker_command(
     image: str = DEFAULT_DOCKER_IMAGE,
     *,
     model: str = DEFAULT_MODEL,
+    home: str = DEFAULT_HOME,
     gcs_port: int = DEFAULT_GCS_PORT,
     connector_port: int = DEFAULT_CONNECTOR_PORT,
     container_name: str | None = None,
 ) -> list[str]:
     """Build the documented, cross-platform PX4 SITL Docker command."""
 
+    latitude, longitude, altitude = parse_home(home)
     command = ["docker", "run", "--rm", "--init"]
     if container_name:
         command.extend(["--name", container_name])
@@ -107,6 +132,12 @@ def build_docker_command(
             f"{connector_port}:{PX4_EXTERNAL_API_PORT}/udp",
             "-e",
             f"PX4_SIM_MODEL={model}",
+            "-e",
+            f"PX4_HOME_LAT={latitude}",
+            "-e",
+            f"PX4_HOME_LON={longitude}",
+            "-e",
+            f"PX4_HOME_ALT={altitude}",
             image,
         ]
     )
@@ -124,6 +155,10 @@ def build_local_command(binary: Path, *, model: str = DEFAULT_MODEL) -> list[str
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    try:
+        parse_home(args.home)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     if not 1 <= args.gcs_port <= 65535 or not 1 <= args.connector_port <= 65535:
         raise SystemExit("MAVLink UDP ports must be between 1 and 65535.")
     if args.gcs_port == args.connector_port:
@@ -153,6 +188,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         command = build_local_command(binary, model=args.model)
         env = os.environ.copy()
         env["PX4_SIM_MODEL"] = args.model
+        latitude, longitude, altitude = parse_home(args.home)
+        env["PX4_HOME_LAT"] = latitude
+        env["PX4_HOME_LON"] = longitude
+        env["PX4_HOME_ALT"] = altitude
         print(f"Starting local PX4 SITL from {root}", flush=True)
         print(f"  GCS output:        udp://127.0.0.1:{args.gcs_port} (PX4 default 14550)", flush=True)
         print(f"  Connector output:  udp://127.0.0.1:{args.connector_port} (PX4 default 14540)", flush=True)
@@ -163,6 +202,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     command = build_docker_command(
         args.docker_image,
         model=args.model,
+        home=args.home,
         gcs_port=args.gcs_port,
         connector_port=args.connector_port,
         container_name=args.container_name,

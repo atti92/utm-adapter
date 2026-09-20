@@ -44,6 +44,32 @@ def test_px4_container_name_is_safe_for_docker_and_vehicle_specific() -> None:
     assert config.px4_container_name == "utm-adapter-px4-demo-vehicle-1"
 
 
+def test_px4_demo_passes_shared_home_to_sitl_launcher(tmp_path: Path, monkeypatch) -> None:
+    config = openutm_demo.DemoConfig(
+        simulator="px4",
+        adapter_root=tmp_path,
+        home="51.5074,-0.1278,11,90",
+    )
+    observed: dict[str, object] = {}
+
+    def fake_start(name, command, **kwargs):
+        observed["name"] = name
+        observed["command"] = list(command)
+        observed.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(openutm_demo, "_start_new_process", fake_start)
+    runner = openutm_demo.DemoRunner(config)
+
+    openutm_demo._start_sitl(runner)
+
+    command = observed["command"]
+    assert isinstance(command, list)
+    assert "--home" in command
+    home_index = command.index("--home")
+    assert command[home_index + 1] == "51.5074,-0.1278,11,90"
+
+
 def test_px4_prerequisites_do_not_require_an_ardupilot_checkout(tmp_path: Path, monkeypatch) -> None:
     config = openutm_demo.DemoConfig(
         simulator="px4",

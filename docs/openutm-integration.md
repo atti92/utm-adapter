@@ -70,7 +70,10 @@ The launcher maps PX4's documented remote GCS port 14550 to the host GCS port
 14550 and remote external-API port 14540 to the connector's host port 14540.
 PX4 is started before the connector so Docker can claim the published UDP
 endpoint first, after which the connector attaches to the same host/remote
-pairing. Pass `--px4-image IMAGE` to pin an approved image.
+pairing. Both simulator paths use the shared Budapest home by default; pass
+`--home lat,lon,altitude,heading` to place PX4 and ArduPilot at the same test
+location. For example: `--home 47.4979,19.0402,137,0`. Pass
+`--px4-image IMAGE` to pin an approved image.
 
 ## Start Flight Blender
 
@@ -158,7 +161,9 @@ uv run python "$UTM_ADAPTER_ROOT/scripts/px4_sitl.py"
 ```
 
 The helper uses the official `px4io/px4-sitl:latest` image and publishes both
-UDP endpoints on macOS, Linux, WSL, and Windows. For a native PX4 checkout,
+UDP endpoints on macOS, Linux, WSL, and Windows. Pass
+`--home lat,lon,altitude,heading` to override the default shared test
+location. For a native PX4 checkout,
 pass `--local-binary --px4-root PATH` after building the desired PX4 SITL
 target with the PX4 project tools.
 
