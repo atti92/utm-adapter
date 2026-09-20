@@ -1,6 +1,6 @@
 # Manual openUTM integration test
 
-This is the complete local path for testing ArduPilot SITL, a ground-control
+This is the complete local path for testing ArduPilot or PX4 SITL, a ground-control
 station (QGroundControl or Mission Planner), the connector's operator console,
 and Flight Blender.
 The connector itself is cross-platform; Docker, SITL, and GCS installation
@@ -13,8 +13,10 @@ together if you want to test somewhere else.
 ## Prerequisites and checkout paths
 
 Install `uv`, Docker, and one GCS. Clone the Flight Blender and ArduPilot
-repositories separately. Keep the connector, Flight Blender, and SITL in
-separate terminals so each process can be stopped independently.
+repositories separately when using ArduPilot. PX4 can use the official Docker
+SITL image and does not require a PX4 checkout for the supervised demo. Keep
+the connector, Flight Blender, and SITL in separate terminals so each process
+can be stopped independently.
 
 In macOS, Linux, or WSL, set the checkout paths once per terminal session:
 
@@ -55,6 +57,19 @@ selected GCS. Use `--no-browser` or `--gcs none` when those applications are
 already open. Press Ctrl+C to cleanly stop the simulator, connector, and
 provider stack owned by the launcher. The detailed commands below remain
 available for diagnosing individual components or testing a router topology.
+
+For PX4, use the same supervised launcher without an extra checkout:
+
+```sh
+uv run python scripts/openutm_demo.py --simulator px4 --check
+uv run python scripts/openutm_demo.py --simulator px4
+```
+
+The first PX4 run pulls `px4io/px4-sitl:latest` if it is not already cached.
+The launcher maps PX4's documented remote GCS port 14550 to the host GCS port
+14550 and remote external-API port 14540 to the connector port 14540. Pass
+`--px4-image IMAGE` to pin an approved image or `--connector-udp-port PORT`
+when another service already uses 14540.
 
 ## Start Flight Blender
 
@@ -123,6 +138,25 @@ use another location.
 
 The supervised demo also accepts `--gcs-udp-port` and
 `--connector-udp-port` when the default simulator ports are already in use.
+
+PX4's equivalent topology is supplied by its two documented MAVLink UDP
+endpoints:
+
+```text
+PX4 SITL remote 14550 -> host 14550 -> QGroundControl or Mission Planner
+PX4 SITL remote 14540 -> host 14540 -> UTM connector
+```
+
+Run it with:
+
+```sh
+uv run python "$UTM_ADAPTER_ROOT/scripts/px4_sitl.py"
+```
+
+The helper uses the official `px4io/px4-sitl:latest` image and publishes both
+UDP endpoints on macOS, Linux, WSL, and Windows. For a native PX4 checkout,
+pass `--local-binary --px4-root PATH` after building the desired PX4 SITL
+target with the PX4 project tools.
 
 Start exactly one GCS on UDP `14550` for the simplest setup. Launch
 QGroundControl or Mission Planner normally from its application menu. On

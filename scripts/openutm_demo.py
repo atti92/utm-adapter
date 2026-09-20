@@ -29,6 +29,10 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.ardupilot_sitl import DEFAULT_HOME, find_copter_binary
 from scripts.generate_flight_blender_dev_token import generate_token
+from scripts.px4_sitl import (
+    DEFAULT_DOCKER_IMAGE as DEFAULT_PX4_IMAGE,
+    DEFAULT_CONNECTOR_PORT as DEFAULT_PX4_CONNECTOR_PORT,
+)
 from utm_connector.diagnostics import port_is_reachable, probe_http_endpoint
 
 
@@ -51,6 +55,8 @@ class DemoConfig:
     adapter_root: Path = REPO_ROOT
     flight_blender_root: Path = REPO_ROOT.parent / "flight-blender"
     ardupilot_root: Path = REPO_ROOT.parent / "ardupilot"
+    simulator: str = "ardupilot"
+    px4_image: str = DEFAULT_PX4_IMAGE
     home: str = DEFAULT_HOME
     vehicle_id: str = DEFAULT_VEHICLE_ID
     provider_port: int = DEFAULT_PROVIDER_PORT
@@ -354,7 +360,13 @@ def _launch_gcs(
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Start Flight Blender, ArduPilot SITL, the UTM connector, and the operator console"
+        description="Start Flight Blender, SITL, the UTM connector, and the operator console"
+    )
+    parser.add_argument(
+        "--simulator",
+        choices=("ardupilot", "px4"),
+        default="ardupilot",
+        help="SITL implementation (default: ardupilot; PX4 uses its official Docker image)",
     )
     parser.add_argument(
         "--flight-blender-root",
@@ -365,6 +377,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--ardupilot-root",
         type=Path,
         default=_default_checkout("ARDUPILOT_ROOT", "ardupilot"),
+    )
+    parser.add_argument(
+        "--px4-image",
+        default=os.environ.get("PX4_SITL_IMAGE", DEFAULT_PX4_IMAGE),
+        help=f"PX4 SITL container image (default: {DEFAULT_PX4_IMAGE})",
     )
     parser.add_argument("--home", default=DEFAULT_HOME, help="lat,lon,altitude,heading")
     parser.add_argument("--vehicle-id", default=DEFAULT_VEHICLE_ID)
@@ -379,8 +396,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--connector-udp-port",
         type=int,
-        default=DEFAULT_CONNECTOR_UDP_PORT,
-        help="SITL UDP input consumed by the connector (default: 14551)",
+        default=None,
+        help="SITL UDP input consumed by the connector (default: 14551 for ArduPilot, 14540 for PX4)",
     )
     parser.add_argument("--provider-timeout", type=float, default=DEFAULT_PROVIDER_TIMEOUT_S)
     parser.add_argument("--connector-timeout", type=float, default=DEFAULT_CONNECTOR_TIMEOUT_S)
@@ -405,16 +422,25 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _config_from_args(args: argparse.Namespace) -> DemoConfig:
+    connector_udp_port = args.connector_udp_port
+    if connector_udp_port is None:
+        connector_udp_port = (
+            DEFAULT_PX4_CONNECTOR_PORT
+            if args.simulator == "px4"
+            else DEFAULT_CONNECTOR_UDP_PORT
+        )
     return DemoConfig(
         adapter_root=REPO_ROOT,
         flight_blender_root=args.flight_blender_root.expanduser().resolve(),
         ardupilot_root=args.ardupilot_root.expanduser().resolve(),
+        simulator=args.simulator,
+        px4_image=args.px4_image,
         home=args.home,
         vehicle_id=args.vehicle_id,
         provider_port=args.provider_port,
         connector_port=args.connector_port,
         gcs_udp_port=args.gcs_udp_port,
-        connector_udp_port=args.connector_udp_port,
+        connector_udp_port=connector_udp_port,
         provider_timeout_s=args.provider_timeout,
         connector_timeout_s=args.connector_timeout,
         gcs=args.gcs,
@@ -448,13 +474,16 @@ def check_prerequisites(config: DemoConfig) -> list[str]:
             f"Flight Blender Compose file not found: {config.flight_blender_root / 'docker-compose-dev.yml'}"
         )
 
-    if not config.ardupilot_root.is_dir():
-        failures.append(f"ArduPilot checkout not found: {config.ardupilot_root}")
-    else:
-        try:
-            find_copter_binary(config.ardupilot_root)
-        except FileNotFoundError as exc:
-            failures.append(str(exc))
+    if config.simulator == "ardupilot":
+        if not config.ardupilot_root.is_dir():
+            failures.append(f"ArduPilot checkout not found: {config.ardupilot_root}")
+        else:
+            try:
+                find_copter_binary(config.ardupilot_root)
+            except FileNotFoundError as exc:
+                failures.append(str(exc))
+    elif not config.px4_image.strip():
+        failures.append("PX4 Docker image must not be empty")
 
     docker_ok, docker_detail = _command_available(["docker", "compose", "version"])
     if not docker_ok:
@@ -557,7 +586,8 @@ class DemoRunner:
         print(f"  Operator console: {self.config.connector_url}/ui/")
         print(
             f"  Vehicle:          {self.config.vehicle_id} "
-            f"(GCS UDP {self.config.gcs_udp_port}, connector UDP {self.config.connector_udp_port})"
+            f"({self.config.simulator} / GCS UDP {self.config.gcs_udp_port}, "
+            f"connector UDP {self.config.connector_udp_port})"
         )
         print("  Workflow:         choose Sample route or open a GCS mission, Validate & save, Submit, Start")
         if gcs_label:
@@ -616,9 +646,21 @@ class DemoRunner:
 
 def _start_sitl(runner: DemoRunner) -> None:
     config = runner.config
-    sitl = _start_new_process(
-        "ArduPilot SITL",
-        [
+    if config.simulator == "px4":
+        command = [
+            sys.executable,
+            str(config.adapter_root / "scripts" / "px4_sitl.py"),
+            "--docker-image",
+            config.px4_image,
+            "--gcs-port",
+            str(config.gcs_udp_port),
+            "--connector-port",
+            str(config.connector_udp_port),
+        ]
+        cwd = config.adapter_root
+        name = "PX4 SITL"
+    else:
+        command = [
             sys.executable,
             str(config.adapter_root / "scripts" / "ardupilot_sitl.py"),
             "--ardupilot-root",
@@ -629,8 +671,13 @@ def _start_sitl(runner: DemoRunner) -> None:
             str(config.gcs_udp_port),
             "--connector-port",
             str(config.connector_udp_port),
-        ],
-        cwd=config.ardupilot_root,
+        ]
+        cwd = config.ardupilot_root
+        name = "ArduPilot SITL"
+    sitl = _start_new_process(
+        name,
+        command,
+        cwd=cwd,
         env=os.environ.copy(),
         log_path=config.run_dir / "sitl.log",
     )
