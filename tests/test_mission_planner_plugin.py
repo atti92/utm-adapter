@@ -25,3 +25,13 @@ def test_mission_planner_plugin_is_thin_non_commanding_and_supports_gcs_workflow
     assert "doCommand" not in source
     assert "sendPacket" not in source
     assert "COMMAND_LONG" not in source
+
+
+def test_mission_planner_compatibility_check_has_an_explicit_runtime_boundary() -> None:
+    script = (PLUGIN.parents[2] / "scripts" / "check_mission_planner_plugin.py").read_text()
+
+    assert "--mission-planner-source" in script
+    assert "--expected-version" in script
+    assert "1.3.83" in script
+    assert "Windows" in script
+    assert "COMMAND_LONG" in script

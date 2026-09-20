@@ -1,4 +1,4 @@
-.PHONY: setup doctor smoke test run demo integration-demo integration-demo-check qgc-check
+.PHONY: setup doctor smoke test run demo integration-demo integration-demo-check qgc-check mp-check
 
 setup:
 	uv sync
@@ -26,3 +26,6 @@ integration-demo-check:
 
 qgc-check:
 	uv run python scripts/check_qgc_overlay.py
+
+mp-check:
+	uv run python scripts/check_mission_planner_plugin.py

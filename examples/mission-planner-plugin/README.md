@@ -54,6 +54,16 @@ route.
 
 This source file is intentionally kept compatible with Mission Planner's
 script-plugin model and uses only the .NET Framework APIs normally available to
-the host. This repository does not include a Windows Mission Planner runtime,
-so final plugin compilation and menu verification must be performed on a
-Windows test machine with Mission Planner installed.
+the host. The source API baseline is Mission Planner `1.3.83`; validate an
+upstream checkout before copying the plugin:
+
+```sh
+uv run python scripts/check_mission_planner_plugin.py \
+  --mission-planner-source /path/to/MissionPlanner --strict
+```
+
+This repository does not include a Windows Mission Planner runtime, so final
+plugin compilation and menu verification must still be performed on a Windows
+test machine with Mission Planner installed. The connector itself and its
+browser console remain cross-platform; this plugin is an optional Windows GCS
+adapter.
