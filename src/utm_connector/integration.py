@@ -52,6 +52,14 @@ INTEGRATION_MANIFEST = {
                 "method": "POST",
                 "path": "/v1/vehicles/{vehicle_id}/onboard-mission/refresh",
             },
+            "onboard_raw": {
+                "method": "GET",
+                "path": "/v1/vehicles/{vehicle_id}/onboard-mission/raw",
+            },
+            "onboard_import": {
+                "method": "POST",
+                "path": "/v1/vehicles/{vehicle_id}/onboard-mission/import",
+            },
         },
         "operations": {
             "intent": {

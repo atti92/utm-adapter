@@ -7,6 +7,8 @@ from fastapi.testclient import TestClient
 from utm_connector.api import create_app
 from utm_connector.backends import InMemoryBackend
 from utm_connector.config import ConnectorSettings, MavlinkConnectionConfig
+from utm_connector.domain import Altitude, Waypoint
+from utm_connector.mission_reader import MavlinkMissionRead
 from utm_connector.runtime import MavlinkSessionManager
 from utm_connector.persistence import SQLiteStateStore
 from utm_connector.service import ConnectorService
@@ -461,6 +463,65 @@ def test_onboard_mission_refresh_requires_a_configured_session() -> None:
     response = client.post("/v1/vehicles/sitl-1/onboard-mission/refresh")
 
     assert response.status_code == 409
+
+
+def test_raw_onboard_mission_can_be_imported_with_explicit_utm_metadata() -> None:
+    service = ConnectorService(InMemoryBackend())
+    service.onboard_mission_reads["sitl-1"] = MavlinkMissionRead(
+        vehicle_id="sitl-1",
+        waypoints=(
+            Waypoint(
+                sequence=0,
+                latitude=47.5,
+                longitude=19.0,
+                altitude=Altitude(meters=20, datum="AGL"),
+            ),
+            Waypoint(
+                sequence=1,
+                latitude=47.501,
+                longitude=19.001,
+                altitude=Altitude(meters=25, datum="AGL"),
+            ),
+        ),
+        mission_count=2,
+        received_at=datetime.now(timezone.utc),
+    )
+    client = TestClient(create_app(service))
+
+    raw = client.get("/v1/vehicles/sitl-1/onboard-mission/raw")
+    assert raw.status_code == 200
+    assert raw.json()["mission_count"] == 2
+    assert len(raw.json()["waypoints"]) == 2
+
+    now = datetime.now(timezone.utc)
+    imported = client.post(
+        "/v1/vehicles/sitl-1/onboard-mission/import",
+        json={
+            "valid_from": now.isoformat(),
+            "valid_until": (now + timedelta(minutes=30)).isoformat(),
+            "corridor_radius_m": 45,
+        },
+    )
+
+    assert imported.status_code == 200
+    assert imported.json()["mission"]["source"] == "mavlink-import"
+    assert imported.json()["mission"]["corridor_radius_m"] == 45
+    assert imported.json()["mission"]["waypoints"] == raw.json()["waypoints"]
+
+
+def test_raw_onboard_mission_import_requires_a_downloaded_route() -> None:
+    client = TestClient(create_app(ConnectorService(InMemoryBackend())))
+
+    response = client.post(
+        "/v1/vehicles/sitl-1/onboard-mission/import",
+        json={
+            "valid_from": "2030-01-01T00:00:00Z",
+            "valid_until": "2030-01-01T00:30:00Z",
+        },
+    )
+
+    assert response.status_code == 409
+    assert "request a mission download first" in response.json()["detail"]
 
 
 def test_operation_refresh_reconciles_provider_state() -> None:

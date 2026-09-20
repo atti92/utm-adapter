@@ -18,6 +18,7 @@ const TERMINAL_DECLARATIONS = new Set(["COMPLETED", "CANCELLED", "REJECTED"]);
 const DEFAULT_NAVIGABLE_MISSION_COMMANDS = new Set([16, 21, 22]);
 let refreshInFlight = false;
 let missionReadInFlight = false;
+let missionImportInFlight = false;
 const intentInFlight = new Set();
 const correlationId = newOperationId();
 
@@ -410,16 +411,23 @@ function renderVehicleDirectory(vehicles) {
 
 function updateMissionReadButton() {
   const button = $("read-mission-button");
+  const importButton = $("import-mission-button");
   const configured = Boolean(state.capabilities?.mavlink?.configured);
   const savedMission = Boolean(state.mission?.mission_hash && state.mission.mission_hash !== "preview");
   const missionReady = savedMission && missionMatchesForm();
-  button.disabled = !state.vehicleId || !configured || !missionReady || missionReadInFlight;
+  const missionActionInFlight = missionReadInFlight || missionImportInFlight;
+  button.disabled = !state.vehicleId || !configured || !missionReady || missionActionInFlight;
+  importButton.disabled = !state.vehicleId || !configured || missionActionInFlight;
   button.textContent = missionReadInFlight ? "Checking vehicle mission…" : "Check vehicle mission";
+  importButton.textContent = missionImportInFlight ? "Reading vehicle mission…" : "Use vehicle mission";
   button.title = !configured
     ? "Configure a MAVLink vehicle link to read the onboard mission."
     : !missionReady
       ? "Validate and save the mission before checking the vehicle's onboard route."
       : "Request the current mission from the vehicle over the read-only MAVLink mission protocol.";
+  importButton.title = !configured
+    ? "Configure a MAVLink vehicle link to read the onboard mission."
+    : "Read the current route from the vehicle and add explicit UTM metadata before submitting it.";
 }
 
 function renderVehicle(vehicle) {
@@ -747,6 +755,78 @@ async function checkVehicleMission() {
   }
 }
 
+async function importVehicleMission() {
+  if (!state.vehicleId || missionReadInFlight || missionImportInFlight) return;
+  const configured = Boolean(state.capabilities?.mavlink?.configured);
+  if (!configured) {
+    setMessage("Configure a MAVLink vehicle link before reading the vehicle mission.", "error");
+    return;
+  }
+  let metadata;
+  try {
+    const { validFrom, validUntil } = validateMissionWindow();
+    const corridorRadius = Number($("corridor-radius").value);
+    if (!Number.isFinite(corridorRadius) || corridorRadius <= 0) {
+      throw new Error("Corridor radius must be greater than zero.");
+    }
+    metadata = {
+      valid_from: validFrom.toISOString(),
+      valid_until: validUntil.toISOString(),
+      corridor_radius_m: corridorRadius,
+    };
+  } catch (error) {
+    setMessage(error.message, "error");
+    return;
+  }
+
+  const vehicleId = state.vehicleId;
+  const encodedVehicleId = encodeURIComponent(vehicleId);
+  const rawPath = `/v1/vehicles/${encodedVehicleId}/onboard-mission/raw`;
+  missionImportInFlight = true;
+  updateMissionReadButton();
+  try {
+    await request(`/v1/vehicles/${encodedVehicleId}/onboard-mission/refresh`, { method: "POST" });
+    setMessage("Reading the current vehicle mission over the read-only MAVLink link…");
+    const deadline = Date.now() + 8_000;
+    let raw = null;
+    while (Date.now() < deadline) {
+      try {
+        raw = await request(rawPath);
+        break;
+      } catch (error) {
+        if (error.status !== 404) throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 750));
+    }
+    if (!raw) {
+      throw new Error("The vehicle did not return a mission within 8 seconds. Check the MAVLink link and try again.");
+    }
+    const snapshot = await request(`/v1/vehicles/${encodedVehicleId}/onboard-mission/import`, {
+      method: "POST",
+      body: JSON.stringify(metadata),
+    });
+    state.plan = {
+      vehicle_id: vehicleId,
+      valid_from: snapshot.mission.valid_from,
+      valid_until: snapshot.mission.valid_until,
+      corridor_radius_m: snapshot.mission.corridor_radius_m,
+      source: snapshot.mission.source,
+      waypoints: snapshot.mission.waypoints,
+    };
+    state.planFormat = "canonical";
+    state.planName = "Vehicle mission";
+    state.windowCustomized = false;
+    renderMission(snapshot);
+    await refreshVehicle();
+    setMessage(`Vehicle mission imported (${raw.waypoints.length} waypoint${raw.waypoints.length === 1 ? "" : "s"}). Review the route, then submit it to UTM.`, "success");
+  } catch (error) {
+    setMessage(error.message, "error");
+  } finally {
+    missionImportInFlight = false;
+    updateMissionReadButton();
+  }
+}
+
 function samplePlan() {
   const telemetry = state.latestStatus?.latest_telemetry;
   const latitude = Number.isFinite(Number(telemetry?.latitude)) ? Number(telemetry.latitude) : 47.4979;
@@ -867,6 +947,7 @@ $("plan-file").addEventListener("change", async (event) => {
   }
 });
 $("save-button").addEventListener("click", saveMission);
+$("import-mission-button").addEventListener("click", importVehicleMission);
 $("read-mission-button").addEventListener("click", checkVehicleMission);
 $("submit-button").addEventListener("click", () => sendIntent("SUBMIT_OPERATION"));
 $("start-button").addEventListener("click", () => sendIntent("START_OPERATION"));

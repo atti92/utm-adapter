@@ -30,7 +30,9 @@ moving demo vehicle is supplied. The
 operator console is designed for the normal demo flow: select a vehicle, load
 a QGroundControl `.plan`, Mission Planner `.waypoints`, or demo route,
 validate it, submit/start the operation, and watch telemetry and conformance
-without using the CLI.
+without using the CLI. It can also read a route already uploaded from the
+vehicle by QGroundControl or Mission Planner and import it after the operator
+supplies explicit UTM metadata.
 
 For a full Flight Blender + SITL demonstration, use
 `uv run python scripts/openutm_demo.py` or `make integration-demo` after

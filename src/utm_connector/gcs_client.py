@@ -84,11 +84,38 @@ class ConnectorClient:
             "GET", f"/v1/vehicles/{self._path_value(vehicle_id)}/onboard-mission"
         )
 
+    def raw_onboard_mission(self, vehicle_id: str) -> dict[str, Any]:
+        """Return the latest raw MAVLink route before UTM metadata is applied."""
+
+        return self._request(
+            "GET", f"/v1/vehicles/{self._path_value(vehicle_id)}/onboard-mission/raw"
+        )
+
     def refresh_onboard_mission(self, vehicle_id: str) -> dict[str, Any]:
         """Request a non-commanding MAVLink mission download for a vehicle."""
 
         return self._request(
             "POST", f"/v1/vehicles/{self._path_value(vehicle_id)}/onboard-mission/refresh"
+        )
+
+    def import_onboard_mission(
+        self,
+        vehicle_id: str,
+        *,
+        valid_from: datetime,
+        valid_until: datetime,
+        corridor_radius_m: float = 30,
+    ) -> dict[str, Any]:
+        """Apply explicit UTM metadata to the latest downloaded vehicle route."""
+
+        return self._request(
+            "POST",
+            f"/v1/vehicles/{self._path_value(vehicle_id)}/onboard-mission/import",
+            json={
+                "valid_from": valid_from.isoformat(),
+                "valid_until": valid_until.isoformat(),
+                "corridor_radius_m": corridor_radius_m,
+            },
         )
 
     def upload_qgroundcontrol_plan(

@@ -22,7 +22,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     html = client.get("/ui/").text
     javascript = client.get("/ui/app.js").text
 
-    for label in ("Open mission file", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action", "Connection guide", "Copy diagnostics", "Support ID"):
+    for label in ("Open mission file", "Use vehicle mission", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action", "Connection guide", "Copy diagnostics", "Support ID"):
         assert label in html
     for element_id in ("backend-readiness", "mavlink-readiness", "recording-readiness", "metrics-readiness", "altitude-readiness", "control-readiness"):
         assert element_id in html
@@ -37,6 +37,8 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
         "/v1/metrics",
         "/v1/vehicles/${encodeURIComponent(vehicleId)}/onboard-mission/refresh",
         "const onboardPath = `/v1/vehicles/${encodeURIComponent(vehicleId)}/onboard-mission`",
+        "/onboard-mission/raw",
+        "/onboard-mission/import",
         "mission-planner",
     ):
         assert endpoint in javascript
@@ -73,6 +75,8 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "TERMINAL_DECLARATIONS" in javascript
     assert "refreshInFlight" in javascript
     assert "missionReadInFlight" in javascript
+    assert "missionImportInFlight" in javascript
+    assert "function importVehicleMission()" in javascript
     assert "const savedMission = Boolean(state.mission?.mission_hash" in javascript
     assert "Validate and save the mission before checking the vehicle's onboard route." in javascript
     assert "Validate & save the current mission before checking the vehicle mission." in javascript

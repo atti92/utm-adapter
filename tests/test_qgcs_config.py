@@ -30,6 +30,14 @@ def test_checked_in_connector_manifest_matches_live_contract_shape() -> None:
         "method": "POST",
         "path": "/v1/vehicles/{vehicle_id}/onboard-mission/refresh",
     }
+    assert manifest["api"]["mission"]["onboard_raw"] == {
+        "method": "GET",
+        "path": "/v1/vehicles/{vehicle_id}/onboard-mission/raw",
+    }
+    assert manifest["api"]["mission"]["onboard_import"] == {
+        "method": "POST",
+        "path": "/v1/vehicles/{vehicle_id}/onboard-mission/import",
+    }
     assert manifest["mavlink"]["vehicle_control"] == "none"
 
 

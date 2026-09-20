@@ -81,13 +81,21 @@ def test_client_exposes_discovery_audit_and_operation_reads() -> None:
         assert client.integration() == {"status": "ok"}
         assert client.events(limit=5) == [{"event_type": "CONNECTED"}]
         assert client.onboard_mission("sitl/1") == {"status": "ok"}
+        assert client.raw_onboard_mission("sitl/1") == {"status": "ok"}
         assert client.refresh_onboard_mission("sitl/1") == {"status": "ok"}
+        assert client.import_onboard_mission(
+            "sitl/1",
+            valid_from=datetime(2030, 1, 1, tzinfo=timezone.utc),
+            valid_until=datetime(2030, 1, 1, 0, 30, tzinfo=timezone.utc),
+        ) == {"status": "ok"}
         assert client.operation(operation_id) == {"status": "ok"}
 
     assert paths == [
         b"/v1/integration",
         b"/v1/events?limit=5",
         b"/v1/vehicles/sitl%2F1/onboard-mission",
+        b"/v1/vehicles/sitl%2F1/onboard-mission/raw",
         b"/v1/vehicles/sitl%2F1/onboard-mission/refresh",
+        b"/v1/vehicles/sitl%2F1/onboard-mission/import",
         b"/v1/operations/00000000-0000-0000-0000-000000000001",
     ]

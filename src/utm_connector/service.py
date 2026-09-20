@@ -176,6 +176,38 @@ class ConnectorService:
         )
         return report
 
+    def import_onboard_mission(
+        self,
+        vehicle_id: str,
+        *,
+        valid_from: datetime,
+        valid_until: datetime,
+        corridor_radius_m: float,
+    ) -> MissionSnapshot:
+        """Promote the latest read-only onboard route to a submitted mission.
+
+        MAVLink mission items do not contain UTM validity or corridor metadata.
+        The operator must provide those fields explicitly before this route can
+        enter the normal mission/operation workflow.
+        """
+
+        onboard_read = self.onboard_mission_reads.get(vehicle_id)
+        if onboard_read is None:
+            raise ConnectorError(
+                "no onboard mission is available; request a mission download first"
+            )
+        if len(onboard_read.waypoints) < 2:
+            raise ConnectorError("the onboard mission must contain at least two waypoints")
+        mission = Mission(
+            vehicle_id=vehicle_id,
+            waypoints=list(onboard_read.waypoints),
+            corridor_radius_m=corridor_radius_m,
+            valid_from=valid_from,
+            valid_until=valid_until,
+            source="mavlink-import",
+        )
+        return self.put_mission(vehicle_id, mission)
+
     def ingest_onboard_mission(self, onboard_read: MavlinkMissionRead) -> Optional[MissionDriftReport]:
         self.onboard_mission_reads[onboard_read.vehicle_id] = onboard_read
         if onboard_read.vehicle_id not in self.missions:

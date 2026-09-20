@@ -69,7 +69,11 @@ it is installed, or Mission Planner when QGroundControl is unavailable on
 Windows. The browser console is where the UTM operator workflow is
 performed: choose the detected vehicle, select `Sample route` or open a
 QGroundControl `.plan`/Mission Planner `.waypoints` export, then validate, submit,
-and start the operation. The GCS remains the vehicle-control application.
+and start the operation. The `Use vehicle mission` action can instead read a
+route already uploaded from the GCS and import it after the operator provides
+explicit UTM validity and corridor metadata. The `Check vehicle mission`
+action compares a saved route with the current onboard route. The GCS remains
+the vehicle-control application.
 Before opening the GCS, the supervisor passively listens on the configured GCS
 UDP endpoint and confirms that a vehicle heartbeat arrives there. This catches
 incorrect SITL/router fan-out wiring while the setup is still easy to fix; it

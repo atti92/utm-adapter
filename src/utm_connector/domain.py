@@ -141,6 +141,27 @@ class Mission(StrictModel):
         return hashlib.sha256(encoded).hexdigest()
 
 
+class OnboardMissionImportRequest(StrictModel):
+    """UTM metadata supplied when importing a mission read from MAVLink."""
+
+    valid_from: datetime
+    valid_until: datetime
+    corridor_radius_m: float = Field(default=30, gt=0, le=10000, allow_inf_nan=False)
+
+    @field_validator("valid_from", "valid_until")
+    @classmethod
+    def validate_timestamp(cls, value: datetime) -> datetime:
+        return _aware_datetime(value)
+
+    @field_validator("valid_until")
+    @classmethod
+    def validate_time_order(cls, value: datetime, info: Any) -> datetime:
+        start = info.data.get("valid_from")
+        if start is not None and value <= start:
+            raise ValueError("valid_until must be later than valid_from")
+        return value
+
+
 class QGroundControlMissionRequest(StrictModel):
     """A QGroundControl Plan plus the UTM metadata it cannot carry."""
 

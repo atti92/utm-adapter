@@ -20,6 +20,7 @@ from .domain import (
     HealthResponse,
     Mission,
     MissionPlannerMissionRequest,
+    OnboardMissionImportRequest,
     OperationCommand,
     OperationIntent,
     QGroundControlMissionRequest,
@@ -412,6 +413,36 @@ def create_app(
         if snapshot is None:
             raise HTTPException(status_code=404, detail="onboard mission not found")
         return snapshot.model_dump(mode="json")
+
+    @app.get("/v1/vehicles/{vehicle_id}/onboard-mission/raw", response_model=dict)
+    def get_raw_onboard_mission(vehicle_id: str) -> dict:
+        """Return the latest raw MAVLink route before UTM metadata is applied."""
+
+        onboard_read = service.onboard_mission_reads.get(vehicle_id)
+        if onboard_read is None:
+            raise HTTPException(status_code=404, detail="raw onboard mission not found")
+        return {
+            "vehicle_id": onboard_read.vehicle_id,
+            "mission_count": onboard_read.mission_count,
+            "received_at": onboard_read.received_at.isoformat(),
+            "waypoints": [waypoint.model_dump(mode="json") for waypoint in onboard_read.waypoints],
+        }
+
+    @app.post("/v1/vehicles/{vehicle_id}/onboard-mission/import", response_model=dict)
+    def import_onboard_mission(
+        vehicle_id: str, request: OnboardMissionImportRequest
+    ) -> dict:
+        """Import a downloaded vehicle route with explicit UTM metadata."""
+
+        try:
+            return service.import_onboard_mission(
+                vehicle_id,
+                valid_from=request.valid_from,
+                valid_until=request.valid_until,
+                corridor_radius_m=request.corridor_radius_m,
+            ).model_dump(mode="json")
+        except ConnectorError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @app.post("/v1/vehicles/{vehicle_id}/onboard-mission/refresh", response_model=dict, status_code=202)
     def refresh_onboard_mission(vehicle_id: str) -> dict:

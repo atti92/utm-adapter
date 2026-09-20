@@ -32,6 +32,12 @@ with ConnectorClient("http://127.0.0.1:8000", correlation_id="<session-uuid>") a
     )
     connector.refresh_onboard_mission(vehicle_id)
     onboard = connector.onboard_mission(vehicle_id)
+    raw = connector.raw_onboard_mission(vehicle_id)
+    connector.import_onboard_mission(
+        vehicle_id,
+        valid_from=datetime.now(timezone.utc) + timedelta(minutes=1),
+        valid_until=datetime.now(timezone.utc) + timedelta(minutes=31),
+    )
 ```
 
 `refresh_onboard_mission()` only requests a read-only MAVLink mission
@@ -39,7 +45,11 @@ download; it does not upload, alter, arm, or control the vehicle. The
 subsequent `onboard_mission()` call returns the connector's latest stored
 snapshot, which lets a GCS show mission drift consistently across
 QGroundControl and Mission Planner adapters. A vehicle that has not reported a
-mission yet returns HTTP 404.
+mission yet returns HTTP 404. `raw_onboard_mission()` exposes the route before
+UTM-only metadata is applied. `import_onboard_mission()` promotes that route to
+the normal mission workflow, but requires the host GCS to provide the validity
+window and corridor radius explicitly; the connector never infers them from
+MAVLink.
 
 `metrics()` returns process-local diagnostics suitable for a compact GCS
 status panel: uptime, active vehicles and operations, telemetry publication
