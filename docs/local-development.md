@@ -280,6 +280,14 @@ for diagnostics but are not forwarded to an active UTM operation; conformance
 is reported as `TELEMETRY_UNRELIABLE` and publication is shown as `DEGRADED`.
 Fresh telemetry automatically resumes publication after the link recovers.
 
+The connector keeps conformance current for every fresh observation, but
+coalesces repeated `CONFORMANCE_ASSESSED` and unchanged vehicle-state events
+in the operator timeline. By default, a conformance event is recorded
+immediately when its state/reason changes and at most once every five seconds
+while it remains unchanged. Set
+`UTM_CONNECTOR_CONFORMANCE_EVENT_INTERVAL_S=0` when a high-volume diagnostic
+capture needs every assessment event.
+
 When `UTM_CONNECTOR_RECORD_PATH` is set, connector events, backend request/response envelopes, and raw inbound MAVLink frames are appended as JSONL. Authorization headers are redacted. Raw frames are stored as base64 in `mavlink_frame` records, so the file remains portable and does not depend on a pymavlink dialect during capture. Recording is diagnostic-only: it never adds vehicle-control commands, and the file should be treated as sensitive telemetry.
 
 Replay all connector records in a diagnostic tool with `JsonlReplay`:

@@ -43,6 +43,7 @@ class ConnectorSettings(BaseSettings):
     mavlink_poll_interval_s: float = Field(default=0.2, gt=0, le=10)
     mavlink_reconnect_interval_s: float = Field(default=5.0, gt=0, le=60)
     telemetry_publish_interval_s: float = Field(default=1.0, ge=0, le=60)
+    conformance_event_interval_s: float = Field(default=5.0, ge=0, le=300)
 
     @model_validator(mode="after")
     def validate_unique_vehicle_ids(self) -> "ConnectorSettings":

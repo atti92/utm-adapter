@@ -241,6 +241,35 @@ def test_service_coalesces_provider_telemetry_at_configured_rate() -> None:
     assert service.operations[operation_id].state.telemetry_publication == TelemetryPublicationState.ACTIVE
 
 
+def test_service_coalesces_repeated_conformance_events_without_skipping_assessment() -> None:
+    backend = OperationAwareBackend()
+    service = ConnectorService(backend, conformance_event_interval_s=60)
+    service.put_mission("sitl-1", _mission())
+    operation_id = uuid4()
+    service.submit_operation(
+        OperationIntent(operation_id=operation_id, command=OperationCommand.SUBMIT_OPERATION),
+        "sitl-1",
+    )
+    service.apply_intent(
+        OperationIntent(operation_id=operation_id, command=OperationCommand.START_OPERATION)
+    )
+
+    telemetry = VehicleTelemetry(
+        vehicle_id="sitl-1",
+        observed_at=datetime.now(timezone.utc),
+        latitude=47.4979,
+        longitude=19.0402,
+        altitude=Altitude(meters=120, datum=AltitudeDatum.AMSL),
+        quality=TelemetryQuality.GOOD,
+    )
+    service.put_telemetry("sitl-1", telemetry)
+    service.put_telemetry("sitl-1", telemetry.model_copy(update={"observed_at": datetime.now(timezone.utc)}))
+
+    conformance_events = [event for event in service.events if event.event_type == "CONFORMANCE_ASSESSED"]
+    assert len(conformance_events) == 1
+    assert service.operations[operation_id].state.conformance == ConformanceState.CONFORMING
+
+
 def test_service_converts_altitude_at_flight_blender_boundary() -> None:
     requests: list[httpx.Request] = []
 

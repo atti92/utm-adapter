@@ -43,17 +43,21 @@ class ConnectorService:
         event_history_limit: int = 1000,
         altitude_converter: Optional[AltitudeConverter] = None,
         telemetry_publish_interval_s: float = 0.0,
+        conformance_event_interval_s: float = 5.0,
     ) -> None:
         if event_history_limit < 1:
             raise ValueError("event_history_limit must be greater than zero")
         if telemetry_publish_interval_s < 0:
             raise ValueError("telemetry_publish_interval_s must not be negative")
+        if conformance_event_interval_s < 0:
+            raise ValueError("conformance_event_interval_s must not be negative")
         self.backend = backend
         self.state_store = state_store
         self.recorder = recorder
         self.event_history_limit = event_history_limit
         self.altitude_converter = altitude_converter
         self.telemetry_publish_interval_s = telemetry_publish_interval_s
+        self.conformance_event_interval_s = conformance_event_interval_s
         self.missions: Dict[str, MissionSnapshot] = {}
         self.onboard_missions: Dict[str, MissionSnapshot] = {}
         self.onboard_mission_reads: Dict[str, MavlinkMissionRead] = {}
@@ -62,6 +66,7 @@ class ConnectorService:
         self.vehicle_snapshots: Dict[str, VehicleStateSnapshot] = {}
         self.operations: Dict[UUID, Operation] = {}
         self._last_published_at: Dict[UUID, datetime] = {}
+        self._last_conformance_event: Dict[UUID, tuple[datetime, ConformanceState, str]] = {}
         self.events: List[Event] = []
         self.last_backend_error: Optional[str] = None
         if state_store is not None:
@@ -290,17 +295,18 @@ class ConnectorService:
                 else:
                     assessment = assess_conformance(provider_mission, provider_telemetry)
                 operation.state.conformance = assessment.state
-                self._event(
-                    "CONFORMANCE_ASSESSED",
-                    vehicle_id=vehicle_id,
-                    operation_id=operation.operation_id,
-                    severity="WARNING" if assessment.state in {
-                        ConformanceState.NEAR_BOUNDARY,
-                        ConformanceState.NON_CONFORMING,
-                        ConformanceState.TELEMETRY_UNRELIABLE,
-                    } else "INFO",
-                    details=assessment.model_dump(mode="json"),
-                )
+                if self._should_record_conformance_event(operation.operation_id, assessment):
+                    self._event(
+                        "CONFORMANCE_ASSESSED",
+                        vehicle_id=vehicle_id,
+                        operation_id=operation.operation_id,
+                        severity="WARNING" if assessment.state in {
+                            ConformanceState.NEAR_BOUNDARY,
+                            ConformanceState.NON_CONFORMING,
+                            ConformanceState.TELEMETRY_UNRELIABLE,
+                        } else "INFO",
+                        details=assessment.model_dump(mode="json"),
+                    )
             publication_error = publication_errors.get(operation.operation_id)
             operation.state.telemetry_publication = (
                 TelemetryPublicationState.FAILED
@@ -363,20 +369,48 @@ class ConnectorService:
 
     def ingest_vehicle_snapshot(self, snapshot: VehicleStateSnapshot) -> VehicleStateSnapshot:
         vehicle_id = snapshot.identity.connector_vehicle_id
+        previous = self.vehicle_snapshots.get(vehicle_id)
         self.vehicle_snapshots[vehicle_id] = snapshot
         if self.state_store is not None:
             self.state_store.save_vehicle_snapshot(snapshot)
         if snapshot.telemetry is not None:
             self.put_telemetry(vehicle_id, snapshot.telemetry)
-        self._event(
-            "VEHICLE_STATE_UPDATED",
-            vehicle_id=vehicle_id,
-            details={
-                "connection_state": snapshot.connection_state,
-                "quality": snapshot.quality,
-            },
-        )
+        if previous is None or any(
+            (
+                previous.connection_state != snapshot.connection_state,
+                previous.quality != snapshot.quality,
+                previous.identity != snapshot.identity,
+                previous.mission_current != snapshot.mission_current,
+                previous.mission_count != snapshot.mission_count,
+            )
+        ):
+            self._event(
+                "VEHICLE_STATE_UPDATED",
+                vehicle_id=vehicle_id,
+                details={
+                    "connection_state": snapshot.connection_state,
+                    "quality": snapshot.quality,
+                },
+            )
         return snapshot
+
+    def _should_record_conformance_event(
+        self, operation_id: UUID, assessment: ConformanceAssessment
+    ) -> bool:
+        now = datetime.now(timezone.utc)
+        previous = self._last_conformance_event.get(operation_id)
+        signature = (assessment.state, assessment.reason)
+        if previous is not None:
+            previous_at, previous_state, previous_reason = previous
+            unchanged = (previous_state, previous_reason) == signature
+            interval_elapsed = (
+                self.conformance_event_interval_s == 0
+                or (now - previous_at).total_seconds() >= self.conformance_event_interval_s
+            )
+            if unchanged and not interval_elapsed:
+                return False
+        self._last_conformance_event[operation_id] = (now, *signature)
+        return True
 
     def apply_intent(self, intent: OperationIntent) -> Operation:
         operation = self.operations.get(intent.operation_id)

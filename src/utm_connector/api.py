@@ -70,6 +70,7 @@ def create_app(
             event_history_limit=settings.event_history_limit,
             altitude_converter=altitude_converter,
             telemetry_publish_interval_s=settings.telemetry_publish_interval_s,
+            conformance_event_interval_s=settings.conformance_event_interval_s,
         )
     if session_manager is None:
         session_factory = MavlinkVehicleSession.connect
@@ -155,6 +156,7 @@ def create_app(
                 "recommended_topology": "single_router_endpoint",
                 "telemetry_publish_interval_s": settings.telemetry_publish_interval_s,
                 "reconnect_interval_s": settings.mavlink_reconnect_interval_s,
+                "conformance_event_interval_s": settings.conformance_event_interval_s,
             },
             "altitude": {
                 "geoid_conversion_configured": settings.altitude_geoid_grid_path is not None,
