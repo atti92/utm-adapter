@@ -98,6 +98,8 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "TERMINAL_DECLARATIONS" in javascript
     assert "refreshInFlight" in javascript
     assert "missionReadInFlight" in javascript
+    assert "missionLookupVehicleId" in javascript
+    assert "error.status === 404" in javascript
     assert "missionImportInFlight" in javascript
     assert "function importVehicleMission()" in javascript
     assert "Finish the active operation before importing a different vehicle mission." in javascript

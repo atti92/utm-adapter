@@ -12,6 +12,7 @@ const state = {
   metrics: null,
   telemetryTrail: [],
   windowCustomized: false,
+  missionLookupVehicleId: "",
 };
 
 const DEMO_LEAD_TIME_MS = 15_000;
@@ -252,6 +253,7 @@ function clearVehicleWorkspace(message = "") {
   state.latestStatus = null;
   state.telemetryTrail = [];
   state.planName = "";
+  state.missionLookupVehicleId = "";
   $("plan-file").value = "";
   renderMission(null);
   renderMissionDrift(null);
@@ -819,15 +821,25 @@ function renderEvents(events) {
 
 async function refreshVehicle() {
   if (!state.vehicleId) return;
+  const shouldLookupMission = state.missionLookupVehicleId !== state.vehicleId;
+  const missionRequest = shouldLookupMission
+    ? request(`/v1/missions/${encodeURIComponent(state.vehicleId)}`).catch((error) => {
+      if (error.status === 404) return null;
+      throw error;
+    })
+    : Promise.resolve(state.mission);
   const [status, mission] = await Promise.all([
     request(`/v1/vehicles/${encodeURIComponent(state.vehicleId)}/status`),
-    request(`/v1/missions/${encodeURIComponent(state.vehicleId)}`).catch(() => null),
+    missionRequest,
   ]);
   state.latestStatus = status;
   recordTelemetryTrail(status);
   renderVehicleStatus(status);
   renderTelemetry(status);
-  renderMission(mission);
+  if (shouldLookupMission) {
+    state.missionLookupVehicleId = state.vehicleId;
+    renderMission(mission);
+  }
   renderMissionDrift(status.mission_drift);
   const operations = status.operations || [];
   renderOperation(operations.length ? operations[operations.length - 1] : null);
