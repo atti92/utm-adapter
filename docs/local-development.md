@@ -70,6 +70,10 @@ Windows. The browser console is where the UTM operator workflow is
 performed: choose the detected vehicle, select `Sample route` or open a
 QGroundControl `.plan`/Mission Planner `.waypoints` export, then validate, submit,
 and start the operation. The GCS remains the vehicle-control application.
+Before opening the GCS, the supervisor passively listens on the configured GCS
+UDP endpoint and confirms that a vehicle heartbeat arrives there. This catches
+incorrect SITL/router fan-out wiring while the setup is still easy to fix; it
+does not send a vehicle-control command.
 
 If the default ArduPilot simulator endpoints are already used, choose different
 ports without editing configuration files, for example:
@@ -103,8 +107,9 @@ make integration-demo-px4-verify
 It starts the provider, connector, and PX4, drives the same mission and
 operator-intent endpoints as the browser console, waits for live telemetry to
 become `CONFORMING`, completes the operation, and shuts everything down. It
-does not open a browser or GCS because it is a validation command; the normal
-demo remains `make integration-demo-px4`. The equivalent reusable verifier for
+also verifies the passive GCS MAVLink heartbeat path, but does not open a
+browser or GCS because it is a validation command; the normal demo remains
+`make integration-demo-px4`. The equivalent reusable verifier for
 an already-running demo is `make integration-verify`.
 
 The same automated check can use the native ArduPilot SITL checkout:
@@ -115,6 +120,13 @@ make integration-demo-verify
 
 This is useful before a presentation when the target environment is the
 ArduPilot/QGroundControl path rather than the Docker-only PX4 path.
+
+The standalone passive stream check is also available when a simulator or
+router is already running:
+
+```sh
+uv run python scripts/verify_mavlink_stream.py --port 14550
+```
 
 For one presentation-ready preflight that also reports optional native GCS and
 MAVLink Router integrations, run:

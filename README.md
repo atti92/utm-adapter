@@ -93,7 +93,8 @@ make integration-demo-verify
 
 The verification target is for demo preparation and regression checks. It
 validates the live vehicle/provider/connector lifecycle through the same API
-used by the operator console; it is not required for normal operator use.
+used by the operator console and passively confirms that a vehicle heartbeat
+reaches the GCS UDP endpoint; it is not required for normal operator use.
 
 The service root also opens the console directly at
 [http://127.0.0.1:8000/](http://127.0.0.1:8000/).

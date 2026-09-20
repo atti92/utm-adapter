@@ -43,6 +43,10 @@ from utm_connector.diagnostics import (
     udp_port_is_available,
 )
 from scripts.verify_running_demo import DemoVerificationError, verify_running_demo
+from scripts.verify_mavlink_stream import (
+    MavlinkStreamVerificationError,
+    verify_mavlink_stream,
+)
 
 
 DEFAULT_VEHICLE_ID = "sitl-1"
@@ -920,6 +924,18 @@ class DemoRunner:
         if self.config.simulator != "px4":
             _start_sitl(self)
         self._wait_for_vehicle()
+        try:
+            gcs_stream = verify_mavlink_stream(
+                "127.0.0.1",
+                self.config.gcs_udp_port,
+                timeout_s=self.config.connector_timeout_s,
+            )
+        except MavlinkStreamVerificationError as exc:
+            raise DemoSetupError(f"GCS MAVLink stream is not receiving vehicle telemetry: {exc}") from exc
+        print(
+            f"[ok] GCS MAVLink stream is receiving vehicle {gcs_stream.system_id} "
+            f"on UDP {gcs_stream.port}"
+        )
         gcs_label, gcs_process = _launch_gcs(self.config.gcs, run_dir=self.config.run_dir)
         if gcs_process is not None:
             self.gcs_processes.append(gcs_process)

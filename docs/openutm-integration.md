@@ -210,9 +210,10 @@ anything. Set `MAVLINK_ROUTER_ROOT` when the checkout is not the sibling
 `../mavlink-router` directory, or use `--router-runtime native` /
 `--router-runtime docker` to select the runtime explicitly. The launcher
 validates the topology, starts the router and ArduPilot with one vehicle
-output, then starts the connector and browser console. The connector and GCS
-still use their standard endpoints, so existing GCS workflows do not need a
-custom plugin or a second aircraft port.
+output, verifies a passive heartbeat at the GCS endpoint, then starts the
+connector and browser console. The connector and GCS still use their standard
+endpoints, so existing GCS workflows do not need a custom plugin or a second
+aircraft port.
 
 For Mission Planner, the optional thin plugin in
 [`examples/mission-planner-plugin/`](../examples/mission-planner-plugin/) adds
