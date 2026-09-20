@@ -69,7 +69,12 @@ vehicle telemetry link feeding a MAVLink router; its matching preflight is
 `make gcs-router-demo-check`.
 The verify variants, `make gcs-demo-verify` and
 `make gcs-router-demo-verify`, also launch the detected native GCS, confirm that
-it stays running, and exercise the connector lifecycle before cleanup.
+it stays running, and exercise the connector lifecycle through a generated
+QGroundControl `.plan` upload before cleanup. The Mission Planner interchange
+path can be exercised with `make integration-mission-planner-mission-verify`;
+on a Windows host with Mission Planner installed, pass
+`--gcs mission-planner --verify-mission-format mission-planner` to include the
+native GCS process.
 
 It starts Flight Blender, the connector, and ArduPilot SITL, opens the
 operator console, and auto-detects QGroundControl or Mission Planner. On

@@ -1,12 +1,15 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 import sys
 
 import httpx
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from scripts.verify_running_demo import verify_running_demo
+from scripts.verify_running_demo import _mission_upload, verify_running_demo
+from utm_connector.missions import parse_mission_planner_waypoints, parse_qgroundcontrol_plan
 
 
 def test_running_demo_verifier_exercises_operator_console_lifecycle() -> None:
@@ -101,3 +104,53 @@ def test_running_demo_verifier_exercises_operator_console_lifecycle() -> None:
         ("GET", "/v1/health"),
         ("GET", "/v1/metrics"),
     ]
+
+
+def test_running_demo_verifier_builds_a_real_qgroundcontrol_plan_upload() -> None:
+    path, payload = _mission_upload(
+        vehicle_id="sitl-1",
+        latitude=47.4979,
+        longitude=19.0402,
+        altitude_m=137,
+        altitude_datum="AMSL",
+        valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        valid_until=datetime(2026, 1, 1, 0, 5, tzinfo=timezone.utc),
+        mission_format="qgroundcontrol",
+    )
+
+    assert path == "/v1/missions/sitl-1/qgroundcontrol"
+    mission = parse_qgroundcontrol_plan(
+        payload["plan"],
+        vehicle_id="sitl-1",
+        valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        valid_until=datetime(2026, 1, 1, 0, 5, tzinfo=timezone.utc),
+        corridor_radius_m=payload["corridor_radius_m"],
+    )
+    assert mission.source == "qgroundcontrol"
+    assert len(mission.waypoints) == 3
+    assert mission.waypoints[1].longitude == pytest.approx(19.0404)
+
+
+def test_running_demo_verifier_builds_a_real_mission_planner_wpl_upload() -> None:
+    path, payload = _mission_upload(
+        vehicle_id="sitl-1",
+        latitude=47.4979,
+        longitude=19.0402,
+        altitude_m=137,
+        altitude_datum="AMSL",
+        valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        valid_until=datetime(2026, 1, 1, 0, 5, tzinfo=timezone.utc),
+        mission_format="mission-planner",
+    )
+
+    assert path == "/v1/missions/sitl-1/mission-planner"
+    mission = parse_mission_planner_waypoints(
+        payload["text"],
+        vehicle_id="sitl-1",
+        valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        valid_until=datetime(2026, 1, 1, 0, 5, tzinfo=timezone.utc),
+        corridor_radius_m=payload["corridor_radius_m"],
+    )
+    assert mission.source == "mission-planner"
+    assert len(mission.waypoints) == 3
+    assert mission.waypoints[2].latitude == 47.4979

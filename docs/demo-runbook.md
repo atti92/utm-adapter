@@ -60,8 +60,12 @@ make gcs-demo-verify
 make gcs-router-demo-verify
 ```
 
-Both commands exercise the connector lifecycle, confirm a vehicle heartbeat
-at the GCS endpoint, and clean up the services they started.
+Both commands exercise the connector lifecycle through a real QGroundControl
+`.plan` upload, confirm a vehicle heartbeat at the GCS endpoint, and clean up
+the services they started. To validate the Mission Planner interchange path
+without a Windows desktop, run `make integration-mission-planner-mission-verify`;
+on Windows, add `--gcs mission-planner` to the supervised launcher to include
+the native application check.
 
 ## What to show
 

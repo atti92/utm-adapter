@@ -48,6 +48,16 @@ def test_verify_flag_is_carried_into_demo_config() -> None:
     assert config.open_browser is False
 
 
+def test_verify_mission_format_is_carried_into_demo_config() -> None:
+    parser = openutm_demo._build_parser()
+    args = parser.parse_args(["--verify", "--verify-mission-format", "qgroundcontrol"])
+
+    config = openutm_demo._config_from_args(args)
+
+    assert config.verify_mission_format == "qgroundcontrol"
+    assert "--verify-mission-format qgroundcontrol" in openutm_demo._check_run_hint(config)
+
+
 def test_custom_qgroundcontrol_command_is_carried_into_demo_config() -> None:
     parser = openutm_demo._build_parser()
     args = parser.parse_args(

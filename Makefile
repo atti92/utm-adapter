@@ -1,4 +1,4 @@
-.PHONY: setup demo-setup doctor smoke test run demo demo-check gcs-demo gcs-demo-check gcs-demo-verify gcs-custom-qgc-demo gcs-custom-qgc-demo-check gcs-custom-qgc-demo-verify gcs-router-demo gcs-router-demo-check gcs-router-demo-verify integration-demo integration-demo-check integration-demo-verify integration-demo-router-check integration-demo-router-verify integration-demo-px4 integration-demo-px4-check integration-demo-px4-verify integration-verify mavlink-stream-check manifest-check qgc-check qgc-stage mp-check mp-compile-check router-check
+.PHONY: setup demo-setup doctor smoke test run demo demo-check gcs-demo gcs-demo-check gcs-demo-verify gcs-custom-qgc-demo gcs-custom-qgc-demo-check gcs-custom-qgc-demo-verify gcs-router-demo gcs-router-demo-check gcs-router-demo-verify integration-demo integration-demo-check integration-demo-verify integration-demo-router-check integration-demo-router-verify integration-demo-px4 integration-demo-px4-check integration-demo-px4-verify integration-qgroundcontrol-mission-verify integration-mission-planner-mission-verify integration-verify mavlink-stream-check manifest-check qgc-check qgc-stage mp-check mp-compile-check router-check
 
 setup:
 	uv sync
@@ -31,7 +31,7 @@ gcs-demo-check:
 	uv run python scripts/openutm_demo.py --gcs auto --check
 
 gcs-demo-verify:
-	uv run python scripts/openutm_demo.py --gcs auto --no-browser --verify
+	uv run python scripts/openutm_demo.py --gcs auto --no-browser --verify --verify-mission-format qgroundcontrol
 
 gcs-custom-qgc-demo:
 	@test -n "$${QGROUNDCONTROL_COMMAND:-}" || (echo "Set QGROUNDCONTROL_COMMAND to the custom QGroundControl executable before using this target."; exit 2)
@@ -43,7 +43,7 @@ gcs-custom-qgc-demo-check:
 
 gcs-custom-qgc-demo-verify:
 	@test -n "$${QGROUNDCONTROL_COMMAND:-}" || (echo "Set QGROUNDCONTROL_COMMAND to the custom QGroundControl executable before using this target."; exit 2)
-	uv run python scripts/openutm_demo.py --gcs qgroundcontrol --qgroundcontrol-command "$${QGROUNDCONTROL_COMMAND}" --no-browser --verify
+	uv run python scripts/openutm_demo.py --gcs qgroundcontrol --qgroundcontrol-command "$${QGROUNDCONTROL_COMMAND}" --no-browser --verify --verify-mission-format qgroundcontrol
 
 gcs-router-demo:
 	uv run python scripts/openutm_demo.py --topology router --gcs auto
@@ -52,7 +52,7 @@ gcs-router-demo-check:
 	uv run python scripts/openutm_demo.py --topology router --gcs auto --check
 
 gcs-router-demo-verify:
-	uv run python scripts/openutm_demo.py --topology router --gcs auto --no-browser --verify
+	uv run python scripts/openutm_demo.py --topology router --gcs auto --no-browser --verify --verify-mission-format qgroundcontrol
 
 integration-demo:
 	uv run python scripts/openutm_demo.py
@@ -77,6 +77,12 @@ integration-demo-px4-check:
 
 integration-demo-px4-verify:
 	uv run python scripts/openutm_demo.py --simulator px4 --gcs none --no-browser --verify
+
+integration-qgroundcontrol-mission-verify:
+	uv run python scripts/openutm_demo.py --gcs none --no-browser --verify --verify-mission-format qgroundcontrol
+
+integration-mission-planner-mission-verify:
+	uv run python scripts/openutm_demo.py --gcs none --no-browser --verify --verify-mission-format mission-planner
 
 integration-verify:
 	uv run python scripts/verify_running_demo.py

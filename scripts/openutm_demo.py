@@ -42,7 +42,11 @@ from utm_connector.diagnostics import (
     probe_http_endpoint,
     udp_port_is_available,
 )
-from scripts.verify_running_demo import DemoVerificationError, verify_running_demo
+from scripts.verify_running_demo import (
+    MISSION_FORMATS,
+    DemoVerificationError,
+    verify_running_demo,
+)
 from scripts.verify_mavlink_stream import (
     MavlinkStreamVerificationError,
     verify_mavlink_stream,
@@ -93,6 +97,7 @@ class DemoConfig:
     open_browser: bool = True
     keep_provider: bool = False
     verify: bool = False
+    verify_mission_format: str = "canonical"
 
     @property
     def provider_url(self) -> str:
@@ -741,6 +746,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="run the browser-console lifecycle check after startup, then exit",
     )
     parser.add_argument(
+        "--verify-mission-format",
+        choices=MISSION_FORMATS,
+        default="canonical",
+        help=(
+            "mission upload path used by --verify: canonical, qgroundcontrol, "
+            "or mission-planner (default: canonical)"
+        ),
+    )
+    parser.add_argument(
         "--check",
         action="store_true",
         help="only validate prerequisites; do not start Docker, SITL, or the connector",
@@ -785,6 +799,7 @@ def _config_from_args(args: argparse.Namespace) -> DemoConfig:
         open_browser=not args.no_browser,
         keep_provider=args.keep_provider,
         verify=args.verify,
+        verify_mission_format=args.verify_mission_format,
     )
 
 
@@ -965,6 +980,8 @@ def _check_run_hint(config: DemoConfig) -> str:
         command.append("--no-browser")
     if config.verify:
         command.append("--verify")
+    if config.verify_mission_format != "canonical":
+        command.extend(["--verify-mission-format", config.verify_mission_format])
     return shlex.join(command)
 
 
@@ -1324,11 +1341,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 config.connector_url,
                 config.vehicle_id,
                 timeout_s=config.connector_timeout_s,
+                mission_format=config.verify_mission_format,
             )
             print(
                 "[ok] full-stack verification passed: "
                 f"vehicle={result.vehicle_id} operation={result.operation_id} "
-                f"elapsed={result.elapsed_s:.1f}s"
+                f"mission_format={result.mission_format} elapsed={result.elapsed_s:.1f}s"
             )
             return 0
         while True:

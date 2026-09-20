@@ -17,6 +17,9 @@ from uuid import UUID, uuid4
 import httpx
 
 
+MISSION_FORMATS = ("canonical", "qgroundcontrol", "mission-planner")
+
+
 class DemoVerificationError(RuntimeError):
     """Raised when the running demo does not complete its expected lifecycle."""
 
@@ -28,6 +31,7 @@ class DemoVerificationResult:
     vehicle_id: str
     operation_id: UUID
     elapsed_s: float
+    mission_format: str
 
 
 def _json(response: httpx.Response, *, expected: int, action: str) -> dict[str, Any]:
@@ -53,12 +57,110 @@ def _state(operation: dict[str, Any], key: str, *, action: str) -> str:
     return value
 
 
+def _mission_upload(
+    *,
+    vehicle_id: str,
+    latitude: float,
+    longitude: float,
+    altitude_m: float,
+    altitude_datum: str,
+    valid_from: datetime,
+    valid_until: datetime,
+    mission_format: str,
+) -> tuple[str, dict[str, Any]]:
+    """Build the same mission upload a GCS-facing operator workflow uses."""
+
+    if mission_format not in MISSION_FORMATS:
+        choices = ", ".join(MISSION_FORMATS)
+        raise DemoVerificationError(
+            f"unsupported mission format {mission_format!r}; choose one of {choices}"
+        )
+
+    route = (
+        (latitude, longitude, altitude_m - 2),
+        (latitude + 0.0002, longitude + 0.0002, altitude_m + 2),
+        (latitude, longitude + 0.0004, altitude_m - 2),
+    )
+    metadata = {
+        "valid_from": valid_from.isoformat(),
+        "valid_until": valid_until.isoformat(),
+        "corridor_radius_m": 200,
+    }
+    if mission_format == "canonical":
+        return (
+            f"/v1/missions/{vehicle_id}",
+            {
+                "vehicle_id": vehicle_id,
+                **metadata,
+                "source": "operator-console-full-stack-verification",
+                "waypoints": [
+                    {
+                        "sequence": sequence,
+                        "latitude": point_latitude,
+                        "longitude": point_longitude,
+                        "altitude": {"meters": point_altitude, "datum": altitude_datum},
+                    }
+                    for sequence, (point_latitude, point_longitude, point_altitude) in enumerate(route)
+                ],
+            },
+        )
+
+    # MAV_FRAME_GLOBAL(_INT) is the explicit AMSL representation in both
+    # QGroundControl Plans and QGC WPL files.  The simulator publishes AMSL
+    # telemetry; reject an unexpected datum rather than silently changing it.
+    if altitude_datum != "AMSL":
+        raise DemoVerificationError(
+            f"{mission_format} verification requires AMSL telemetry, got {altitude_datum!r}"
+        )
+    frame = 5
+    if mission_format == "qgroundcontrol":
+        items = [
+            {
+                "type": "SimpleItem",
+                "command": command,
+                "frame": frame,
+                "autoContinue": True,
+                "doJumpId": sequence + 1,
+                "params": [0, 0, 0, 0, point_latitude, point_longitude, point_altitude],
+            }
+            for sequence, (command, (point_latitude, point_longitude, point_altitude)) in enumerate(
+                zip((22, 16, 21), route)
+            )
+        ]
+        return (
+            f"/v1/missions/{vehicle_id}/qgroundcontrol",
+            {
+                **metadata,
+                "plan": {
+                    "fileType": "Plan",
+                    "groundStation": "QGroundControl",
+                    "mission": {"items": items},
+                },
+            },
+        )
+
+    lines = ["QGC WPL 110"]
+    for sequence, (command, (point_latitude, point_longitude, point_altitude)) in enumerate(
+        zip((22, 16, 21), route)
+    ):
+        current = 1 if sequence == 0 else 0
+        lines.append(
+            f"{sequence} {current} {frame} {command} 0 0 0 0 "
+            f"{point_latitude} {point_longitude} {point_altitude} 1"
+        )
+    return (
+        f"/v1/missions/{vehicle_id}/mission-planner",
+        {**metadata, "text": "\n".join(lines)},
+    )
+
+
 def verify_running_demo(
     base_url: str,
     vehicle_id: str,
     *,
     timeout_s: float = 60.0,
     poll_interval_s: float = 1.0,
+    mission_format: str = "canonical",
     client: httpx.Client | None = None,
 ) -> DemoVerificationResult:
     """Run the operator-console lifecycle against a running connector.
@@ -112,35 +214,20 @@ def verify_running_demo(
             ) from exc
 
         now = datetime.now(timezone.utc)
-        mission = {
-            "vehicle_id": vehicle_id,
-            "valid_from": (now + timedelta(seconds=15)).isoformat(),
-            "valid_until": (now + timedelta(minutes=5)).isoformat(),
-            "source": "operator-console-full-stack-verification",
-            "corridor_radius_m": 200,
-            "waypoints": [
-                {
-                    "sequence": 0,
-                    "latitude": latitude,
-                    "longitude": longitude,
-                    "altitude": {"meters": altitude_m - 2, "datum": altitude_datum},
-                },
-                {
-                    "sequence": 1,
-                    "latitude": latitude + 0.0002,
-                    "longitude": longitude + 0.0002,
-                    "altitude": {"meters": altitude_m + 2, "datum": altitude_datum},
-                },
-                {
-                    "sequence": 2,
-                    "latitude": latitude,
-                    "longitude": longitude + 0.0004,
-                    "altitude": {"meters": altitude_m - 2, "datum": altitude_datum},
-                },
-            ],
-        }
+        valid_from = now + timedelta(seconds=15)
+        valid_until = now + timedelta(minutes=5)
+        mission_path, mission_payload = _mission_upload(
+            vehicle_id=vehicle_id,
+            latitude=latitude,
+            longitude=longitude,
+            altitude_m=altitude_m,
+            altitude_datum=altitude_datum,
+            valid_from=valid_from,
+            valid_until=valid_until,
+            mission_format=mission_format,
+        )
         _json(
-            http.put(f"{base_url}/v1/missions/{vehicle_id}", json=mission),
+            http.put(f"{base_url}{mission_path}", json=mission_payload),
             expected=200,
             action="mission validation",
         )
@@ -240,6 +327,7 @@ def verify_running_demo(
             vehicle_id=vehicle_id,
             operation_id=operation_id,
             elapsed_s=time.monotonic() - started_at,
+            mission_format=mission_format,
         )
     finally:
         if not completed:
@@ -268,6 +356,12 @@ def main() -> int:
     parser.add_argument("--base-url", default="http://127.0.0.1:8001")
     parser.add_argument("--vehicle-id", default="sitl-1")
     parser.add_argument("--timeout", type=float, default=60.0)
+    parser.add_argument(
+        "--mission-format",
+        choices=MISSION_FORMATS,
+        default="canonical",
+        help="mission upload path to exercise (default: canonical)",
+    )
     args = parser.parse_args()
 
     try:
@@ -275,6 +369,7 @@ def main() -> int:
             args.base_url,
             args.vehicle_id,
             timeout_s=args.timeout,
+            mission_format=args.mission_format,
         )
     except (DemoVerificationError, httpx.HTTPError) as exc:
         print(f"[fail] full-stack verification: {exc}")
@@ -282,7 +377,7 @@ def main() -> int:
     print(
         "[ok] full-stack verification passed: "
         f"vehicle={result.vehicle_id} operation={result.operation_id} "
-        f"elapsed={result.elapsed_s:.1f}s"
+        f"mission_format={result.mission_format} elapsed={result.elapsed_s:.1f}s"
     )
     return 0
 

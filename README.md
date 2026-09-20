@@ -94,9 +94,12 @@ Flight Blender/SITL/Docker path and reports optional QGroundControl, Mission
 Planner, and MAVLink Router availability separately, so a missing native app
 does not obscure whether the browser-based demo is ready.
 Use `make gcs-demo-verify` to start the split-topology demo, launch the detected
-GCS, confirm that it stays running, and exercise the connector lifecycle before
-cleaning everything up. `make gcs-router-demo-verify` performs the same check
-with the single-link MAVLink Router topology used to model a physical vehicle.
+GCS, confirm that it stays running, and exercise the connector lifecycle through
+a real QGroundControl `.plan` upload before cleaning everything up.
+`make gcs-router-demo-verify` performs the same check with the single-link
+MAVLink Router topology used to model a physical vehicle. The Mission Planner
+file path is available as `make integration-mission-planner-mission-verify`;
+include `--gcs mission-planner` on Windows to check the native application too.
 
 For a locally built QGroundControl with the UTM Fly View card, set its executable
 once and use the dedicated targets below. The value may include quoted arguments
