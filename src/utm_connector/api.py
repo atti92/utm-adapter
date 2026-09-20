@@ -52,6 +52,18 @@ class OperatorConsoleStaticFiles(StaticFiles):
         return response
 
 
+def _display_mavlink_endpoint(connection_uri: str) -> str:
+    """Return a useful endpoint label without exposing URI credentials."""
+
+    if "@" not in connection_uri:
+        return connection_uri
+    scheme, separator, _ = connection_uri.partition("://")
+    if not separator:
+        return "[redacted MAVLink endpoint]"
+    host_and_port = connection_uri.rsplit("@", 1)[1]
+    return f"{scheme}://[redacted]@{host_and_port}"
+
+
 def create_app(
     service: Optional[ConnectorService] = None,
     settings: Optional[ConnectorSettings] = None,
@@ -201,6 +213,13 @@ def create_app(
             },
             "mavlink": {
                 "configured": bool(manager.connections),
+                "configured_connections": [
+                    {
+                        "vehicle_id": connection.vehicle_id,
+                        "endpoint": _display_mavlink_endpoint(connection.connection_uri),
+                    }
+                    for connection in manager.connections
+                ],
                 "non_commanding": True,
                 "read_only": True,
                 "mission_download": True,

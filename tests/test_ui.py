@@ -124,6 +124,9 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "Vehicle mission received" in javascript
     assert "GCS remains in control" in javascript
     assert "function renderSetupGuide" in javascript
+    assert "function configuredLinkSummary" in javascript
+    assert "Connector input:" in javascript
+    assert "Listening on" in javascript
     assert "One physical link can feed both GCS and connector" in javascript
     assert "function copyDiagnostics" in javascript
     assert "function downloadDiagnostics" in javascript

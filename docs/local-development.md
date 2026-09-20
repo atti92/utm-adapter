@@ -553,8 +553,9 @@ Use `--vehicle-id sitl-1` to isolate one vehicle in a multi-vehicle capture.
 The command never opens a MAVLink transport and never sends a vehicle command.
 
 The `/v1/capabilities` response reports `recording.configured` and
-`recording.mavlink_raw`, while `/v1/integration` describes the stable record
-type and replay entrypoint for a future GCS diagnostics panel.
+`recording.mavlink_raw`, and includes the redacted configured MAVLink endpoints
+used by the setup guide. `/v1/integration` describes the stable record type and
+the supported offline replay entrypoint for GCS and support diagnostics.
 
 ## Run tests
 

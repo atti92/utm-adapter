@@ -153,6 +153,7 @@ def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
     }
     assert capabilities.json()["mavlink"] == {
         "configured": False,
+        "configured_connections": [],
         "non_commanding": True,
         "read_only": True,
         "mission_download": True,
@@ -193,6 +194,29 @@ def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
             "latest_telemetry_at": telemetry["observed_at"],
             "active_operation_count": 0,
             "last_error": None,
+        }
+    ]
+
+
+def test_capabilities_show_configured_mavlink_endpoints_without_credentials() -> None:
+    service = ConnectorService(InMemoryBackend())
+    settings = ConnectorSettings(
+        mavlink_connections=[
+            MavlinkConnectionConfig(
+                vehicle_id="field-1",
+                connection_uri="udp://operator:secret@10.0.0.30:14551",
+            )
+        ]
+    )
+
+    with TestClient(create_app(service, settings)) as client:
+        mavlink = client.get("/v1/capabilities").json()["mavlink"]
+
+    assert mavlink["configured"] is True
+    assert mavlink["configured_connections"] == [
+        {
+            "vehicle_id": "field-1",
+            "endpoint": "udp://[redacted]@10.0.0.30:14551",
         }
     ]
 

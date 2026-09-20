@@ -332,6 +332,15 @@ function setSetupStep(index, stateName, title, detail) {
   step.querySelector("small").textContent = detail;
 }
 
+function configuredLinkSummary(capabilities) {
+  const connections = capabilities.mavlink?.configured_connections;
+  if (!Array.isArray(connections) || !connections.length) return "";
+  return connections.map((connection) => {
+    const endpoint = connection.endpoint || "configured endpoint";
+    return connection.vehicle_id ? `${connection.vehicle_id}: ${endpoint}` : endpoint;
+  }).join(", ");
+}
+
 function renderSetupGuide(capabilities, vehicles, health) {
   const backend = capabilities.backend || "unknown";
   const providerError = health?.backend_error;
@@ -339,6 +348,7 @@ function renderSetupGuide(capabilities, vehicles, health) {
   const linkError = vehicles.find((vehicle) => vehicle.last_error);
   const configured = Boolean(capabilities.mavlink?.configured);
   const demoMode = Boolean(capabilities.demo_mode);
+  const endpointSummary = configuredLinkSummary(capabilities);
 
   setSetupStep(
     0,
@@ -360,10 +370,19 @@ function renderSetupGuide(capabilities, vehicles, health) {
       1,
       "ok",
       `${onlineVehicles.length} vehicle${onlineVehicles.length === 1 ? "" : "s"} online`,
-      "One physical link can feed both GCS and connector through separate router outputs.",
+      endpointSummary
+        ? `Connector input: ${endpointSummary}. One physical link can feed both GCS and connector.`
+        : "One physical link can feed both GCS and connector through separate router outputs.",
     );
   } else if (configured) {
-    setSetupStep(1, "warning", "Waiting for vehicle", "The link is configured; start the vehicle, simulator, or MAVLink router.");
+    setSetupStep(
+      1,
+      "warning",
+      "Waiting for vehicle",
+      endpointSummary
+        ? `Listening on ${endpointSummary}. Start the vehicle, simulator, or MAVLink router.`
+        : "The link is configured; start the vehicle, simulator, or MAVLink router.",
+    );
   } else {
     setSetupStep(1, "warning", "Configure vehicle link", "Point the connector at a router output; no second aircraft port is required.");
   }
