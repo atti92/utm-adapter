@@ -32,6 +32,23 @@ automatically falls back to the supervised full-stack connector on `8001`.
 
 ## Use it in a QGroundControl custom build
 
+For the easiest setup, stage an isolated copy of QGC's upstream custom example:
+
+```sh
+uv run python scripts/stage_qgc_custom_build.py \
+  --qgc-source ../qgroundcontrol
+```
+
+The command creates `../qgroundcontrol/custom-utm-connector`, leaves the stock
+`custom-example` and installed QGroundControl untouched, and prints the exact
+CMake commands. Re-run with `--force` only when the generated directory is the
+one you want to replace; the old generated directory is moved to a timestamped
+backup first. The equivalent convenience check is `make qgc-stage`.
+
+The generated build reuses QGC's existing `custom.qrc` Fly View alias, so no
+manual resource merge is needed. If you already maintain a different custom
+build, use the manual overlay merge below instead.
+
 1. Start the connector, for example with `uv run utm-connector --demo`.
 2. Copy `src/FlyViewCustomLayer.qml` and `utm_connector.qrc` into the
    QGroundControl custom-build source tree, then merge

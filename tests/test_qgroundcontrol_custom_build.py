@@ -1,8 +1,13 @@
 from pathlib import Path
+import sys
+
+import pytest
 
 
 ROOT = Path(__file__).parents[1]
 QGC_EXAMPLE = ROOT / "examples" / "qgroundcontrol-custom-build"
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 
 def test_qgroundcontrol_overlay_is_a_non_commanding_custom_build_layer() -> None:
@@ -56,3 +61,68 @@ def test_qgroundcontrol_overlay_documents_stock_binary_boundary() -> None:
     assert "custom-build integration" in readme
     assert "stock QGroundControl binary" in readme
     assert "does not send" in readme and "MAVLink commands" in readme
+
+
+def test_qgroundcontrol_stager_preserves_upstream_and_replaces_only_fly_view_layer(tmp_path: Path) -> None:
+    from scripts.stage_qgc_custom_build import stage_custom_build
+
+    qgc_source = tmp_path / "qgroundcontrol"
+    upstream_layer = qgc_source / "custom-example" / "src" / "FlyViewCustomLayer.qml"
+    upstream_layer.parent.mkdir(parents=True)
+    upstream_layer.write_text("// upstream sample\n", encoding="utf-8")
+    (qgc_source / "custom-example" / "custom.qrc").write_text(
+        "<qresource prefix=\"/Custom/qml\" />\n", encoding="utf-8"
+    )
+    output = qgc_source / "custom-utm-connector"
+
+    staged = stage_custom_build(qgc_source, output)
+
+    assert staged == output.resolve()
+    assert staged.joinpath("custom.qrc").is_file()
+    assert staged.joinpath(".utm-connector-overlay.json").is_file()
+    assert staged.joinpath("src", "FlyViewCustomLayer.qml").read_text() == (
+        QGC_EXAMPLE / "src" / "FlyViewCustomLayer.qml"
+    ).read_text()
+    assert upstream_layer.read_text() == "// upstream sample\n"
+
+
+def test_qgroundcontrol_stager_refuses_unmarked_replacement(tmp_path: Path) -> None:
+    from scripts.stage_qgc_custom_build import StageError, stage_custom_build
+
+    qgc_source = tmp_path / "qgroundcontrol"
+    upstream_layer = qgc_source / "custom-example" / "src" / "FlyViewCustomLayer.qml"
+    upstream_layer.parent.mkdir(parents=True)
+    upstream_layer.write_text("// upstream sample\n", encoding="utf-8")
+    output = qgc_source / "custom-utm-connector"
+    output.mkdir(parents=True)
+
+    with pytest.raises(StageError, match="unmarked"):
+        stage_custom_build(qgc_source, output, force=True)
+
+
+def test_qgroundcontrol_stager_backs_up_its_previous_generated_output(tmp_path: Path) -> None:
+    from scripts.stage_qgc_custom_build import stage_custom_build
+
+    qgc_source = tmp_path / "qgroundcontrol"
+    upstream_layer = qgc_source / "custom-example" / "src" / "FlyViewCustomLayer.qml"
+    upstream_layer.parent.mkdir(parents=True)
+    upstream_layer.write_text("// upstream sample\n", encoding="utf-8")
+    output = qgc_source / "custom-utm-connector"
+
+    stage_custom_build(qgc_source, output)
+    stage_custom_build(qgc_source, output, force=True)
+
+    backups = list(qgc_source.glob("custom-utm-connector.backup-*"))
+    assert len(backups) == 1
+    assert backups[0].joinpath(".utm-connector-overlay.json").is_file()
+    assert output.joinpath(".utm-connector-overlay.json").is_file()
+
+
+def test_qgroundcontrol_stager_has_a_safe_cli_contract() -> None:
+    script = (ROOT / "scripts" / "stage_qgc_custom_build.py").read_text()
+
+    assert "--qgc-source" in script
+    assert "--output" in script
+    assert "--force" in script
+    assert "shutil.move" in script
+    assert ".utm-connector-overlay.json" in script
