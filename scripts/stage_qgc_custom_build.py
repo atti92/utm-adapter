@@ -58,7 +58,13 @@ def _backup_path(output: Path) -> Path:
 
 
 def stage_custom_build(qgc_source: Path, output: Path, *, force: bool = False) -> Path:
-    """Copy QGC's custom example and replace only its Fly View layer."""
+    """Copy QGC's custom example and replace only its Fly View layer.
+
+    QGC's sample custom build is intentionally single-stack and disables the
+    ArduPilot factory.  The connector is meant to sit alongside existing GCS
+    users, so keep the sample's PX4 customization while restoring the stock
+    ArduPilot factory in the generated build.
+    """
 
     qgc_source = qgc_source.expanduser().resolve()
     output = output.expanduser().resolve()
@@ -100,12 +106,26 @@ def stage_custom_build(qgc_source: Path, output: Path, *, force: bool = False) -
     shutil.copytree(upstream_example, output)
     shutil.copy2(connector_layer, output / "src" / "FlyViewCustomLayer.qml")
 
+    overrides = output / "cmake" / "CustomOverrides.cmake"
+    if not overrides.is_file():
+        raise StageError(f"QGroundControl custom override file not found: {overrides}")
+    overrides_text = overrides.read_text(encoding="utf-8")
+    disabled_apm = 'set(QGC_DISABLE_APM_PLUGIN_FACTORY ON CACHE BOOL "Disable APM Plugin Factory" FORCE)'
+    enabled_apm = 'set(QGC_DISABLE_APM_PLUGIN_FACTORY OFF CACHE BOOL "Disable APM Plugin Factory" FORCE)'
+    if disabled_apm not in overrides_text:
+        raise StageError(
+            "QGroundControl custom template no longer contains its expected "
+            "ArduPilot factory override; inspect it before staging"
+        )
+    overrides.write_text(overrides_text.replace(disabled_apm, enabled_apm, 1), encoding="utf-8")
+
     marker_payload = {
         "kind": "utm-connector-qgroundcontrol-custom-build",
         "source": str(qgc_source),
         "overlay": str(OVERLAY),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "custom_dir": output.name,
+        "standard_ardupilot_factory": True,
     }
     (output / MARKER_NAME).write_text(
         json.dumps(marker_payload, indent=2) + "\n",

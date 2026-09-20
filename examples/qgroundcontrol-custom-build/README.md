@@ -43,7 +43,9 @@ The command creates `../qgroundcontrol/custom-utm-connector`, leaves the stock
 `custom-example` and installed QGroundControl untouched, and prints the exact
 CMake commands. Re-run with `--force` only when the generated directory is the
 one you want to replace; the old generated directory is moved to a timestamped
-backup first. The equivalent convenience check is `make qgc-stage`.
+backup first. The generated build keeps QGC's normal ArduPilot factory enabled
+so an existing ArduPilot-based GCS workflow is not silently removed. The
+equivalent convenience check is `make qgc-stage`.
 
 The generated build reuses QGC's existing `custom.qrc` Fly View alias, so no
 manual resource merge is needed. If you already maintain a different custom
@@ -67,8 +69,10 @@ build, use the manual overlay merge below instead.
 
 6. Build and run the resulting QGroundControl custom binary. The native build
    needs the Qt version and compiler toolchain required by the pinned QGC
-   release; the stock QGC binary does not need to be rebuilt for the normal
-   connector demo.
+   release. To have the supervised demo launch that binary directly, use
+   `--gcs qgroundcontrol --qgroundcontrol-command /path/to/Custom-QGroundControl`
+   (or set `QGROUNDCONTROL_COMMAND`). The stock QGC binary does not need to be
+   rebuilt for the normal connector demo.
 
 The stock QGroundControl binary and the provider-neutral files in
 `qgcs-config/` remain useful without rebuilding QGroundControl: use the

@@ -73,6 +73,11 @@ def test_qgroundcontrol_stager_preserves_upstream_and_replaces_only_fly_view_lay
     (qgc_source / "custom-example" / "custom.qrc").write_text(
         "<qresource prefix=\"/Custom/qml\" />\n", encoding="utf-8"
     )
+    (qgc_source / "custom-example" / "cmake").mkdir()
+    (qgc_source / "custom-example" / "cmake" / "CustomOverrides.cmake").write_text(
+        'set(QGC_DISABLE_APM_PLUGIN_FACTORY ON CACHE BOOL "Disable APM Plugin Factory" FORCE)\n',
+        encoding="utf-8",
+    )
     output = qgc_source / "custom-utm-connector"
 
     staged = stage_custom_build(qgc_source, output)
@@ -80,6 +85,9 @@ def test_qgroundcontrol_stager_preserves_upstream_and_replaces_only_fly_view_lay
     assert staged == output.resolve()
     assert staged.joinpath("custom.qrc").is_file()
     assert staged.joinpath(".utm-connector-overlay.json").is_file()
+    assert 'QGC_DISABLE_APM_PLUGIN_FACTORY OFF' in staged.joinpath(
+        "cmake", "CustomOverrides.cmake"
+    ).read_text()
     assert staged.joinpath("src", "FlyViewCustomLayer.qml").read_text() == (
         QGC_EXAMPLE / "src" / "FlyViewCustomLayer.qml"
     ).read_text()
@@ -93,6 +101,11 @@ def test_qgroundcontrol_stager_refuses_unmarked_replacement(tmp_path: Path) -> N
     upstream_layer = qgc_source / "custom-example" / "src" / "FlyViewCustomLayer.qml"
     upstream_layer.parent.mkdir(parents=True)
     upstream_layer.write_text("// upstream sample\n", encoding="utf-8")
+    (qgc_source / "custom-example" / "cmake").mkdir()
+    (qgc_source / "custom-example" / "cmake" / "CustomOverrides.cmake").write_text(
+        'set(QGC_DISABLE_APM_PLUGIN_FACTORY ON CACHE BOOL "Disable APM Plugin Factory" FORCE)\n',
+        encoding="utf-8",
+    )
     output = qgc_source / "custom-utm-connector"
     output.mkdir(parents=True)
 
@@ -107,6 +120,11 @@ def test_qgroundcontrol_stager_backs_up_its_previous_generated_output(tmp_path: 
     upstream_layer = qgc_source / "custom-example" / "src" / "FlyViewCustomLayer.qml"
     upstream_layer.parent.mkdir(parents=True)
     upstream_layer.write_text("// upstream sample\n", encoding="utf-8")
+    (qgc_source / "custom-example" / "cmake").mkdir()
+    (qgc_source / "custom-example" / "cmake" / "CustomOverrides.cmake").write_text(
+        'set(QGC_DISABLE_APM_PLUGIN_FACTORY ON CACHE BOOL "Disable APM Plugin Factory" FORCE)\n',
+        encoding="utf-8",
+    )
     output = qgc_source / "custom-utm-connector"
 
     stage_custom_build(qgc_source, output)
