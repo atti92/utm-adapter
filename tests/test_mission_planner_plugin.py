@@ -12,7 +12,8 @@ def test_mission_planner_plugin_is_thin_non_commanding_and_supports_gcs_workflow
     assert 'FullStackConnectorBaseUrl = "http://127.0.0.1:8001"' in source
     assert "ResolveConnectorBaseUrl()" in source
     assert "MissionValidityLeadSeconds = 15" in source
-    assert "Host.FDMenuMap.Items.Add(connectorMenu)" in source
+    assert "Host.MainForm.MainMenu.Items" in source
+    assert "ToolStripDropDownButton" in source
     assert '"/ui/"' in source
     assert "HttpWebRequest" in source
     assert "Host.comPort." not in source

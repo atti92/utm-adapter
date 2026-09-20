@@ -29,7 +29,7 @@ public class UtmConnectorPlugin : Plugin
     private const string DefaultVehicleId = "sitl-1";
     private const int MissionValidityLeadSeconds = 15;
 
-    private ToolStripMenuItem connectorMenu;
+    private ToolStripDropDownButton connectorMenu;
     private ToolStripMenuItem statusMenu;
     private string connectorBaseUrl;
     private string vehicleId;
@@ -50,7 +50,11 @@ public class UtmConnectorPlugin : Plugin
 
     public override bool Loaded()
     {
-        connectorMenu = new ToolStripMenuItem("UTM Connector");
+        connectorMenu = new ToolStripDropDownButton("UTM Connector")
+        {
+            Name = "UtmConnectorMenu",
+            ToolTipText = "UTM operations connector"
+        };
 
         var configure = new ToolStripMenuItem("Configure connector...");
         configure.Click += delegate { ConfigureConnector(); };
@@ -98,9 +102,15 @@ public class UtmConnectorPlugin : Plugin
         statusMenu = new ToolStripMenuItem(StatusText("not checked")) { Enabled = false };
         connectorMenu.DropDownItems.Add(statusMenu);
 
-        // FDMenuMap is available in Mission Planner's PluginHost and keeps the
-        // integration visible from the normal Flight Data workflow.
-        Host.FDMenuMap.Items.Add(connectorMenu);
+        // Put the integration beside Mission Planner's normal GCS workflow so
+        // operators do not need to discover a map right-click context menu.
+        // MainMenu is exposed by the script-plugin host and is the same
+        // ToolStrip used by Mission Planner's Flight Data/Flight Planner tabs.
+        var helpIndex = Host.MainForm.MainMenu.Items.IndexOfKey("MenuHelp");
+        if (helpIndex >= 0)
+            Host.MainForm.MainMenu.Items.Insert(helpIndex, connectorMenu);
+        else
+            Host.MainForm.MainMenu.Items.Add(connectorMenu);
         return true;
     }
 
@@ -113,9 +123,10 @@ public class UtmConnectorPlugin : Plugin
 
     public override bool Exit()
     {
-        if (connectorMenu != null && Host.FDMenuMap.Items.Contains(connectorMenu))
+        if (connectorMenu != null && Host.MainForm != null &&
+            Host.MainForm.MainMenu.Items.Contains(connectorMenu))
         {
-            Host.FDMenuMap.Items.Remove(connectorMenu);
+            Host.MainForm.MainMenu.Items.Remove(connectorMenu);
         }
 
         return true;

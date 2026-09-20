@@ -40,6 +40,7 @@ def _project_version(project: Path) -> str | None:
 def validate(source_root: Path, expected_version: str) -> list[str]:
     required = {
         "Mission Planner plugin API": source_root / "Plugin" / "Plugin.cs",
+        "Mission Planner main form": source_root / "MainV2.Designer.cs",
         "Mission Planner project": source_root / "MissionPlanner.csproj",
         "plugin source": PLUGIN,
         "PowerShell installer": PLUGIN.parent / "Install-UtmConnectorPlugin.ps1",
@@ -49,6 +50,7 @@ def validate(source_root: Path, expected_version: str) -> list[str]:
         return errors
 
     api = required["Mission Planner plugin API"].read_text(encoding="utf-8-sig")
+    main_form = required["Mission Planner main form"].read_text(encoding="utf-8-sig")
     project = required["Mission Planner project"]
     plugin = PLUGIN.read_text(encoding="utf-8-sig")
     installer = required["PowerShell installer"].read_text(encoding="utf-8-sig")
@@ -65,13 +67,17 @@ def validate(source_root: Path, expected_version: str) -> list[str]:
         ("plugin initialization hook", "public abstract bool Init()" in api),
         ("plugin load hook", "public abstract bool Loaded()" in api),
         ("plugin unload hook", "public abstract bool Exit()" in api),
-        ("Flight Data menu surface", "public ContextMenuStrip FDMenuMap" in api),
+        (
+            "main toolbar surface",
+            "MenuStrip MainMenu"
+            in main_form,
+        ),
         ("settings string getter", has_settings_getter),
         ("connector plugin derives from Plugin", "class UtmConnectorPlugin : Plugin" in plugin),
         ("installer accepts a Mission Planner root", "MissionPlannerRoot" in installer),
         ("installer protects existing plugins", "-Force" in installer and ".bak" in installer),
         ("installer copies the C# plugin", "Copy-Item" in installer and "UtmConnectorPlugin.cs" in installer),
-        ("connector plugin uses the Flight Data menu", "Host.FDMenuMap.Items.Add" in plugin),
+        ("connector plugin uses the main toolbar", "Host.MainForm.MainMenu.Items" in plugin and "ToolStripDropDownButton" in plugin),
         ("connector plugin remains non-commanding", "Host.comPort." not in plugin),
         ("connector plugin has no MAVLink command path", "COMMAND_LONG" not in plugin and "sendPacket" not in plugin),
         (

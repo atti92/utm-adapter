@@ -1,10 +1,10 @@
 # Mission Planner integration
 
 This directory contains a thin, non-commanding Mission Planner plugin. It
-adds a `UTM Connector` entry to the normal Flight Data menu so an operator can
-configure the local connector, sync the mission currently shown in Mission
-Planner, and drive the UTM operation lifecycle without leaving the GCS
-workflow.
+adds a visible `UTM Connector` drop-down to Mission Planner's main toolbar so
+an operator can configure the local connector, sync the mission currently
+shown in Mission Planner, and drive the UTM operation lifecycle without
+leaving the GCS workflow or hunting through a map context menu.
 
 The plugin does not replace Mission Planner's vehicle-control or mission-editing
 features, and it never writes to the vehicle MAVLink connection. The connector
@@ -33,7 +33,8 @@ operator console.
    into Mission Planner's `plugins` directory.
 3. Restart Mission Planner. Its plugin loader compiles C# source files from
    that directory when Mission Planner starts.
-4. In Flight Data, open `UTM Connector` and choose `Open operator console`.
+4. In Mission Planner's main toolbar, open `UTM Connector` and choose `Open
+   operator console`.
 
 The plugin starts with connector address `http://127.0.0.1:8000` and vehicle ID
 `sitl-1`. For the full Flight Blender demo it automatically falls back to
