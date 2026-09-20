@@ -13,6 +13,8 @@ control application.
 See [`docs/local-development.md`](docs/local-development.md) for setup and API examples.
 For the complete Flight Blender + SITL + QGroundControl/Mission Planner path,
 see [`docs/openutm-integration.md`](docs/openutm-integration.md).
+For a presentation-ready checklist with the operator flow and real-drone
+topology, see [`docs/demo-runbook.md`](docs/demo-runbook.md).
 
 The minimum local setup is Python 3.11–3.13 and `uv`. Add Docker Desktop (or
 Docker Engine with Compose) for the Flight Blender demo. The browser operator
