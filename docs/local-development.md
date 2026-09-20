@@ -540,6 +540,18 @@ def inspect_frame(vehicle_id: str, frame: bytes) -> None:
 JsonlReplay("connector-events.jsonl").replay_mavlink(inspect_frame)
 ```
 
+For a read-only operator/support summary, decode the capture through the same
+canonical telemetry normalizer used by the live connector:
+
+```sh
+uv run python scripts/replay_connector_recording.py \
+  .local/openutm-demo/connector-events.jsonl \
+  --decode-mavlink --strict
+```
+
+Use `--vehicle-id sitl-1` to isolate one vehicle in a multi-vehicle capture.
+The command never opens a MAVLink transport and never sends a vehicle command.
+
 The `/v1/capabilities` response reports `recording.configured` and
 `recording.mavlink_raw`, while `/v1/integration` describes the stable record
 type and replay entrypoint for a future GCS diagnostics panel.
