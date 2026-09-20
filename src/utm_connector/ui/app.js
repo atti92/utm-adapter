@@ -55,6 +55,11 @@ function formatStatus(value) {
   return value ? String(value).replace(/_/g, " ") : "—";
 }
 
+function conciseError(value, maxLength = 180) {
+  const message = String(value || "").replace(/\s+/g, " ").trim();
+  return message.length > maxLength ? `${message.slice(0, maxLength - 1)}…` : message;
+}
+
 function statusTone(value) {
   if (["LOST", "INVALID"].includes(value)) return "error";
   if (["DEGRADED", "STALE", "UNKNOWN"].includes(value)) return "warning";
@@ -297,6 +302,7 @@ function renderSetupGuide(capabilities, vehicles, health) {
   const backend = capabilities.backend || "unknown";
   const providerError = health?.backend_error;
   const onlineVehicles = vehicles.filter((vehicle) => vehicle.connection_state === "CONNECTED");
+  const linkError = vehicles.find((vehicle) => vehicle.last_error);
   const configured = Boolean(capabilities.mavlink?.configured);
   const demoMode = Boolean(capabilities.demo_mode);
 
@@ -306,7 +312,14 @@ function renderSetupGuide(capabilities, vehicles, health) {
     "GCS remains in control",
     "QGroundControl or Mission Planner keeps all vehicle-control authority.",
   );
-  if (demoMode) {
+  if (linkError) {
+    setSetupStep(
+      1,
+      "warning",
+      "Vehicle link needs attention",
+      `${linkError.vehicle_id}: ${conciseError(linkError.last_error)}`,
+    );
+  } else if (demoMode) {
     setSetupStep(1, "ok", "Demo vehicle online", "The connector is supplying a self-contained moving test vehicle.");
   } else if (onlineVehicles.length) {
     setSetupStep(
@@ -333,6 +346,9 @@ function renderSetupGuide(capabilities, vehicles, health) {
   if (providerError) {
     note.dataset.state = "error";
     note.textContent = `Provider error: ${providerError}`;
+  } else if (linkError) {
+    note.dataset.state = "warning";
+    note.textContent = `Vehicle link error: ${linkError.vehicle_id} — ${conciseError(linkError.last_error)}`;
   } else if (!vehicles.length && !demoMode) {
     note.dataset.state = "warning";
     note.textContent = "No vehicle is visible yet. Keep this console open, start the simulator or router, and the vehicle will appear automatically.";
@@ -440,11 +456,13 @@ function renderVehicle(vehicle) {
     element.innerHTML = '<div class="empty-state">Start the connector with a simulator or router to see a vehicle here.</div>';
     return;
   }
+  const linkError = conciseError(vehicle.last_error);
   element.innerHTML = `<div class="vehicle-card">
     <div><strong>${escapeHtml(vehicle.vehicle_id)}</strong><br /><small>MAVLink system ${escapeHtml(vehicle.mavlink_system_id || "not discovered")}</small></div>
     <div class="vehicle-state" data-state="${statusTone(vehicle.connection_state)}">${escapeHtml(formatStatus(vehicle.connection_state))}</div>
     <div><small>Last telemetry: ${escapeHtml(formatDate(vehicle.latest_telemetry_at))}</small></div>
     <div class="vehicle-state" data-state="${statusTone(vehicle.quality)}">${escapeHtml(formatStatus(vehicle.quality))}</div>
+    <div class="vehicle-diagnostic" title="${escapeHtml(linkError || "No vehicle link error")}"><small>${escapeHtml(linkError ? `Link error: ${linkError}` : "No vehicle link error")}</small></div>
   </div>`;
 }
 
@@ -452,6 +470,7 @@ function renderVehicleStatus(status) {
   const snapshot = status?.vehicle_state;
   if (!snapshot) return;
   const health = snapshot.health || {};
+  const linkError = conciseError(status.last_error);
   const battery = health.battery_remaining_pct == null
     ? "—"
     : `${Number(health.battery_remaining_pct).toFixed(0)}%${health.battery_voltage_v == null ? "" : ` · ${Number(health.battery_voltage_v).toFixed(1)} V`}`;
@@ -465,7 +484,9 @@ function renderVehicleStatus(status) {
       ? `Item ${snapshot.mission_current + 1}`
       : `Item ${snapshot.mission_current + 1} / ${snapshot.mission_count}`;
   const diagnostics = snapshot.diagnostics || [];
-  const diagnostic = diagnostics.length ? diagnostics[diagnostics.length - 1] : "";
+  const diagnostic = linkError
+    ? `Link error: ${linkError}`
+    : diagnostics.length ? diagnostics[diagnostics.length - 1] : "";
   $("vehicle-summary").innerHTML = `<div class="vehicle-card">
     <div><strong>${escapeHtml(snapshot.identity.connector_vehicle_id)}</strong><br /><small>MAVLink system ${escapeHtml(snapshot.identity.mavlink_system_id || "not discovered")}</small></div>
     <div class="vehicle-state" data-state="${statusTone(snapshot.connection_state)}">${escapeHtml(formatStatus(snapshot.connection_state))}<br /><small data-state="${statusTone(snapshot.quality)}">${escapeHtml(formatStatus(snapshot.quality))}</small></div>
