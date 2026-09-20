@@ -66,6 +66,16 @@ honor the shared `--home lat,lon,altitude,heading` option. Use `--check` to
 validate prerequisites without starting anything. Press Ctrl+C to stop the simulator,
 connector, and provider stack started by that run.
 
+To launch a locally built QGroundControl app, pass its executable explicitly;
+the same option works on macOS, Linux, and Windows and can be stored in
+`QGROUNDCONTROL_COMMAND` for a repeatable demo setup:
+
+```sh
+uv run python scripts/openutm_demo.py --gcs qgroundcontrol \
+  --qgroundcontrol-command \
+  "/path/to/Custom-QGroundControl --demo"
+```
+
 Before a presentation, run `make gcs-demo-check` (or `make demo-check` for the
 broader host inventory). It validates the required
 Flight Blender/SITL/Docker path and reports optional QGroundControl, Mission

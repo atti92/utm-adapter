@@ -89,6 +89,7 @@ class DemoConfig:
     provider_timeout_s: float = DEFAULT_PROVIDER_TIMEOUT_S
     connector_timeout_s: float = DEFAULT_CONNECTOR_TIMEOUT_S
     gcs: str = "auto"
+    qgroundcontrol_command: tuple[str, ...] | None = None
     open_browser: bool = True
     keep_provider: bool = False
     verify: bool = False
@@ -468,6 +469,18 @@ def _find_qgroundcontrol_command() -> list[str] | None:
     return _find_path_command(("qgroundcontrol", "QGroundControl"))
 
 
+def _parse_command_override(value: str) -> tuple[str, ...]:
+    """Parse a user-provided executable plus optional arguments."""
+
+    try:
+        command = tuple(shlex.split(value))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"invalid command quoting: {exc}") from exc
+    if not command:
+        raise argparse.ArgumentTypeError("the command must not be empty")
+    return command
+
+
 def _find_mission_planner_command() -> list[str] | None:
     if os.name != "nt":
         return None
@@ -484,12 +497,16 @@ def _launch_gcs(
     selection: str,
     *,
     run_dir: Path | None = None,
+    qgroundcontrol_command: Sequence[str] | None = None,
 ) -> tuple[str | None, ManagedProcess | None]:
     if selection == "none":
         return None, None
     if selection == "auto":
         candidates = (
-            ("QGroundControl", _find_qgroundcontrol_command()),
+            (
+                "QGroundControl",
+                list(qgroundcontrol_command) if qgroundcontrol_command else _find_qgroundcontrol_command(),
+            ),
             ("Mission Planner", _find_mission_planner_command()),
         )
         label, command = next(
@@ -504,7 +521,11 @@ def _launch_gcs(
         command = _find_mission_planner_command()
         label = "Mission Planner"
     else:
-        command = _find_qgroundcontrol_command()
+        command = (
+            list(qgroundcontrol_command)
+            if qgroundcontrol_command
+            else _find_qgroundcontrol_command()
+        )
         label = "QGroundControl"
     if command is None:
         if selection == "auto":
@@ -667,6 +688,15 @@ def _build_parser() -> argparse.ArgumentParser:
         default="auto",
         help="launch a GCS after the vehicle is online (default: auto-detect QGroundControl, then Mission Planner)",
     )
+    parser.add_argument(
+        "--qgroundcontrol-command",
+        type=_parse_command_override,
+        default=os.environ.get("QGROUNDCONTROL_COMMAND"),
+        help=(
+            "custom QGroundControl executable and optional arguments; useful for a "
+            "locally built app (also via QGROUNDCONTROL_COMMAND)"
+        ),
+    )
     parser.add_argument("--no-browser", action="store_true", help="do not open the operator console")
     parser.add_argument(
         "--keep-provider",
@@ -715,6 +745,11 @@ def _config_from_args(args: argparse.Namespace) -> DemoConfig:
         provider_timeout_s=args.provider_timeout,
         connector_timeout_s=args.connector_timeout,
         gcs=args.gcs,
+        qgroundcontrol_command=(
+            tuple(args.qgroundcontrol_command)
+            if args.qgroundcontrol_command
+            else None
+        ),
         open_browser=not args.no_browser,
         keep_provider=args.keep_provider,
         verify=args.verify,
@@ -793,7 +828,11 @@ def check_prerequisites(config: DemoConfig) -> list[str]:
             if 1 <= port <= 65535 and not udp_port_is_available("127.0.0.1", port):
                 failures.append(f"{label} 127.0.0.1:{port} is already in use")
 
-    if config.gcs == "qgroundcontrol" and _find_qgroundcontrol_command() is None:
+    if (
+        config.gcs == "qgroundcontrol"
+        and config.qgroundcontrol_command is None
+        and _find_qgroundcontrol_command() is None
+    ):
         failures.append("QGroundControl was requested but is not installed or discoverable")
     elif config.gcs == "mission-planner" and _find_mission_planner_command() is None:
         failures.append("Mission Planner was requested but is not installed or discoverable")
@@ -877,6 +916,8 @@ def _check_run_hint(config: DemoConfig) -> str:
         command.extend(["--connector-udp-port", str(config.connector_udp_port)])
     if config.gcs != "auto":
         command.extend(["--gcs", config.gcs])
+    if config.qgroundcontrol_command:
+        command.extend(["--qgroundcontrol-command", shlex.join(config.qgroundcontrol_command)])
     if config.topology != "split":
         command.extend(["--topology", config.topology])
     if config.router_config != DEFAULT_ROUTER_CONFIG:
@@ -986,7 +1027,11 @@ class DemoRunner:
             f"[ok] GCS MAVLink stream is receiving vehicle {gcs_stream.system_id} "
             f"on UDP {gcs_stream.port}"
         )
-        gcs_label, gcs_process = _launch_gcs(self.config.gcs, run_dir=self.config.run_dir)
+        gcs_label, gcs_process = _launch_gcs(
+            self.config.gcs,
+            run_dir=self.config.run_dir,
+            qgroundcontrol_command=self.config.qgroundcontrol_command,
+        )
         if gcs_process is not None:
             self.gcs_processes.append(gcs_process)
         if self.config.verify and gcs_label:

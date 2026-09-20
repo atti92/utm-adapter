@@ -48,6 +48,22 @@ def test_verify_flag_is_carried_into_demo_config() -> None:
     assert config.open_browser is False
 
 
+def test_custom_qgroundcontrol_command_is_carried_into_demo_config() -> None:
+    parser = openutm_demo._build_parser()
+    args = parser.parse_args(
+        [
+            "--gcs",
+            "qgroundcontrol",
+            "--qgroundcontrol-command",
+            "'/tmp/Custom QGroundControl' --demo",
+        ]
+    )
+
+    config = openutm_demo._config_from_args(args)
+
+    assert config.qgroundcontrol_command == ("/tmp/Custom QGroundControl", "--demo")
+
+
 def test_gcs_process_names_are_platform_agnostic(monkeypatch) -> None:
     observed: list[list[str]] = []
 
@@ -473,6 +489,25 @@ def test_auto_gcs_falls_back_to_mission_planner(monkeypatch) -> None:
     assert openutm_demo._launch_gcs("auto") == ("Mission Planner", None)
 
 
+def test_custom_qgroundcontrol_command_launches_without_installed_app(monkeypatch) -> None:
+    observed: list[list[str]] = []
+
+    def fake_popen(command, **_kwargs):
+        observed.append(list(command))
+        return object()
+
+    monkeypatch.setattr(openutm_demo.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(openutm_demo, "_find_qgroundcontrol_command", lambda: None)
+
+    label, managed = openutm_demo._launch_gcs(
+        "qgroundcontrol",
+        qgroundcontrol_command=("/tmp/Custom QGroundControl", "--demo"),
+    )
+
+    assert (label, managed) == ("QGroundControl", None)
+    assert observed == [["/tmp/Custom QGroundControl", "--demo"]]
+
+
 def test_qgroundcontrol_detection_accepts_linux_command_name(monkeypatch) -> None:
     monkeypatch.setattr(openutm_demo.sys, "platform", "linux")
     monkeypatch.setattr(openutm_demo.os, "name", "posix")
@@ -505,6 +540,23 @@ def test_requested_missing_qgroundcontrol_is_an_actionable_error(monkeypatch) ->
         assert "QGroundControl" in str(exc)
     else:  # pragma: no cover - assertion clarity
         raise AssertionError("expected an actionable missing-GCS error")
+
+
+def test_custom_qgroundcontrol_command_satisfies_prerequisite_check(tmp_path: Path, monkeypatch) -> None:
+    config = openutm_demo.DemoConfig(
+        flight_blender_root=tmp_path / "missing-flight-blender",
+        ardupilot_root=tmp_path / "missing-ardupilot",
+        gcs="qgroundcontrol",
+        qgroundcontrol_command=("/tmp/Custom-QGroundControl",),
+    )
+    monkeypatch.setattr(openutm_demo, "_find_qgroundcontrol_command", lambda: None)
+    monkeypatch.setattr(openutm_demo, "_command_available", lambda _command: (True, "ok"))
+    monkeypatch.setattr(openutm_demo, "_find_geoid_grid", lambda: tmp_path / "grid.tif")
+    monkeypatch.setattr(openutm_demo, "port_is_reachable", lambda _host, _port: False)
+
+    failures = openutm_demo.check_prerequisites(config)
+
+    assert not any("QGroundControl was requested" in failure for failure in failures)
 
 
 def test_run_command_can_isolate_cleanup_process_and_bound_wait(monkeypatch) -> None:
