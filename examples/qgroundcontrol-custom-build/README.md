@@ -3,8 +3,8 @@
 This example adds a small native UTM status card to QGroundControl's Fly View.
 It is intended for operators who want UTM readiness visible beside the normal
 flight controls while keeping all vehicle control inside QGroundControl. The
-card shows connector health, vehicle telemetry quality, and the latest UTM
-operation state.
+card shows connector health, vehicle telemetry quality, onboard mission drift
+status, and the latest UTM operation state.
 
 This is a **custom-build integration**, not a loose plugin for the stock
 QGroundControl binary. QGroundControl's supported extension path is a custom

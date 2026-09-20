@@ -20,12 +20,14 @@ Item {
     property bool connectorOnline: false
     property string connectorLabel: "UTM offline"
     property string vehicleLabel: "No vehicle"
+    property string missionLabel: "Mission not checked"
     property string operationLabel: "No operation"
 
     function setOffline(label) {
         connectorOnline = false
         connectorLabel = label || "UTM offline"
         vehicleLabel = "No vehicle"
+        missionLabel = "Mission not checked"
         operationLabel = "No operation"
     }
 
@@ -81,6 +83,14 @@ Item {
                 var vehicle = vehicles[0]
                 vehicleLabel = vehicle.vehicle_id + " · " + (vehicle.quality || "unknown")
                 requestJson("/v1/vehicles/" + encodeURIComponent(vehicle.vehicle_id) + "/status", function(status) {
+                    var drift = status.mission_drift || null
+                    if (!drift) {
+                        missionLabel = "Mission not checked"
+                    } else if (drift.classification === "NO_CHANGE") {
+                        missionLabel = "Mission: matches"
+                    } else {
+                        missionLabel = "Mission: " + (drift.classification || "drift")
+                    }
                     var operations = status.operations || []
                     if (operations.length === 0) {
                         operationLabel = "No operation"
@@ -127,7 +137,7 @@ Item {
         anchors.topMargin: 12
         anchors.rightMargin: 12
         width: 236
-        height: 126
+        height: 144
         radius: 6
         color: qgcPal.windowShade
         border.color: connectorOnline ? qgcPal.colorGreen : qgcPal.warningText
@@ -158,6 +168,14 @@ Item {
                 text: root.vehicleLabel
                 color: qgcPal.text
                 font.pixelSize: 11
+                elide: Text.ElideRight
+                width: parent.width
+            }
+
+            Text {
+                text: root.missionLabel
+                color: root.missionLabel === "Mission: matches" ? qgcPal.colorGreen : qgcPal.text
+                font.pixelSize: 10
                 elide: Text.ElideRight
                 width: parent.width
             }

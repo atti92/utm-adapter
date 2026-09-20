@@ -13,6 +13,9 @@ def test_qgroundcontrol_overlay_is_a_non_commanding_custom_build_layer() -> None
     assert 'requestJson("/v1/vehicles"' in qml
     assert '"/v1/vehicles/" + encodeURIComponent(vehicle.vehicle_id) + "/status"' in qml
     assert 'property string operationLabel: "No operation"' in qml
+    assert 'property string missionLabel: "Mission not checked"' in qml
+    assert 'missionLabel = "Mission: matches"' in qml
+    assert 'drift.classification || "drift"' in qml
     assert 'property string fallbackConnectorBaseUrl: "http://127.0.0.1:8001"' in qml
     assert "resolvedConnectorBaseUrl" in qml
     assert "root.fallbackConnectorBaseUrl" in qml
