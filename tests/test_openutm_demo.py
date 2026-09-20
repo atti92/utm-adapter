@@ -505,6 +505,35 @@ def test_run_command_can_isolate_cleanup_process_and_bound_wait(monkeypatch) -> 
     assert observed["timeout"] == 30
 
 
+def test_demo_run_dir_resets_only_managed_artifacts(tmp_path: Path) -> None:
+    run_dir = tmp_path / "demo"
+    run_dir.mkdir()
+    (run_dir / "sitl.log").write_text("old simulator output", encoding="utf-8")
+    (run_dir / "notes.txt").write_text("keep this", encoding="utf-8")
+
+    openutm_demo._prepare_run_dir(run_dir)
+
+    assert not (run_dir / "sitl.log").exists()
+    assert (run_dir / "notes.txt").read_text(encoding="utf-8") == "keep this"
+
+
+def test_start_new_process_truncates_stale_log(tmp_path: Path, monkeypatch) -> None:
+    log_path = tmp_path / "process.log"
+    log_path.write_text("stale output", encoding="utf-8")
+    monkeypatch.setattr(openutm_demo.subprocess, "Popen", lambda *_args, **_kwargs: object())
+
+    managed = openutm_demo._start_new_process(
+        "test",
+        [sys.executable, "-c", "pass"],
+        cwd=tmp_path,
+        env={},
+        log_path=log_path,
+    )
+    managed.log_file.close()
+
+    assert log_path.read_bytes() == b""
+
+
 def test_demo_stop_masks_interrupts_while_reaping_children(monkeypatch) -> None:
     observed = []
 

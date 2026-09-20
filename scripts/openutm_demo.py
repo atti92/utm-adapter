@@ -155,6 +155,29 @@ class ManagedProcess:
             self.log_file.close()
 
 
+DEMO_ARTIFACTS = (
+    "connector-events.jsonl",
+    "connector.log",
+    "mavlink-router.log",
+    "mission-planner.log",
+    "qgroundcontrol.log",
+    "sitl.log",
+)
+
+
+def _prepare_run_dir(run_dir: Path) -> None:
+    """Start a demo with bounded, current-run diagnostics.
+
+    The supervised launcher owns this directory.  Reset only its known output
+    files so repeated simulator runs cannot append indefinitely to a stale
+    MAVLink/SITL log or recorder file.
+    """
+
+    run_dir.mkdir(parents=True, exist_ok=True)
+    for artifact in DEMO_ARTIFACTS:
+        (run_dir / artifact).unlink(missing_ok=True)
+
+
 def _default_checkout(env_name: str, sibling_name: str) -> Path:
     configured = os.environ.get(env_name)
     if configured:
@@ -283,7 +306,7 @@ def _start_new_process(
     env: dict[str, str],
     log_path: Path,
 ) -> ManagedProcess:
-    log_file = log_path.open("ab")
+    log_file = log_path.open("wb")
     popen_kwargs: dict[str, object] = {
         "cwd": cwd,
         "env": env,
@@ -831,7 +854,7 @@ class DemoRunner:
         if failures:
             raise DemoSetupError("\n".join(failures))
 
-        self.config.run_dir.mkdir(parents=True, exist_ok=True)
+        _prepare_run_dir(self.config.run_dir)
         if _provider_endpoint_is_ready(self.config):
             print(f"[info] reusing the healthy Flight Blender service at {self.config.provider_url}")
         else:
