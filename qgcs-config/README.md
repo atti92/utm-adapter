@@ -19,6 +19,10 @@ relative paths in the manifest are resolved against the connector origin, for
 example `http://127.0.0.1:8000/v1/integration`. Opening the service root
 (`http://127.0.0.1:8000/`) redirects to the operator console.
 
+Run `make manifest-check` after changing integration endpoints or mission
+capabilities. It verifies that this checked-in GCS manifest still matches the
+runtime contract served by the connector.
+
 The connector is non-commanding with respect to vehicle control: MAVLink is
 used for telemetry and optional onboard-mission download, while operation
 submit/start/cancel/complete actions are UTM-side API intents. Use the
