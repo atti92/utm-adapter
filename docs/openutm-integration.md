@@ -137,8 +137,11 @@ It starts the same two outputs and places the vehicle at the documented
 Budapest test location by default. Pass `--home lat,lon,altitude,heading` to
 use another location.
 
-The supervised demo also accepts `--gcs-udp-port` and
+For the ArduPilot path, the supervised demo also accepts `--gcs-udp-port` and
 `--connector-udp-port` when the default simulator ports are already in use.
+The stock PX4 image keeps its documented remote endpoints on GCS UDP 14550 and
+external-API UDP 14540; use the documented MAVLink-router topology below when
+custom host ports or additional consumers are required.
 
 PX4's equivalent topology is supplied by its two documented MAVLink UDP
 endpoints:

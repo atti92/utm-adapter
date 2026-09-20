@@ -31,6 +31,7 @@ from scripts.ardupilot_sitl import DEFAULT_HOME, find_copter_binary
 from scripts.generate_flight_blender_dev_token import generate_token
 from scripts.px4_sitl import (
     DEFAULT_DOCKER_IMAGE as DEFAULT_PX4_IMAGE,
+    DEFAULT_GCS_PORT as DEFAULT_PX4_GCS_PORT,
     DEFAULT_CONNECTOR_PORT as DEFAULT_PX4_CONNECTOR_PORT,
 )
 from utm_connector.diagnostics import port_is_reachable, probe_http_endpoint
@@ -405,7 +406,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--connector-udp-port",
         type=int,
         default=None,
-        help="SITL UDP input consumed by the connector (default: 14551 for ArduPilot, 14540 for PX4)",
+        help=(
+            "SITL UDP input consumed by the connector "
+            "(default: 14551 for ArduPilot, 14540 for PX4; stock PX4 requires 14540)"
+        ),
     )
     parser.add_argument("--provider-timeout", type=float, default=DEFAULT_PROVIDER_TIMEOUT_S)
     parser.add_argument("--connector-timeout", type=float, default=DEFAULT_CONNECTOR_TIMEOUT_S)
@@ -492,6 +496,12 @@ def check_prerequisites(config: DemoConfig) -> list[str]:
                 failures.append(str(exc))
     elif not config.px4_image.strip():
         failures.append("PX4 Docker image must not be empty")
+    elif config.gcs_udp_port != DEFAULT_PX4_GCS_PORT:
+        failures.append(
+            "PX4's stock SITL image requires GCS UDP port "
+            f"{DEFAULT_PX4_GCS_PORT}; use the default port or a MAVLink router "
+            "when a different host port is required"
+        )
     elif config.connector_udp_port != DEFAULT_PX4_CONNECTOR_PORT:
         failures.append(
             "PX4's stock SITL image requires connector UDP port "

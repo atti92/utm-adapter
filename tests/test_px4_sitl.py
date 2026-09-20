@@ -12,6 +12,7 @@ _SPEC.loader.exec_module(_MODULE)
 
 build_docker_command = _MODULE.build_docker_command
 find_px4_binary = _MODULE.find_px4_binary
+main = _MODULE.main
 
 
 def test_build_docker_command_keeps_qgc_and_connector_on_px4_defaults() -> None:
@@ -69,3 +70,13 @@ def test_find_px4_binary_accepts_sih_build(tmp_path: Path) -> None:
     binary.touch()
 
     assert find_px4_binary(tmp_path) == binary
+
+
+def test_main_rejects_custom_gcs_port() -> None:
+    with pytest.raises(SystemExit, match="stock PX4 SITL image sends its GCS stream"):
+        main(["--gcs-port", "15000"])
+
+
+def test_main_rejects_custom_connector_port() -> None:
+    with pytest.raises(SystemExit, match="stock PX4 SITL image sends its external-API stream"):
+        main(["--connector-port", "15001"])

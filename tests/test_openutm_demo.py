@@ -75,6 +75,21 @@ def test_px4_prerequisites_reject_custom_connector_port(tmp_path: Path, monkeypa
     assert any("stock SITL image requires connector UDP port 14540" in failure for failure in failures)
 
 
+def test_px4_prerequisites_reject_custom_gcs_port(tmp_path: Path, monkeypatch) -> None:
+    config = openutm_demo.DemoConfig(
+        simulator="px4",
+        gcs_udp_port=14560,
+        flight_blender_root=tmp_path / "missing-flight-blender",
+    )
+    monkeypatch.setattr(openutm_demo, "_command_available", lambda _command: (True, "ok"))
+    monkeypatch.setattr(openutm_demo, "_find_geoid_grid", lambda: tmp_path / "grid.tif")
+    monkeypatch.setattr(openutm_demo, "port_is_reachable", lambda _host, _port: False)
+
+    failures = openutm_demo.check_prerequisites(config)
+
+    assert any("stock SITL image requires GCS UDP port 14550" in failure for failure in failures)
+
+
 def test_check_prerequisites_rejects_invalid_or_duplicate_simulator_ports(tmp_path: Path, monkeypatch) -> None:
     config = openutm_demo.DemoConfig(
         flight_blender_root=tmp_path / "missing-flight-blender",

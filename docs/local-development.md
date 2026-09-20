@@ -70,8 +70,8 @@ performed: choose the detected vehicle, select `Sample route` or open a
 QGroundControl `.plan`/Mission Planner `.waypoints` export, then validate, submit,
 and start the operation. The GCS remains the vehicle-control application.
 
-If the default simulator endpoints are already used, choose different ports
-without editing configuration files, for example:
+If the default ArduPilot simulator endpoints are already used, choose different
+ports without editing configuration files, for example:
 
 ```sh
 uv run python scripts/openutm_demo.py --gcs-udp-port 14560 --connector-udp-port 14561

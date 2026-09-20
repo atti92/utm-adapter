@@ -128,6 +128,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit("MAVLink UDP ports must be between 1 and 65535.")
     if args.gcs_port == args.connector_port:
         raise SystemExit("GCS UDP port and connector UDP port must be different.")
+    if args.gcs_port != DEFAULT_GCS_PORT:
+        raise SystemExit(
+            "The stock PX4 SITL image sends its GCS stream to UDP "
+            f"{DEFAULT_GCS_PORT}; keep --gcs-port at that value or use a MAVLink "
+            "router for custom host ports."
+        )
     if args.connector_port != PX4_EXTERNAL_API_PORT:
         raise SystemExit(
             "The stock PX4 SITL image sends its external-API stream to UDP "
