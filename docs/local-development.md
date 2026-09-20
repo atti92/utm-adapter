@@ -86,6 +86,7 @@ uv run python scripts/openutm_demo.py
 # equivalent short entry points:
 make gcs-demo-check
 make gcs-demo
+make gcs-demo-verify
 ```
 
 It starts the local Flight Blender Compose stack, the connector configured for
@@ -189,8 +190,11 @@ uv run uvicorn 'utm_connector.api:create_app' --factory
 ```
 
 Convenience targets are also available: `make setup`, `make doctor`, `make smoke`,
-`make test`, `make run`, `make demo`, `make demo-check`, and `make integration-demo-px4`. They delegate to `uv run`, so they do not depend on
-the Unix-specific `.venv/bin` layout.
+`make test`, `make run`, `make demo`, `make demo-check`, `make integration-demo-px4`,
+`make gcs-demo-verify`, and `make gcs-router-demo-verify`. The GCS verify targets
+launch the detected native GCS, confirm that it stays alive, and run the
+connector lifecycle check before cleanup. They delegate to `uv run`, so they do
+not depend on the Unix-specific `.venv/bin` layout.
 
 The service listens on `http://127.0.0.1:8000`. Open the operator console at
 `/ui/`; OpenAPI is available at `/docs`, and the health endpoint is

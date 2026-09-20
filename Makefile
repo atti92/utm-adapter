@@ -1,4 +1,4 @@
-.PHONY: setup doctor smoke test run demo demo-check gcs-demo gcs-demo-check gcs-router-demo gcs-router-demo-check integration-demo integration-demo-check integration-demo-verify integration-demo-router-check integration-demo-router-verify integration-demo-px4 integration-demo-px4-check integration-demo-px4-verify integration-verify mavlink-stream-check manifest-check qgc-check mp-check router-check
+.PHONY: setup doctor smoke test run demo demo-check gcs-demo gcs-demo-check gcs-demo-verify gcs-router-demo gcs-router-demo-check gcs-router-demo-verify integration-demo integration-demo-check integration-demo-verify integration-demo-router-check integration-demo-router-verify integration-demo-px4 integration-demo-px4-check integration-demo-px4-verify integration-verify mavlink-stream-check manifest-check qgc-check mp-check router-check
 
 setup:
 	uv sync
@@ -27,11 +27,17 @@ gcs-demo:
 gcs-demo-check:
 	uv run python scripts/openutm_demo.py --gcs auto --check
 
+gcs-demo-verify:
+	uv run python scripts/openutm_demo.py --gcs auto --no-browser --verify
+
 gcs-router-demo:
 	uv run python scripts/openutm_demo.py --topology router --gcs auto
 
 gcs-router-demo-check:
 	uv run python scripts/openutm_demo.py --topology router --gcs auto --check
+
+gcs-router-demo-verify:
+	uv run python scripts/openutm_demo.py --topology router --gcs auto --no-browser --verify
 
 integration-demo:
 	uv run python scripts/openutm_demo.py

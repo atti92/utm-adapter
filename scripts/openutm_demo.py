@@ -530,6 +530,56 @@ def _launch_gcs(
     return label, managed
 
 
+def _gcs_process_is_running(label: str) -> bool:
+    """Return whether a selected native GCS process is visible on this host."""
+
+    if label == "QGroundControl":
+        names = ("QGroundControl", "qgroundcontrol", "QGroundControl.exe")
+    elif label == "Mission Planner":
+        names = ("MissionPlanner.exe", "missionplanner.exe")
+    else:  # pragma: no cover - labels are produced by _launch_gcs
+        return False
+
+    if os.name == "nt":
+        for name in names:
+            result = _run_command(
+                ["tasklist", "/FI", f"IMAGENAME eq {name}"],
+                capture_output=True,
+            )
+            if result.returncode == 0 and name.lower() in result.stdout.lower():
+                return True
+        return False
+
+    for name in names:
+        result = _run_command(["pgrep", "-x", name], capture_output=True)
+        if result.returncode == 0 and result.stdout.strip():
+            return True
+    return False
+
+
+def _wait_for_gcs(
+    label: str,
+    managed: ManagedProcess | None,
+    *,
+    timeout_s: float = 10.0,
+    log_path: Path | None = None,
+) -> None:
+    """Confirm that the requested GCS process is alive after launch."""
+
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if managed is not None and managed.process.poll() is None:
+            print(f"[ok] {label} process is running")
+            return
+        if _gcs_process_is_running(label):
+            print(f"[ok] {label} process is running")
+            return
+        time.sleep(0.25)
+
+    detail = f"; inspect {log_path}" if log_path is not None else ""
+    raise DemoSetupError(f"{label} did not stay running after launch{detail}")
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Start Flight Blender, SITL, the UTM connector, and the operator console"
@@ -939,6 +989,14 @@ class DemoRunner:
         gcs_label, gcs_process = _launch_gcs(self.config.gcs, run_dir=self.config.run_dir)
         if gcs_process is not None:
             self.gcs_processes.append(gcs_process)
+        if self.config.verify and gcs_label:
+            _wait_for_gcs(
+                gcs_label,
+                gcs_process,
+                timeout_s=min(10.0, self.config.connector_timeout_s),
+                log_path=self.config.run_dir
+                / ("qgroundcontrol.log" if gcs_label == "QGroundControl" else "mission-planner.log"),
+            )
         if self.config.open_browser:
             webbrowser.open(f"{self.config.connector_url}/ui/")
         print("")

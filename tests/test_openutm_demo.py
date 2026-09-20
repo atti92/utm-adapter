@@ -48,6 +48,29 @@ def test_verify_flag_is_carried_into_demo_config() -> None:
     assert config.open_browser is False
 
 
+def test_gcs_process_names_are_platform_agnostic(monkeypatch) -> None:
+    observed: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        observed.append(list(command))
+        return type("Result", (), {"returncode": 0, "stdout": "QGroundControl 123"})()
+
+    monkeypatch.setattr(openutm_demo, "_run_command", fake_run)
+
+    assert openutm_demo._gcs_process_is_running("QGroundControl") is True
+    assert observed[0][:2] == ["pgrep", "-x"]
+
+
+def test_wait_for_gcs_accepts_a_managed_process() -> None:
+    managed = type(
+        "Managed",
+        (),
+        {"process": type("Process", (), {"poll": lambda _self: None})()},
+    )()
+
+    openutm_demo._wait_for_gcs("QGroundControl", managed)
+
+
 def test_router_topology_is_carried_into_demo_config() -> None:
     parser = openutm_demo._build_parser()
     args = parser.parse_args(["--topology", "router", "--no-browser"])

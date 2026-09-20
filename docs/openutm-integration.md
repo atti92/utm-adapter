@@ -64,6 +64,9 @@ operator-facing targets `make gcs-demo-check` and `make gcs-demo`. Use
 `make gcs-router-demo` when the demonstration should model one physical
 vehicle telemetry link feeding a MAVLink router; its matching preflight is
 `make gcs-router-demo-check`.
+The verify variants, `make gcs-demo-verify` and
+`make gcs-router-demo-verify`, also launch the detected native GCS, confirm that
+it stays running, and exercise the connector lifecycle before cleanup.
 
 It starts Flight Blender, the connector, and ArduPilot SITL, opens the
 operator console, and auto-detects QGroundControl or Mission Planner. On

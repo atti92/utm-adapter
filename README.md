@@ -71,6 +71,10 @@ broader host inventory). It validates the required
 Flight Blender/SITL/Docker path and reports optional QGroundControl, Mission
 Planner, and MAVLink Router availability separately, so a missing native app
 does not obscure whether the browser-based demo is ready.
+Use `make gcs-demo-verify` to start the split-topology demo, launch the detected
+GCS, confirm that it stays running, and exercise the connector lifecycle before
+cleaning everything up. `make gcs-router-demo-verify` performs the same check
+with the single-link MAVLink Router topology used to model a physical vehicle.
 
 For a physical-drone-style single telemetry link, use the supervised fan-out
 demo. It prefers a host-installed `mavlink-routerd`; when that is unavailable,
