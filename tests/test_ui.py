@@ -96,6 +96,13 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert 'state.latestStatus = null' in javascript
     assert "renderNextAction" in javascript
     assert "Operation is live and conforming." in javascript
+    assert "function providerReady()" in javascript
+    assert "function vehicleLinkReady()" in javascript
+    assert 'state.latestHealth.status === "ok"' in javascript
+    assert 'snapshot.connection_state === "CONNECTED" && snapshot.quality === "GOOD"' in javascript
+    assert "The UTM provider is unavailable. Wait for the connector to recover before submitting." in javascript
+    assert "Start UTM telemetry publication for the authorized operation." in javascript
+    assert "Waiting for live vehicle status." in javascript
     assert 'vehicle.connection_state === "LOST"' in javascript
     assert '["LOST", "INVALID"].includes(telemetry.quality)' in javascript
     assert 'health?.status !== "ok"' in javascript

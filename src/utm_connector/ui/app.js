@@ -119,6 +119,27 @@ function missionMatchesForm() {
   }
 }
 
+function providerReady() {
+  return !state.latestHealth || (state.latestHealth.status === "ok" && !state.latestHealth.backend_error);
+}
+
+function vehicleLinkReady() {
+  const snapshot = state.latestStatus?.vehicle_state;
+  return Boolean(snapshot && snapshot.connection_state === "CONNECTED" && snapshot.quality === "GOOD");
+}
+
+function vehicleLinkBlockReason() {
+  const snapshot = state.latestStatus?.vehicle_state;
+  if (!snapshot) return "Waiting for live vehicle status.";
+  if (snapshot.connection_state !== "CONNECTED") {
+    return `Vehicle link is ${formatStatus(snapshot.connection_state)}. Restore the GCS/router link before continuing.`;
+  }
+  if (snapshot.quality !== "GOOD") {
+    return `Vehicle telemetry is ${formatStatus(snapshot.quality)}. Restore a healthy link before continuing.`;
+  }
+  return "";
+}
+
 function updateMissionActionState() {
   const preview = state.mission?.mission_hash === "preview";
   const saved = Boolean(state.mission && !preview);
@@ -126,7 +147,12 @@ function updateMissionActionState() {
   const declaration = state.operation?.state?.declaration;
   const operationOpen = Boolean(declaration && !TERMINAL_DECLARATIONS.has(declaration));
   $("save-button").disabled = !state.vehicleId || !state.plan || operationOpen;
-  $("submit-button").disabled = !state.vehicleId || !saved || dirty || operationOpen;
+  $("submit-button").disabled = !state.vehicleId || !saved || dirty || operationOpen || !providerReady();
+  $("submit-button").title = !providerReady()
+    ? "The UTM provider is unavailable. Wait for the connector to recover before submitting."
+    : dirty
+      ? "Validate and save the changed mission before submitting it to UTM."
+      : "Request UTM authorization for the validated mission.";
   if (dirty && document.activeElement?.id !== "submit-button") {
     setMessage("Mission settings changed. Validate & save before submitting.");
   }
@@ -447,22 +473,27 @@ function updateMissionReadButton() {
   const button = $("read-mission-button");
   const importButton = $("import-mission-button");
   const configured = Boolean(state.capabilities?.mavlink?.configured);
+  const linkReady = vehicleLinkReady();
   const savedMission = Boolean(state.mission?.mission_hash && state.mission.mission_hash !== "preview");
   const missionReady = savedMission && missionMatchesForm();
   const missionActionInFlight = missionReadInFlight || missionImportInFlight;
   const declaration = state.operation?.state?.declaration;
   const operationOpen = Boolean(declaration && !TERMINAL_DECLARATIONS.has(declaration));
-  button.disabled = !state.vehicleId || !configured || !missionReady || missionActionInFlight;
-  importButton.disabled = !state.vehicleId || !configured || operationOpen || missionActionInFlight;
+  button.disabled = !state.vehicleId || !configured || !linkReady || !missionReady || missionActionInFlight;
+  importButton.disabled = !state.vehicleId || !configured || !linkReady || operationOpen || missionActionInFlight;
   button.textContent = missionReadInFlight ? "Checking vehicle mission…" : "Check vehicle mission";
   importButton.textContent = missionImportInFlight ? "Reading vehicle mission…" : "Use vehicle mission";
   button.title = !configured
     ? "Configure a MAVLink vehicle link to read the onboard mission."
+    : !linkReady
+      ? vehicleLinkBlockReason()
     : !missionReady
       ? "Validate and save the mission before checking the vehicle's onboard route."
       : "Request the current mission from the vehicle over the read-only MAVLink mission protocol.";
   importButton.title = !configured
     ? "Configure a MAVLink vehicle link to read the onboard mission."
+    : !linkReady
+      ? vehicleLinkBlockReason()
     : operationOpen
       ? "Finish the active operation before importing a different vehicle mission."
     : "Read the current route from the vehicle and add explicit UTM metadata before submitting it.";
@@ -682,7 +713,11 @@ function renderOperation(operation) {
     $("refresh-operation-button").disabled = false;
     $("cancel-button").disabled = TERMINAL_DECLARATIONS.has(declaration);
     $("complete-button").disabled = declaration !== "ACCEPTED";
-    $("start-button").disabled = declaration !== "ACCEPTED" || operation.state.telemetry_publication !== "NOT_STARTED";
+    const startBlocked = !vehicleLinkReady();
+    $("start-button").disabled = declaration !== "ACCEPTED" || operation.state.telemetry_publication !== "NOT_STARTED" || startBlocked;
+    $("start-button").title = startBlocked
+      ? vehicleLinkBlockReason()
+      : "Start UTM telemetry publication for the authorized operation.";
   }
   const values = operation ? operation.state : {};
   const steps = [values.declaration, values.authorization, values.telemetry_publication, values.conformance];
@@ -961,10 +996,14 @@ async function sendIntent(command) {
   intentInFlight.add(command);
   try {
     if (command === "SUBMIT_OPERATION") {
+      if (!providerReady()) throw new Error("The UTM provider is unavailable. Wait for the connector to recover before submitting.");
       validateMissionWindow();
       if (!state.mission || state.mission.mission_hash === "preview" || !missionMatchesForm()) {
         throw new Error("Validate & save the current mission before submitting it to UTM.");
       }
+    }
+    if (command === "START_OPERATION" && !vehicleLinkReady()) {
+      throw new Error(vehicleLinkBlockReason());
     }
     const operationId = command === "SUBMIT_OPERATION"
       ? newOperationId()
