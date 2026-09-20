@@ -107,6 +107,7 @@ h3 { margin-bottom: 3px; font-size: 1rem; }
 .map-grid { fill: none; stroke: rgba(145, 170, 187, 0.1); stroke-width: 0.35; }
 .map-label { fill: rgba(145, 170, 187, 0.62); font-size: 2.4px; }
 .route-line { fill: none; stroke: var(--cyan); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 3px rgba(69, 214, 208, 0.65)); }
+.telemetry-trail { fill: none; stroke: rgba(244, 198, 109, 0.78); stroke-width: 0.7; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1.4 1.6; }
 .route-point { fill: var(--cyan); stroke: #08202c; stroke-width: 0.8; }
 .vehicle-point { fill: var(--amber); stroke: #33240a; stroke-width: 0.8; }
 .telemetry-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }

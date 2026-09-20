@@ -10,6 +10,7 @@ const state = {
   vehicles: [],
   capabilities: null,
   metrics: null,
+  telemetryTrail: [],
   windowCustomized: false,
 };
 
@@ -217,6 +218,7 @@ function clearVehicleWorkspace(message = "") {
   state.mission = null;
   state.operation = null;
   state.latestStatus = null;
+  state.telemetryTrail = [];
   state.planName = "";
   $("plan-file").value = "";
   renderMission(null);
@@ -523,6 +525,18 @@ function renderTelemetry(status) {
   drawRoute();
 }
 
+function recordTelemetryTrail(status) {
+  const telemetry = status?.latest_telemetry;
+  if (!telemetry) return;
+  const latitude = Number(telemetry.latitude);
+  const longitude = Number(telemetry.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+  const last = state.telemetryTrail.length ? state.telemetryTrail[state.telemetryTrail.length - 1] : null;
+  if (last?.observedAt === telemetry.observed_at) return;
+  state.telemetryTrail.push({ latitude, longitude, observedAt: telemetry.observed_at || null });
+  if (state.telemetryTrail.length > 60) state.telemetryTrail.shift();
+}
+
 function previewWaypoint(latitude, longitude, altitude, datum, sequence) {
   if (![latitude, longitude, altitude].every(Number.isFinite)) return null;
   return {
@@ -678,8 +692,10 @@ function drawRoute() {
   const layer = $("route-layer");
   const waypoints = state.mission?.mission?.waypoints || [];
   const telemetry = state.latestStatus?.latest_telemetry;
+  const trail = state.telemetryTrail;
   if (!waypoints.length) { layer.innerHTML = ""; return; }
   const points = waypoints.map((waypoint) => ({ x: waypoint.longitude, y: waypoint.latitude }));
+  points.push(...trail.map((point) => ({ x: point.longitude, y: point.latitude })));
   if (telemetry) points.push({ x: telemetry.longitude, y: telemetry.latitude });
   const minX = Math.min(...points.map((point) => point.x));
   const maxX = Math.max(...points.map((point) => point.x));
@@ -691,9 +707,13 @@ function drawRoute() {
   const projected = waypoints.map((waypoint) => project({ x: waypoint.longitude, y: waypoint.latitude }));
   const path = projected.map((point, index) => `${index ? "L" : "M"}${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" ");
   const routePoints = projected.map((point, index) => `<circle class="route-point" cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="1.7"><title>Waypoint ${index + 1}</title></circle>`).join("");
+  const projectedTrail = trail.map((point) => project({ x: point.longitude, y: point.latitude }));
+  const trailPath = projectedTrail.length > 1
+    ? `<path class="telemetry-trail" d="${projectedTrail.map((point, index) => `${index ? "L" : "M"}${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" ")}" />`
+    : "";
   const vehiclePoint = telemetry ? project({ x: telemetry.longitude, y: telemetry.latitude }) : null;
   const vehicleMarkup = vehiclePoint ? `<circle class="vehicle-point" cx="${vehiclePoint.x.toFixed(2)}" cy="${vehiclePoint.y.toFixed(2)}" r="2.4"><title>Vehicle</title></circle>` : "";
-  layer.innerHTML = `<path class="route-line" d="${path}" />${routePoints}${vehicleMarkup}`;
+  layer.innerHTML = `${trailPath}<path class="route-line" d="${path}" />${routePoints}${vehicleMarkup}`;
 }
 
 function renderEvents(events) {
@@ -711,6 +731,7 @@ async function refreshVehicle() {
     request(`/v1/missions/${encodeURIComponent(state.vehicleId)}`).catch(() => null),
   ]);
   state.latestStatus = status;
+  recordTelemetryTrail(status);
   renderVehicleStatus(status);
   renderTelemetry(status);
   renderMission(mission);

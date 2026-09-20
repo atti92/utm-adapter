@@ -59,6 +59,9 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "battery_remaining_pct" in javascript
     assert "Mission item" in javascript
     assert "snapshot.mission_current" in javascript
+    assert "telemetryTrail" in javascript
+    assert "recordTelemetryTrail" in javascript
+    assert 'class="telemetry-trail"' in javascript
     assert "Vehicle link needs attention" in javascript
     assert "conciseError" in javascript
     assert "status.last_error" in javascript
