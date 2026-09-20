@@ -404,6 +404,7 @@ function buildPreviewMission() {
 function renderMission(snapshot) {
   state.mission = snapshot;
   if (!snapshot) {
+    renderMissionDrift(null);
     const waypoints = buildPreviewMission();
     if (waypoints) {
       state.mission = {

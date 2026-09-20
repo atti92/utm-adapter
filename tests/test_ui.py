@@ -43,6 +43,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "buildPreviewMission" in javascript
     assert "operator-console-preview" in javascript
     assert "renderMissionDrift" in javascript
+    assert "renderMissionDrift(null);" in javascript
     assert "Vehicle mission matches the submitted route" in javascript
     assert "renderVehicleStatus" in javascript
     assert "battery_remaining_pct" in javascript
