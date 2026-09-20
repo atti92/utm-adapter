@@ -123,6 +123,12 @@ function providerReady() {
   return !state.latestHealth || (state.latestHealth.status === "ok" && !state.latestHealth.backend_error);
 }
 
+function providerBlockReason() {
+  if (!state.latestHealth || providerReady()) return "";
+  if (state.latestHealth.backend_error) return `UTM provider error: ${conciseError(state.latestHealth.backend_error)}`;
+  return "The connector is degraded. Wait for it to recover before continuing.";
+}
+
 function vehicleLinkReady() {
   const snapshot = state.latestStatus?.vehicle_state;
   return Boolean(snapshot && snapshot.connection_state === "CONNECTED" && snapshot.quality === "GOOD");
@@ -149,7 +155,7 @@ function updateMissionActionState() {
   $("save-button").disabled = !state.vehicleId || !state.plan || operationOpen;
   $("submit-button").disabled = !state.vehicleId || !saved || dirty || operationOpen || !providerReady();
   $("submit-button").title = !providerReady()
-    ? "The UTM provider is unavailable. Wait for the connector to recover before submitting."
+    ? providerBlockReason()
     : dirty
       ? "Validate and save the changed mission before submitting it to UTM."
       : "Request UTM authorization for the validated mission.";
@@ -713,10 +719,10 @@ function renderOperation(operation) {
     $("refresh-operation-button").disabled = false;
     $("cancel-button").disabled = TERMINAL_DECLARATIONS.has(declaration);
     $("complete-button").disabled = declaration !== "ACCEPTED";
-    const startBlocked = !vehicleLinkReady();
+    const startBlocked = !providerReady() || !vehicleLinkReady();
     $("start-button").disabled = declaration !== "ACCEPTED" || operation.state.telemetry_publication !== "NOT_STARTED" || startBlocked;
     $("start-button").title = startBlocked
-      ? vehicleLinkBlockReason()
+      ? providerBlockReason() || vehicleLinkBlockReason()
       : "Start UTM telemetry publication for the authorized operation.";
   }
   const values = operation ? operation.state : {};
@@ -811,8 +817,12 @@ async function refresh() {
     renderEvents(events);
     await refreshVehicle();
   } catch (error) {
+    state.latestStatus = null;
+    state.latestHealth = { status: "degraded", backend_error: error.message };
     setConnection("error", "Connector unavailable");
     setMessage(error.message, "error");
+    updateMissionActionState();
+    if (state.operation) renderOperation(state.operation);
   } finally {
     refreshInFlight = false;
   }
@@ -996,14 +1006,14 @@ async function sendIntent(command) {
   intentInFlight.add(command);
   try {
     if (command === "SUBMIT_OPERATION") {
-      if (!providerReady()) throw new Error("The UTM provider is unavailable. Wait for the connector to recover before submitting.");
+      if (!providerReady()) throw new Error(providerBlockReason());
       validateMissionWindow();
       if (!state.mission || state.mission.mission_hash === "preview" || !missionMatchesForm()) {
         throw new Error("Validate & save the current mission before submitting it to UTM.");
       }
     }
-    if (command === "START_OPERATION" && !vehicleLinkReady()) {
-      throw new Error(vehicleLinkBlockReason());
+    if (command === "START_OPERATION" && (!providerReady() || !vehicleLinkReady())) {
+      throw new Error(providerBlockReason() || vehicleLinkBlockReason());
     }
     const operationId = command === "SUBMIT_OPERATION"
       ? newOperationId()
