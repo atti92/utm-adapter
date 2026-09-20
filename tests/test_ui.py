@@ -106,6 +106,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "Waiting for live vehicle status." in javascript
     assert 'state.latestHealth = { status: "degraded", backend_error: error.message }' in javascript
     assert "if (state.operation) renderOperation(state.operation);" in javascript
+    assert 'setMessage(vehicleLinkBlockReason(), "error")' in javascript
     assert 'vehicle.connection_state === "LOST"' in javascript
     assert '["LOST", "INVALID"].includes(telemetry.quality)' in javascript
     assert 'health?.status !== "ok"' in javascript

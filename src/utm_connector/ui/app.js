@@ -830,6 +830,11 @@ async function refresh() {
 
 async function checkVehicleMission() {
   if (!state.vehicleId || missionReadInFlight) return;
+  if (!vehicleLinkReady()) {
+    setMessage(vehicleLinkBlockReason(), "error");
+    updateMissionReadButton();
+    return;
+  }
   if (!state.mission?.mission_hash || state.mission.mission_hash === "preview" || !missionMatchesForm()) {
     setMessage("Validate & save the current mission before checking the vehicle mission.", "error");
     updateMissionReadButton();
@@ -873,6 +878,11 @@ async function importVehicleMission() {
   const configured = Boolean(state.capabilities?.mavlink?.configured);
   if (!configured) {
     setMessage("Configure a MAVLink vehicle link before reading the vehicle mission.", "error");
+    return;
+  }
+  if (!vehicleLinkReady()) {
+    setMessage(vehicleLinkBlockReason(), "error");
+    updateMissionReadButton();
     return;
   }
   let metadata;
