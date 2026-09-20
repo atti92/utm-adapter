@@ -127,8 +127,9 @@ The required checks must pass before starting the supervised demo. QGroundContro
 Mission Planner, and the MAVLink Router runtime are reported separately because the
 browser console and the two-output SITL path remain usable without those
 optional host applications. Use `--strict-router` with
-`uv run python scripts/check_demo.py` when the router binary is part of the
-target demonstration.
+`uv run python scripts/check_demo.py` when the single-link router topology is
+part of the target demonstration; it accepts either a native `mavlink-routerd`
+installation or the checked-in Docker fallback.
 
 Set `FLIGHT_BLENDER_ROOT` and `ARDUPILOT_ROOT` when the checkouts are not in
 the sibling directories next to this repository. The same Python launcher can

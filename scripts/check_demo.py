@@ -74,7 +74,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--strict-router",
         action="store_true",
-        help="make the optional router binary check required",
+        help="require a usable native or Docker MAVLink Router runtime",
     )
     return parser
 
