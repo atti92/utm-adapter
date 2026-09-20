@@ -12,6 +12,7 @@ const state = {
 const DEMO_LEAD_TIME_MS = 15_000;
 const TERMINAL_DECLARATIONS = new Set(["COMPLETED", "CANCELLED", "REJECTED"]);
 let refreshInFlight = false;
+const intentInFlight = new Set();
 
 const $ = (id) => document.getElementById(id);
 
@@ -123,6 +124,7 @@ function clearVehicleWorkspace(message = "") {
   state.plan = null;
   state.mission = null;
   state.operation = null;
+  state.latestStatus = null;
   state.planName = "";
   $("plan-file").value = "";
   renderMission(null);
@@ -376,9 +378,9 @@ function renderOperation(operation) {
     badge.textContent = formatStatus(declaration);
     badge.className = `badge ${["CANCELLED", "REJECTED"].includes(declaration) ? "error" : declaration === "COMPLETED" ? "neutral" : ""}`;
     $("refresh-operation-button").disabled = false;
-    $("cancel-button").disabled = ["CANCELLED", "COMPLETED"].includes(declaration);
+    $("cancel-button").disabled = TERMINAL_DECLARATIONS.has(declaration);
     $("complete-button").disabled = declaration !== "ACCEPTED";
-    $("start-button").disabled = declaration !== "ACCEPTED";
+    $("start-button").disabled = declaration !== "ACCEPTED" || operation.state.telemetry_publication !== "NOT_STARTED";
   }
   const values = operation ? operation.state : {};
   const steps = [values.declaration, values.authorization, values.telemetry_publication, values.conformance];
@@ -538,6 +540,8 @@ async function saveMission() {
 
 async function sendIntent(command) {
   if (!state.vehicleId) return;
+  if (intentInFlight.has(command)) return;
+  intentInFlight.add(command);
   try {
     if (command === "SUBMIT_OPERATION") {
       validateMissionWindow();
@@ -561,6 +565,7 @@ async function sendIntent(command) {
     );
     await refresh();
   } catch (error) { setMessage(error.message, "error"); }
+  finally { intentInFlight.delete(command); }
 }
 
 $("vehicle-select").addEventListener("change", async (event) => {

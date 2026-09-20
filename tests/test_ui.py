@@ -55,6 +55,9 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert 'command === "SUBMIT_OPERATION"' in javascript
     assert "TERMINAL_DECLARATIONS" in javascript
     assert "refreshInFlight" in javascript
+    assert "intentInFlight" in javascript
+    assert 'operation.state.telemetry_publication !== "NOT_STARTED"' in javascript
+    assert 'state.latestStatus = null' in javascript
     assert "The selected vehicle went offline" in javascript
     assert "The selected vehicle changed. Load a mission for the new vehicle." in javascript
     assert '$("plan-file").value = ""' in javascript
