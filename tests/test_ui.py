@@ -15,6 +15,10 @@ def test_operator_console_is_served_without_external_assets() -> None:
     assert "UTM Operator Console" in response.text
     assert "/ui/app.js" in response.text
     assert "/ui/styles.css" in response.text
+    styles = client.get("/ui/styles.css")
+    assert styles.status_code == 200
+    assert "@media (max-width: 1100px)" in styles.text
+    assert ".validity-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }" in styles.text
 
 
 def test_operator_console_contains_the_complete_gcs_workflow() -> None:
