@@ -145,6 +145,16 @@ class ConnectorService:
     def put_mission(self, vehicle_id: str, mission: Mission) -> MissionSnapshot:
         if mission.vehicle_id != vehicle_id:
             raise ConnectorError("mission vehicle_id does not match path")
+        if any(
+            operation.vehicle_id == vehicle_id
+            and operation.state.declaration
+            in {DeclarationState.SUBMITTED, DeclarationState.ACCEPTED}
+            for operation in self.operations.values()
+        ):
+            raise ConnectorError(
+                "cannot change a mission while an operation is active; "
+                "complete or cancel the operation first"
+            )
         snapshot = MissionSnapshot(mission=mission, mission_hash=mission.canonical_hash())
         self.missions[vehicle_id] = snapshot
         if self.state_store is not None:

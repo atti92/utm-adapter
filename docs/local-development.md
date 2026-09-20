@@ -302,6 +302,11 @@ below is still useful when a router is not installed. A vehicle link that is
 unavailable at startup or drops later is retried automatically; the operator
 console keeps the vehicle/link health visible while it reconnects.
 
+Mission changes are intentionally rejected while an operation is submitted or
+accepted. This prevents a direct API client from silently changing the route
+or altitude basis of a live declaration; complete or cancel the current
+operation before validating and submitting a replacement mission.
+
 Before a router-backed demo, validate the checked-in fan-out configuration:
 
 ```sh

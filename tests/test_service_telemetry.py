@@ -21,7 +21,7 @@ from utm_connector.domain import (
     TelemetryPublicationState,
     VehicleTelemetry,
 )
-from utm_connector.service import ConnectorService
+from utm_connector.service import ConnectorError, ConnectorService
 
 
 class OperationAwareBackend(InMemoryBackend):
@@ -138,6 +138,41 @@ def test_service_waits_for_scheduled_mission_window_without_provider_error() -> 
     assert service.last_backend_error is None
     assert service.events[-1].event_type == "TELEMETRY_PUBLICATION_WITHHELD"
     assert service.events[-1].details["reason"] == "mission window has not opened"
+
+
+def test_service_rejects_mission_changes_while_operation_is_active() -> None:
+    service = ConnectorService(InMemoryBackend())
+    original = _mission()
+    service.put_mission("sitl-1", original)
+    operation_id = uuid4()
+    service.submit_operation(
+        OperationIntent(operation_id=operation_id, command=OperationCommand.SUBMIT_OPERATION),
+        "sitl-1",
+    )
+
+    changed = _mission().model_copy(
+        update={
+            "waypoints": [
+                {
+                    "sequence": 0,
+                    "latitude": 47.4979,
+                    "longitude": 19.0402,
+                    "altitude": {"meters": 120, "datum": "AMSL"},
+                },
+                {
+                    "sequence": 1,
+                    "latitude": 47.5000,
+                    "longitude": 19.0430,
+                    "altitude": {"meters": 130, "datum": "AMSL"},
+                },
+            ]
+        }
+    )
+
+    with pytest.raises(ConnectorError, match="cannot change a mission while an operation is active"):
+        service.put_mission("sitl-1", changed)
+
+    assert service.missions["sitl-1"].mission_hash == original.canonical_hash()
 
 
 def test_service_retries_transient_provider_telemetry_failures() -> None:
