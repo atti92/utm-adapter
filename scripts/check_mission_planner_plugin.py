@@ -84,12 +84,21 @@ def validate(source_root: Path, expected_version: str) -> list[str]:
             "MenuStrip MainMenu"
             in main_form,
         ),
+        ("main toolbar insertion anchor", 'this.MenuHelp.Name = "MenuHelp"' in main_form),
         ("main form flight planner surface", "public GCSViews.FlightPlanner FlightPlanner" in main_form_implementation),
         ("flight planner mission grid", "this.Commands.Name = \"Commands\"" in flight_planner_designer),
+        (
+            "flight planner mission columns",
+            all(
+                f'this.{name}.Name = "{name}"' in flight_planner_designer
+                for name in ("Command", "Frame", "Param1", "Param2", "Param3", "Param4", "Lat", "Lon", "Alt")
+            ),
+        ),
         ("flight planner refresh method", "public void BUT_read_Click" in flight_planner),
         ("current home location surface", "public PointLatLngAlt HomeLocation" in current_state),
         ("planned home location surface", "public PointLatLngAlt PlannedHomeLocation" in current_state),
         ("settings string getter", "public string GetString(string key" in settings and has_settings_getter),
+        ("settings string indexer", "public string this[string key]" in settings and "set" in settings),
         ("settings persistence method", "public void Save()" in settings),
         ("MAVLink geographic frame enum", "GLOBAL_RELATIVE_ALT" in mavlink),
         ("MAVLink geographic command enum", all(f"{name}=" in mavlink for name in ("WAYPOINT", "TAKEOFF", "LAND"))),

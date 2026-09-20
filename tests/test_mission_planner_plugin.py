@@ -47,6 +47,9 @@ def test_mission_planner_compatibility_check_has_an_explicit_runtime_boundary() 
     assert "Windows" in script
     assert "COMMAND_LONG" in script
     assert "MAV_CMD.LAND" in script
+    assert "main toolbar insertion anchor" in script
+    assert "flight planner mission columns" in script
+    assert "settings string indexer" in script
 
 
 def test_mission_planner_installer_is_explicit_and_recoverable() -> None:
