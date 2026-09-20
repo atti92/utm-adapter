@@ -239,6 +239,25 @@ def test_router_process_uses_checked_in_config(tmp_path: Path, monkeypatch) -> N
     ]
 
 
+def test_wait_for_vehicle_reports_child_process_exit(tmp_path: Path) -> None:
+    class ExitedProcess:
+        name = "MAVLink Router"
+        process = type("Process", (), {"poll": lambda _self: 7})()
+
+    runner = openutm_demo.DemoRunner(
+        openutm_demo.DemoConfig(adapter_root=tmp_path),
+        processes=[ExitedProcess()],
+    )
+
+    try:
+        runner._wait_for_vehicle()
+    except openutm_demo.DemoSetupError as exc:
+        assert "MAVLink Router exited with code 7" in str(exc)
+        assert str(tmp_path / ".local" / "openutm-demo") in str(exc)
+    else:  # pragma: no cover - assertion clarity
+        raise AssertionError("expected the child-process failure to be reported")
+
+
 def test_check_prerequisites_rejects_invalid_or_duplicate_simulator_ports(tmp_path: Path, monkeypatch) -> None:
     config = openutm_demo.DemoConfig(
         flight_blender_root=tmp_path / "missing-flight-blender",

@@ -786,6 +786,13 @@ class DemoRunner:
         deadline = time.monotonic() + self.config.connector_timeout_s
         last_detail = "no vehicle yet"
         while time.monotonic() < deadline:
+            for managed in self.processes:
+                return_code = managed.process.poll()
+                if return_code is not None:
+                    raise DemoSetupError(
+                        f"{managed.name} exited with code {return_code}; "
+                        f"see {self.config.run_dir}"
+                    )
             try:
                 response = httpx.get(f"{self.config.connector_url}/v1/vehicles", timeout=1.5)
                 if response.is_success:
