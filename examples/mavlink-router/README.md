@@ -133,12 +133,14 @@ sudo systemctl enable --now mavlink-router-utm.service
 sudo systemctl --no-pager --full status mavlink-router-utm.service
 ```
 
-Before starting it, ensure the service account can open the UART (on common
-Debian-based systems this means adding the service user to `dialout` and
-restarting its login session). If the distribution installs `mavlink-routerd`
-somewhere other than `/usr/bin/mavlink-routerd`, edit `ExecStart` in the unit
-before enabling it. To roll back safely, stop and disable only this unit, then
-restore the previous router config; the connector and GCS remain independent.
+Before starting it, ensure the effective systemd user can open the UART. This
+example runs as the default system service user (`root`); if you change it to
+a dedicated account, add that account to `dialout` on common Debian-based
+systems and restart its login session. If the distribution installs
+`mavlink-routerd` somewhere other than `/usr/bin/mavlink-routerd`, edit
+`ExecStart` in the unit before enabling it. To roll back safely, stop and
+disable only this unit, then restore the previous router config; the connector
+and GCS remain independent.
 
 Allow UDP 14550 from the companion to the GCS and UDP 14551 from the companion
 to the connector in the network/firewall policy. Keep the connector's
