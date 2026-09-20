@@ -47,6 +47,18 @@ def build_corridor(mission: Mission) -> CorridorGeometry:
         # cleanup removes those numerical artefacts without materially
         # increasing the operational footprint of normal metre-scale corridors.
         restored = restored.buffer(1e-7)
+    if not isinstance(restored, Polygon):
+        # A very narrow inverse-projected corridor can still become a
+        # MultiPolygon when GEOS resolves the numerical self-intersection.
+        # The API contract is a single Polygon, so use a conservative envelope
+        # in this exceptional case. The hull contains the repaired footprint
+        # and all waypoints; it can only add area, never remove coverage.
+        restored = restored.convex_hull
+    if isinstance(restored, Polygon) and not restored.covers(route):
+        # Invalid-ring cleanup can discard the narrow strip containing the
+        # centreline. Re-envelope it with the original WGS84 route so every
+        # submitted waypoint remains inside the returned operational volume.
+        restored = restored.convex_hull.union(route).convex_hull
     if not isinstance(restored, Polygon) or restored.is_empty or not restored.is_valid:
         raise GeometryError("generated corridor is not a valid polygon")
 
