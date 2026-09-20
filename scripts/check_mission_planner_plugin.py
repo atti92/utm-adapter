@@ -50,6 +50,7 @@ def validate(source_root: Path, expected_version: str) -> list[str]:
         "Mission Planner project": source_root / "MissionPlanner.csproj",
         "plugin source": PLUGIN,
         "PowerShell installer": PLUGIN.parent / "Install-UtmConnectorPlugin.ps1",
+        "PowerShell smoke check": PLUGIN.parent / "Test-UtmConnectorPlugin.ps1",
     }
     errors = [f"{label} missing: {path}" for label, path in required.items() if not path.is_file()]
     if errors:
@@ -66,6 +67,7 @@ def validate(source_root: Path, expected_version: str) -> list[str]:
     project = required["Mission Planner project"]
     plugin = PLUGIN.read_text(encoding="utf-8-sig")
     installer = required["PowerShell installer"].read_text(encoding="utf-8-sig")
+    smoke_check = required["PowerShell smoke check"].read_text(encoding="utf-8-sig")
     source_csharp_files = source_root.rglob("*.cs")
     source_text = "\n".join(
         path.read_text(encoding="utf-8-sig", errors="ignore") for path in source_csharp_files
@@ -106,6 +108,11 @@ def validate(source_root: Path, expected_version: str) -> list[str]:
         ("installer accepts a Mission Planner root", "MissionPlannerRoot" in installer),
         ("installer protects existing plugins", "-Force" in installer and ".bak" in installer),
         ("installer copies the C# plugin", "Copy-Item" in installer and "UtmConnectorPlugin.cs" in installer),
+        ("smoke check accepts an explicit Mission Planner root", "MissionPlannerRoot" in smoke_check),
+        ("smoke check can skip a stopped connector", "SkipConnector" in smoke_check),
+        ("smoke check probes connector health", '"/v1/health"' in smoke_check),
+        ("smoke check verifies the selected vehicle", '"/v1/vehicles"' in smoke_check and "VehicleId" in smoke_check),
+        ("smoke check supports the full-stack connector port", "127.0.0.1:8001" in smoke_check),
         ("connector plugin uses the main toolbar", "Host.MainForm.MainMenu.Items" in plugin and "ToolStripDropDownButton" in plugin),
         ("connector settings persist", "Settings.Instance.Save()" in plugin),
         ("connector plugin remains non-commanding", "Host.comPort." not in plugin),

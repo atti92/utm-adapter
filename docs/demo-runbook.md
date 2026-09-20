@@ -120,6 +120,17 @@ in Flight Planner and sends it to the connector. Submit/start/refresh/cancel/
 complete actions stay beside the normal GCS workflow; the browser console is
 still the detailed conformance view.
 
+With the demo running, verify the Windows host before presenting:
+
+```powershell
+.\examples\mission-planner-plugin\Test-UtmConnectorPlugin.ps1 `
+  -ConnectorUrl 'http://127.0.0.1:8001' -VehicleId 'sitl-1'
+```
+
+Use `-SkipConnector` for an installation-only check. The smoke check confirms
+the plugin file, connector health, and selected vehicle connectivity; it does
+not send MAVLink commands.
+
 ## Stop and recover
 
 Press `Ctrl+C` in the terminal that started the supervised demo. It cleans up

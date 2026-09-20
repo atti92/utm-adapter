@@ -3,6 +3,7 @@ from pathlib import Path
 
 PLUGIN = Path(__file__).parents[1] / "examples" / "mission-planner-plugin" / "UtmConnectorPlugin.cs"
 INSTALLER = PLUGIN.parent / "Install-UtmConnectorPlugin.ps1"
+SMOKE_CHECK = PLUGIN.parent / "Test-UtmConnectorPlugin.ps1"
 
 
 def test_mission_planner_plugin_is_thin_non_commanding_and_supports_gcs_workflow() -> None:
@@ -60,6 +61,18 @@ def test_mission_planner_installer_is_explicit_and_recoverable() -> None:
     assert ".bak" in source
     assert "UtmConnectorPlugin.cs" in source
     assert "Copy-Item" in source
+
+
+def test_mission_planner_smoke_check_verifies_install_and_live_vehicle() -> None:
+    source = SMOKE_CHECK.read_text()
+
+    assert "MissionPlannerRoot" in source
+    assert "SkipConnector" in source
+    assert '"/v1/health"' in source
+    assert '"/v1/vehicles"' in source
+    assert "VehicleId" in source
+    assert "127.0.0.1:8001" in source
+    assert "connection_state" in source
 
 
 def test_mission_planner_plugin_marshals_async_results_to_the_gcs_ui_thread() -> None:

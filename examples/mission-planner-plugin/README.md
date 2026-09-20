@@ -36,6 +36,19 @@ operator console.
 4. In Mission Planner's main toolbar, open `UTM Connector` and choose `Open
    operator console`.
 
+To verify the installation and the live demo link from PowerShell, run this
+while the supervised demo is running:
+
+```powershell
+.\examples\mission-planner-plugin\Test-UtmConnectorPlugin.ps1 `
+  -ConnectorUrl 'http://127.0.0.1:8001' -VehicleId 'sitl-1'
+```
+
+The check also tries port 8001 automatically when the default `8000` is used.
+For an installation-only check before starting the connector, add
+`-SkipConnector`. A degraded connector is accepted only when explicitly
+requested with `-AllowDegraded`.
+
 The plugin starts with connector address `http://127.0.0.1:8000` and vehicle ID
 `sitl-1`. For the full Flight Blender demo it automatically falls back to
 `http://127.0.0.1:8001` when the standalone port is not serving a connector, so
