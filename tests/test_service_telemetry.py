@@ -13,6 +13,7 @@ from utm_connector.domain import (
     AltitudeDatum,
     ConformanceState,
     Mission,
+    MissionSnapshot,
     Operation,
     OperationCommand,
     OperationIntent,
@@ -288,7 +289,7 @@ def test_service_converts_altitude_at_flight_blender_boundary() -> None:
         ),
         altitude_converter=OffsetConverter(),  # type: ignore[arg-type]
     )
-    mission = _mission()
+    mission = _mission(datetime.now(timezone.utc) + timedelta(minutes=5))
     service.put_mission("sitl-1", mission)
     operation_id = uuid4()
     service.submit_operation(
@@ -297,6 +298,16 @@ def test_service_converts_altitude_at_flight_blender_boundary() -> None:
     )
     service.apply_intent(
         OperationIntent(operation_id=operation_id, command=OperationCommand.START_OPERATION)
+    )
+    # The provider preflight intentionally requires a future declaration, but
+    # this test exercises immediate telemetry conversion after the operation
+    # has started. Move the local snapshot into its active window explicitly.
+    active_mission = mission.model_copy(
+        update={"valid_from": datetime.now(timezone.utc) - timedelta(seconds=1)}
+    )
+    service.missions["sitl-1"] = MissionSnapshot(
+        mission=active_mission,
+        mission_hash=active_mission.canonical_hash(),
     )
 
     service.put_telemetry(
