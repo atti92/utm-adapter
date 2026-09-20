@@ -341,10 +341,18 @@ function renderSetupGuide(capabilities, vehicles, health) {
 }
 
 function diagnosticsSnapshot() {
+  const capabilities = state.capabilities ? { ...state.capabilities } : null;
+  if (capabilities?.altitude) {
+    capabilities.altitude = {
+      ...capabilities.altitude,
+      geoid_grid_path: capabilities.altitude.geoid_conversion_configured ? "[configured]" : null,
+    };
+  }
   return {
     captured_at: new Date().toISOString(),
+    correlation_id: correlationId,
     health: state.latestHealth || null,
-    capabilities: state.capabilities,
+    capabilities,
     metrics: state.metrics,
     vehicles: state.vehicles || [],
     selected_vehicle: state.vehicleId || null,

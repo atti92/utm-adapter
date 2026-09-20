@@ -90,6 +90,8 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "function renderSetupGuide" in javascript
     assert "One physical link can feed both GCS and connector" in javascript
     assert "function copyDiagnostics" in javascript
+    assert 'geoid_grid_path: capabilities.altitude.geoid_conversion_configured ? "[configured]" : null' in javascript
+    assert "correlation_id: correlationId" in javascript
     assert "navigator.clipboard.writeText" in javascript
     assert 'connectionState === "LOST"' in javascript
     assert '"STALE"' in javascript
