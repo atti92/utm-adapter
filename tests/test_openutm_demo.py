@@ -94,10 +94,26 @@ def test_check_prerequisites_reports_missing_external_checkouts(tmp_path: Path, 
     assert any("ArduPilot checkout not found" in failure for failure in failures)
 
 
+def test_check_prerequisites_reports_missing_requested_gcs(tmp_path: Path, monkeypatch) -> None:
+    config = openutm_demo.DemoConfig(
+        flight_blender_root=tmp_path / "missing-flight-blender",
+        ardupilot_root=tmp_path / "missing-ardupilot",
+        gcs="qgroundcontrol",
+    )
+    monkeypatch.setattr(openutm_demo, "_find_qgroundcontrol_command", lambda: None)
+    monkeypatch.setattr(openutm_demo, "_command_available", lambda _command: (True, "ok"))
+    monkeypatch.setattr(openutm_demo, "_find_geoid_grid", lambda: tmp_path / "grid.tif")
+    monkeypatch.setattr(openutm_demo, "port_is_reachable", lambda _host, _port: False)
+
+    failures = openutm_demo.check_prerequisites(config)
+
+    assert any("QGroundControl was requested" in failure for failure in failures)
+
+
 def test_qgroundcontrol_detection_is_optional_for_auto_mode(monkeypatch) -> None:
     monkeypatch.setattr(openutm_demo, "_find_qgroundcontrol_command", lambda: None)
 
-    assert openutm_demo._launch_gcs("auto") is None
+    assert openutm_demo._launch_gcs("auto") == (None, None)
 
 
 def test_requested_missing_qgroundcontrol_is_an_actionable_error(monkeypatch) -> None:

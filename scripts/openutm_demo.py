@@ -262,6 +262,10 @@ def _start_new_process(
 
 def _find_qgroundcontrol_command() -> list[str] | None:
     if sys.platform == "darwin":
+        for app_root in (Path("/Applications"), Path.home() / "Applications"):
+            executable = app_root / "QGroundControl.app" / "Contents" / "MacOS" / "QGroundControl"
+            if executable.is_file() and os.access(executable, os.X_OK):
+                return [str(executable)]
         available, _detail = _command_available(["open", "-Ra", "QGroundControl"])
         return ["open", "-a", "QGroundControl"] if available else None
     executable = shutil.which("QGroundControl.exe" if os.name == "nt" else "qgroundcontrol")
@@ -275,9 +279,13 @@ def _find_mission_planner_command() -> list[str] | None:
     return [executable] if executable else None
 
 
-def _launch_gcs(selection: str) -> str | None:
+def _launch_gcs(
+    selection: str,
+    *,
+    run_dir: Path | None = None,
+) -> tuple[str | None, ManagedProcess | None]:
     if selection == "none":
-        return None
+        return None, None
     if selection == "mission-planner":
         command = _find_mission_planner_command()
         label = "Mission Planner"
@@ -287,11 +295,25 @@ def _launch_gcs(selection: str) -> str | None:
     if command is None:
         if selection == "auto":
             print("[info] no supported GCS was found; open QGroundControl or Mission Planner manually")
-            return None
+            return None, None
         raise DemoSetupError(f"{label} was requested but was not found on this host")
-    subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    managed: ManagedProcess | None = None
+    app_launcher = sys.platform == "darwin" and command[:1] == ["open"]
+    if run_dir is not None and not app_launcher:
+        managed = _start_new_process(
+            label,
+            command,
+            cwd=REPO_ROOT,
+            env=os.environ.copy(),
+            log_path=run_dir / ("qgroundcontrol.log" if label == "QGroundControl" else "mission-planner.log"),
+        )
+    else:
+        subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if app_launcher:
+            print("[info] macOS app launcher used; the app-managed GCS process is not owned by this run")
     print(f"[ok] launched {label}")
-    return label
+    return label, managed
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -378,6 +400,11 @@ def check_prerequisites(config: DemoConfig) -> list[str]:
     if config.gcs_udp_port == config.connector_udp_port:
         failures.append("GCS UDP port and connector UDP port must be different")
 
+    if config.gcs == "qgroundcontrol" and _find_qgroundcontrol_command() is None:
+        failures.append("QGroundControl was requested but is not installed or discoverable")
+    elif config.gcs == "mission-planner" and _find_mission_planner_command() is None:
+        failures.append("Mission Planner was requested but is not installed or discoverable")
+
     if not config.flight_blender_root.is_dir():
         failures.append(f"Flight Blender checkout not found: {config.flight_blender_root}")
     elif not (config.flight_blender_root / "docker-compose-dev.yml").is_file():
@@ -421,6 +448,7 @@ def check_prerequisites(config: DemoConfig) -> list[str]:
 class DemoRunner:
     config: DemoConfig
     processes: list[ManagedProcess] = field(default_factory=list)
+    gcs_processes: list[ManagedProcess] = field(default_factory=list)
     provider_started_by_us: bool = False
 
     def start(self) -> None:
@@ -483,7 +511,9 @@ class DemoRunner:
 
         _start_sitl(self)
         self._wait_for_vehicle()
-        gcs_label = _launch_gcs(self.config.gcs)
+        gcs_label, gcs_process = _launch_gcs(self.config.gcs, run_dir=self.config.run_dir)
+        if gcs_process is not None:
+            self.gcs_processes.append(gcs_process)
         if self.config.open_browser:
             webbrowser.open(f"{self.config.connector_url}/ui/")
         print("")
@@ -496,7 +526,7 @@ class DemoRunner:
         print("  Workflow:         choose Sample route or open a GCS mission, Validate & save, Submit, Start")
         if gcs_label:
             print(f"  GCS:              {gcs_label}")
-        print("  Stop:             Ctrl+C (also tears down the Docker stack started by this run)")
+        print("  Stop:             Ctrl+C (cleans up processes and the Docker stack started by this run)")
 
     def _wait_for_vehicle(self) -> None:
         deadline = time.monotonic() + self.config.connector_timeout_s
@@ -519,6 +549,9 @@ class DemoRunner:
         previous_sigint_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         try:
+            for managed in reversed(self.gcs_processes):
+                managed.stop()
+            self.gcs_processes.clear()
             for managed in reversed(self.processes):
                 managed.stop()
             self.processes.clear()
