@@ -38,6 +38,13 @@ function formatStatus(value) {
   return value ? String(value).replace(/_/g, " ") : "—";
 }
 
+function statusTone(value) {
+  if (["LOST", "INVALID"].includes(value)) return "error";
+  if (["DEGRADED", "UNKNOWN"].includes(value)) return "warning";
+  if (["GOOD", "CONNECTED", "ONLINE"].includes(value)) return "ok";
+  return "neutral";
+}
+
 function localInputValue(date) {
   const offset = date.getTimezoneOffset();
   return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
@@ -270,9 +277,9 @@ function renderVehicle(vehicle) {
   }
   element.innerHTML = `<div class="vehicle-card">
     <div><strong>${escapeHtml(vehicle.vehicle_id)}</strong><br /><small>MAVLink system ${escapeHtml(vehicle.mavlink_system_id || "not discovered")}</small></div>
-    <div class="vehicle-state">${escapeHtml(formatStatus(vehicle.connection_state))}</div>
+    <div class="vehicle-state" data-state="${statusTone(vehicle.connection_state)}">${escapeHtml(formatStatus(vehicle.connection_state))}</div>
     <div><small>Last telemetry: ${escapeHtml(formatDate(vehicle.latest_telemetry_at))}</small></div>
-    <div class="vehicle-state">${escapeHtml(formatStatus(vehicle.quality))}</div>
+    <div class="vehicle-state" data-state="${statusTone(vehicle.quality)}">${escapeHtml(formatStatus(vehicle.quality))}</div>
   </div>`;
 }
 
@@ -291,7 +298,7 @@ function renderVehicleStatus(status) {
   const diagnostic = diagnostics.length ? diagnostics[diagnostics.length - 1] : "";
   $("vehicle-summary").innerHTML = `<div class="vehicle-card">
     <div><strong>${escapeHtml(snapshot.identity.connector_vehicle_id)}</strong><br /><small>MAVLink system ${escapeHtml(snapshot.identity.mavlink_system_id || "not discovered")}</small></div>
-    <div class="vehicle-state">${escapeHtml(formatStatus(snapshot.connection_state))}<br /><small>${escapeHtml(formatStatus(snapshot.quality))}</small></div>
+    <div class="vehicle-state" data-state="${statusTone(snapshot.connection_state)}">${escapeHtml(formatStatus(snapshot.connection_state))}<br /><small data-state="${statusTone(snapshot.quality)}">${escapeHtml(formatStatus(snapshot.quality))}</small></div>
     <div class="vehicle-metrics">
       <div class="vehicle-metric"><span>Arm state</span><strong>${escapeHtml(armState)}</strong></div>
       <div class="vehicle-metric"><span>GPS</span><strong>${escapeHtml(gps)}</strong></div>

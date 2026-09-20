@@ -54,7 +54,10 @@ h3 { margin-bottom: 3px; font-size: 1rem; }
 .vehicle-summary { min-height: 94px; display: grid; place-items: center; margin: 16px 0 22px; padding: 16px; border: 1px dashed var(--border); border-radius: 12px; background: rgba(3, 13, 23, 0.25); }
 .vehicle-card { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; }
 .vehicle-card strong { font-size: 1.1rem; }
-.vehicle-card .vehicle-state { color: var(--green); font-size: 0.78rem; font-weight: 700; text-align: right; }
+.vehicle-card .vehicle-state { color: var(--muted); font-size: 0.78rem; font-weight: 700; text-align: right; }
+.vehicle-card .vehicle-state[data-state="ok"] { color: var(--green); }
+.vehicle-card .vehicle-state[data-state="warning"], .vehicle-card .vehicle-state small[data-state="warning"] { color: var(--amber); }
+.vehicle-card .vehicle-state[data-state="error"], .vehicle-card .vehicle-state small[data-state="error"] { color: var(--red); }
 .vehicle-card small { color: var(--muted); }
 .vehicle-metrics { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
 .vehicle-metric { padding: 8px 9px; border-radius: 8px; background: rgba(3, 13, 23, 0.28); }
