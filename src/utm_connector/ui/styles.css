@@ -100,6 +100,11 @@ h3 { margin-bottom: 3px; font-size: 1rem; }
 .state-step[data-state="ok"] span { background: var(--green); }
 .state-step[data-state="warning"] span { background: var(--amber); }
 .state-step[data-state="error"] span { background: var(--red); }
+.next-action { display: grid; gap: 4px; margin: 0 0 18px; padding: 11px 13px; border: 1px solid rgba(103, 169, 255, 0.28); border-radius: 10px; color: var(--blue); background: rgba(103, 169, 255, 0.07); }
+.next-action[data-state="ok"] { border-color: rgba(107, 224, 155, 0.28); color: var(--green); background: rgba(107, 224, 155, 0.07); }
+.next-action[data-state="warning"] { border-color: rgba(244, 198, 109, 0.3); color: var(--amber); background: rgba(244, 198, 109, 0.07); }
+.next-action-label { color: var(--muted); font-size: 0.66rem; font-weight: 800; letter-spacing: 0.11em; text-transform: uppercase; }
+.next-action strong { color: var(--text); font-size: 0.78rem; font-weight: 700; line-height: 1.4; }
 .event-list { display: grid; gap: 7px; max-height: 190px; overflow: auto; }
 .event { display: grid; grid-template-columns: 8px 1fr auto; align-items: center; gap: 9px; padding: 8px 0; border-bottom: 1px solid rgba(160, 198, 222, 0.09); }
 .event:last-child { border-bottom: 0; }

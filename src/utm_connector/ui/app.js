@@ -102,6 +102,54 @@ function updateMissionActionState() {
   }
 }
 
+function renderNextAction() {
+  const element = $("operation-next-action");
+  const text = $("operation-next-action-text");
+  if (!element || !text) return;
+
+  let message = "Select a vehicle and load a mission to begin.";
+  let stateName = "neutral";
+  const declaration = state.operation?.state?.declaration;
+  const telemetryPublication = state.operation?.state?.telemetry_publication;
+  const conformance = state.operation?.state?.conformance;
+
+  if (!state.vehicleId) {
+    message = "Connect a vehicle or start the simulator, then select it above.";
+  } else if (!state.plan && !state.mission) {
+    message = "Load a QGroundControl or Mission Planner mission, or choose Sample route.";
+  } else if (state.mission?.mission_hash === "preview") {
+    message = "Review the validity window and corridor, then choose Validate & save.";
+  } else if (state.mission && !missionMatchesForm()) {
+    message = "Mission settings changed. Validate & save before submitting to UTM.";
+    stateName = "warning";
+  } else if (!state.operation) {
+    message = "Mission is ready. Choose Submit to UTM to request authorization.";
+  } else if (["REJECTED", "CANCELLED"].includes(declaration)) {
+    message = "This operation is closed. Load and validate another mission to continue.";
+    stateName = "warning";
+  } else if (declaration === "COMPLETED") {
+    message = "Operation completed. The vehicle remains under GCS control; load the next mission when ready.";
+    stateName = "ok";
+  } else if (declaration === "ACCEPTED" && telemetryPublication === "NOT_STARTED") {
+    const startsAt = state.mission?.mission?.valid_from ? new Date(state.mission.mission.valid_from) : null;
+    message = startsAt && startsAt > new Date()
+      ? `Authorized. Choose Start operation; telemetry will publish when the window opens at ${formatDate(startsAt)}.`
+      : "Authorized. Choose Start operation when the vehicle is ready.";
+    stateName = "ok";
+  } else if (telemetryPublication === "ACTIVE" && conformance === "CONFORMING") {
+    message = "Operation is live and conforming. Complete it when the flight has finished.";
+    stateName = "ok";
+  } else if (telemetryPublication === "ACTIVE") {
+    message = "Operation is live. Review the telemetry and conformance state before continuing.";
+    stateName = "warning";
+  } else {
+    message = "Review the operation state and recent events for the next available action.";
+  }
+
+  element.dataset.state = stateName;
+  text.textContent = message;
+}
+
 async function request(path, options = {}) {
   const response = await fetch(path, {
     headers: { "content-type": "application/json", ...(options.headers || {}) },
@@ -328,6 +376,7 @@ function renderMission(snapshot) {
       $("submit-button").disabled = true;
       drawRoute();
       updateMissionActionState();
+      renderNextAction();
       return;
     }
     $("mission-title").textContent = "No mission loaded";
@@ -336,6 +385,7 @@ function renderMission(snapshot) {
     $("submit-button").disabled = true;
     drawRoute();
     updateMissionActionState();
+    renderNextAction();
     return;
   }
   const mission = snapshot.mission;
@@ -349,6 +399,7 @@ function renderMission(snapshot) {
   $("save-button").disabled = !state.plan;
   drawRoute();
   updateMissionActionState();
+  renderNextAction();
 }
 
 function renderMissionDrift(report) {
@@ -396,6 +447,7 @@ function renderOperation(operation) {
     step.querySelector("em").textContent = formatStatus(value);
   });
   updateMissionActionState();
+  renderNextAction();
 }
 
 function newOperationId() {
@@ -613,6 +665,7 @@ $("refresh-operation-button").addEventListener("click", async () => { if (!state
 ["valid-from", "valid-until", "corridor-radius"].forEach((id) => $(id).addEventListener("input", () => {
   state.windowCustomized = true;
   updateMissionActionState();
+  renderNextAction();
 }));
 
 setDefaultWindow();

@@ -22,7 +22,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     html = client.get("/ui/").text
     javascript = client.get("/ui/app.js").text
 
-    for label in ("Open mission file", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness"):
+    for label in ("Open mission file", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action"):
         assert label in html
     for element_id in ("backend-readiness", "mavlink-readiness", "recording-readiness", "altitude-readiness"):
         assert element_id in html
@@ -65,6 +65,8 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "intentInFlight" in javascript
     assert 'operation.state.telemetry_publication !== "NOT_STARTED"' in javascript
     assert 'state.latestStatus = null' in javascript
+    assert "renderNextAction" in javascript
+    assert "Operation is live and conforming." in javascript
     assert "The selected vehicle went offline" in javascript
     assert "The selected vehicle changed. Load a mission for the new vehicle." in javascript
     assert '$("plan-file").value = ""' in javascript
