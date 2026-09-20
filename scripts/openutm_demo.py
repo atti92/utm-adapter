@@ -160,6 +160,25 @@ class ManagedProcess:
             self.log_file.close()
 
 
+@dataclass
+class ManagedApplication:
+    """Own a native app launched through a platform app launcher.
+
+    macOS ``open -a`` returns after handing the app to LaunchServices, so the
+    launcher process is not a useful child to reap.  Keep an explicit cleanup
+    action instead, and only create this resource when the app was not already
+    running before the demo started.
+    """
+
+    name: str
+    stop_command: tuple[str, ...]
+
+    def stop(self) -> None:
+        if not _gcs_process_is_running(self.name):
+            return
+        _run_command(list(self.stop_command), capture_output=True)
+
+
 DEMO_ARTIFACTS = (
     "connector-events.jsonl",
     "connector.log",
@@ -498,7 +517,7 @@ def _launch_gcs(
     *,
     run_dir: Path | None = None,
     qgroundcontrol_command: Sequence[str] | None = None,
-) -> tuple[str | None, ManagedProcess | None]:
+) -> tuple[str | None, ManagedProcess | ManagedApplication | None]:
     if selection == "none":
         return None, None
     if selection == "auto":
@@ -533,8 +552,9 @@ def _launch_gcs(
             return None, None
         raise DemoSetupError(f"{label} was requested but was not found on this host")
 
-    managed: ManagedProcess | None = None
+    managed: ManagedProcess | ManagedApplication | None = None
     app_launcher = sys.platform == "darwin" and command[:1] == ["open"]
+    app_was_running = _gcs_process_is_running(label) if app_launcher else False
     if run_dir is not None and not app_launcher:
         managed = _start_new_process(
             label,
@@ -546,7 +566,18 @@ def _launch_gcs(
     else:
         subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if app_launcher:
-            print("[info] macOS app launcher used; the app-managed GCS process is not owned by this run")
+            if run_dir is not None and not app_was_running:
+                managed = ManagedApplication(
+                    name=label,
+                    stop_command=(
+                        "osascript",
+                        "-e",
+                        'tell application "QGroundControl" to quit',
+                    ),
+                )
+                print("[info] QGroundControl was not running before this demo; cleanup will close it")
+            else:
+                print("[info] macOS app launcher used; the pre-existing GCS process is not owned by this run")
     print(f"[ok] launched {label}")
     return label, managed
 
@@ -580,7 +611,7 @@ def _gcs_process_is_running(label: str) -> bool:
 
 def _wait_for_gcs(
     label: str,
-    managed: ManagedProcess | None,
+    managed: ManagedProcess | ManagedApplication | None,
     *,
     timeout_s: float = 10.0,
     log_path: Path | None = None,
@@ -589,7 +620,8 @@ def _wait_for_gcs(
 
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
-        if managed is not None and managed.process.poll() is None:
+        process = getattr(managed, "process", None)
+        if process is not None and process.poll() is None:
             print(f"[ok] {label} process is running")
             return
         if _gcs_process_is_running(label):
@@ -940,7 +972,7 @@ def _check_run_hint(config: DemoConfig) -> str:
 class DemoRunner:
     config: DemoConfig
     processes: list[ManagedProcess] = field(default_factory=list)
-    gcs_processes: list[ManagedProcess] = field(default_factory=list)
+    gcs_processes: list[ManagedProcess | ManagedApplication] = field(default_factory=list)
     provider_started_by_us: bool = False
     router_container_name: str | None = None
 

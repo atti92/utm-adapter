@@ -508,6 +508,68 @@ def test_custom_qgroundcontrol_command_launches_without_installed_app(monkeypatc
     assert observed == [["/tmp/Custom QGroundControl", "--demo"]]
 
 
+def test_macos_app_launcher_is_owned_only_when_qgroundcontrol_was_not_running(
+    tmp_path: Path, monkeypatch
+) -> None:
+    observed: list[list[str]] = []
+
+    monkeypatch.setattr(openutm_demo.sys, "platform", "darwin")
+    monkeypatch.setattr(
+        openutm_demo,
+        "_find_qgroundcontrol_command",
+        lambda: ["open", "-a", "QGroundControl"],
+    )
+    monkeypatch.setattr(openutm_demo, "_gcs_process_is_running", lambda _label: False)
+    monkeypatch.setattr(
+        openutm_demo.subprocess,
+        "Popen",
+        lambda command, **_kwargs: observed.append(list(command)) or object(),
+    )
+
+    label, managed = openutm_demo._launch_gcs("qgroundcontrol", run_dir=tmp_path)
+
+    assert label == "QGroundControl"
+    assert isinstance(managed, openutm_demo.ManagedApplication)
+    assert observed == [["open", "-a", "QGroundControl"]]
+
+
+def test_macos_app_launcher_does_not_claim_an_existing_qgroundcontrol(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(openutm_demo.sys, "platform", "darwin")
+    monkeypatch.setattr(
+        openutm_demo,
+        "_find_qgroundcontrol_command",
+        lambda: ["open", "-a", "QGroundControl"],
+    )
+    monkeypatch.setattr(openutm_demo, "_gcs_process_is_running", lambda _label: True)
+    monkeypatch.setattr(openutm_demo.subprocess, "Popen", lambda *_args, **_kwargs: object())
+
+    label, managed = openutm_demo._launch_gcs("qgroundcontrol", run_dir=tmp_path)
+
+    assert label == "QGroundControl"
+    assert managed is None
+
+
+def test_managed_macos_application_closes_only_when_still_running(monkeypatch) -> None:
+    observed: list[list[str]] = []
+    monkeypatch.setattr(openutm_demo, "_gcs_process_is_running", lambda _label: True)
+    monkeypatch.setattr(
+        openutm_demo,
+        "_run_command",
+        lambda command, **_kwargs: observed.append(list(command))
+        or type("Result", (), {"returncode": 0, "stdout": "", "stderr": ""})(),
+    )
+
+    managed = openutm_demo.ManagedApplication(
+        "QGroundControl",
+        ("osascript", "-e", 'tell application "QGroundControl" to quit'),
+    )
+    managed.stop()
+
+    assert observed == [["osascript", "-e", 'tell application "QGroundControl" to quit']]
+
+
 def test_qgroundcontrol_detection_accepts_linux_command_name(monkeypatch) -> None:
     monkeypatch.setattr(openutm_demo.sys, "platform", "linux")
     monkeypatch.setattr(openutm_demo.os, "name", "posix")
