@@ -187,11 +187,21 @@ function renderReadiness(capabilities, vehicles, health) {
   const backend = capabilities.backend || "unknown";
   if (health?.backend_error) {
     setReadiness("backend-readiness", "backend-readiness-label", "warning", "Provider error");
+  } else if (health?.status !== "ok") {
+    setReadiness("backend-readiness", "backend-readiness-label", "warning", "Connector degraded");
   } else {
     setReadiness("backend-readiness", "backend-readiness-label", "ok", formatStatus(backend));
   }
 
-  if (capabilities.demo_mode) {
+  const lostVehicles = vehicles.filter((vehicle) => vehicle.connection_state === "LOST");
+  const degradedVehicles = vehicles.filter((vehicle) => ["DEGRADED", "UNKNOWN"].includes(vehicle.connection_state));
+  if (lostVehicles.length) {
+    const suffix = lostVehicles.length === 1 ? "vehicle link lost" : "vehicle links lost";
+    setReadiness("mavlink-readiness", "mavlink-readiness-label", "warning", `${lostVehicles.length} ${suffix}`);
+  } else if (degradedVehicles.length) {
+    const suffix = degradedVehicles.length === 1 ? "vehicle link degraded" : "vehicle links degraded";
+    setReadiness("mavlink-readiness", "mavlink-readiness-label", "warning", `${degradedVehicles.length} ${suffix}`);
+  } else if (capabilities.demo_mode) {
     setReadiness("mavlink-readiness", "mavlink-readiness-label", "ok", "Demo vehicle mode");
   } else if (!capabilities.mavlink?.configured) {
     setReadiness("mavlink-readiness", "mavlink-readiness-label", "warning", "No vehicle link configured");
@@ -302,7 +312,10 @@ function renderTelemetry(status) {
     return;
   }
   badge.textContent = formatStatus(telemetry.quality);
-  badge.className = `badge ${telemetry.quality === "GOOD" ? "" : "warning"}`;
+  const telemetryClass = telemetry.quality === "GOOD"
+    ? ""
+    : ["LOST", "INVALID"].includes(telemetry.quality) ? "error" : "warning";
+  badge.className = `badge ${telemetryClass}`;
   $("telemetry-grid").innerHTML = `
     <div><span>Position</span><strong>${Number(telemetry.latitude).toFixed(5)}, ${Number(telemetry.longitude).toFixed(5)}</strong></div>
     <div><span>Altitude</span><strong>${Number(telemetry.altitude.meters).toFixed(1)} m ${escapeHtml(formatStatus(telemetry.altitude.datum))}</strong></div>

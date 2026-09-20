@@ -67,6 +67,9 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert 'state.latestStatus = null' in javascript
     assert "renderNextAction" in javascript
     assert "Operation is live and conforming." in javascript
+    assert 'vehicle.connection_state === "LOST"' in javascript
+    assert '["LOST", "INVALID"].includes(telemetry.quality)' in javascript
+    assert 'health?.status !== "ok"' in javascript
     assert "The selected vehicle went offline" in javascript
     assert "The selected vehicle changed. Load a mission for the new vehicle." in javascript
     assert '$("plan-file").value = ""' in javascript
