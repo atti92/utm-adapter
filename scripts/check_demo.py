@@ -80,12 +80,18 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _demo_config(args: argparse.Namespace) -> openutm_demo.DemoConfig:
+    connector_udp_port = (
+        openutm_demo.DEFAULT_PX4_CONNECTOR_PORT
+        if args.simulator == "px4"
+        else openutm_demo.DEFAULT_CONNECTOR_UDP_PORT
+    )
     return openutm_demo.DemoConfig(
         simulator=args.simulator,
         topology=args.topology,
         gcs=args.gcs,
         flight_blender_root=args.flight_blender_root.expanduser().resolve(),
         ardupilot_root=args.ardupilot_root.expanduser().resolve(),
+        connector_udp_port=connector_udp_port,
         router_config=args.router_config.expanduser().resolve(),
         router_runtime=args.router_runtime,
         router_source_root=args.router_source_root.expanduser().resolve(),
@@ -187,10 +193,35 @@ def _print_optional(args: argparse.Namespace) -> bool:
     return optional_ok
 
 
+def _print_setup_guidance(config: openutm_demo.DemoConfig) -> None:
+    """Print the shortest setup path for a host that is preparing a demo."""
+
+    print("\nSetup guidance")
+    print("--------------")
+    print("1. Install uv and Docker Desktop (or Docker Engine with Compose).")
+    print("2. Use the browser operator console for the UTM workflow; a native GCS is optional.")
+    print("   QGroundControl is supported on macOS, Linux, and Windows; Mission Planner is Windows-only.")
+    if config.simulator == "ardupilot":
+        print(f"3. ArduPilot SITL checkout/build: {config.ardupilot_root}")
+        print("   If missing: git clone --depth 1 https://github.com/ArduPilot/ardupilot.git ../ardupilot")
+    else:
+        print("3. PX4 uses the official Docker SITL image; no PX4 or ArduPilot checkout is required.")
+    print(f"4. Flight Blender checkout: {config.flight_blender_root}")
+    print("   If missing: git clone --depth 1 https://github.com/openutm/flight-blender.git ../flight-blender")
+    if config.topology == "router":
+        print("5. Router topology: install mavlink-routerd or provide the Docker router fallback.")
+        print("   Fallback source: git clone --depth 1 https://github.com/mavlink-router/mavlink-router.git ../mavlink-router")
+        print("6. Run this check again, then start the printed supervised-demo command.")
+    else:
+        print("5. Run this check again, then start the printed supervised-demo command.")
+    print("   The connector remains non-commanding and the GCS remains the vehicle-control application.")
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     required_ok = _print_required(_demo_config(args))
     optional_ok = _print_optional(args)
+    _print_setup_guidance(_demo_config(args))
     print("\nResult")
     print("------")
     if not required_ok:

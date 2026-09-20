@@ -14,6 +14,13 @@ See [`docs/local-development.md`](docs/local-development.md) for setup and API e
 For the complete Flight Blender + SITL + QGroundControl/Mission Planner path,
 see [`docs/openutm-integration.md`](docs/openutm-integration.md).
 
+The minimum local setup is Python 3.11–3.13 and `uv`. Add Docker Desktop (or
+Docker Engine with Compose) for the Flight Blender demo. The browser operator
+console is the cross-platform UTM interface; QGroundControl is optional on
+macOS/Linux/Windows, while Mission Planner is an optional Windows-only GCS
+integration. Run `make demo-check` before a demo to get actionable setup
+guidance and the correct start command for ArduPilot or PX4.
+
 The local runtime can also consume non-commanding MAVLink telemetry from a configured simulator or MAVLink router. For a physical vehicle, use the router topology in [`examples/mavlink-router/README.md`](examples/mavlink-router/README.md) so the connector and GCS share one vehicle link.
 
 ```sh

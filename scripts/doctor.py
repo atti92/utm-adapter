@@ -19,18 +19,30 @@ def _info(label: str, detail: str) -> None:
     print(f"[info] {label}: {detail}")
 
 
+def _python_detail(version: sys.version_info) -> tuple[bool, str]:
+    """Return the support result and operator-facing explanation for Python."""
+
+    version_text = f"{version.major}.{version.minor}.{version.micro}"
+    if (3, 11) <= (version.major, version.minor) < (3, 14):
+        return True, version_text
+    if (version.major, version.minor) == (3, 10):
+        return (
+            True,
+            f"{version_text} (transitional compatibility; remove after October 2026)",
+        )
+    return False, f"{version_text}; supported versions are Python 3.10 through 3.13"
+
+
 def main() -> int:
     print("UTM Operations Connector setup doctor")
     print("=====================================")
 
     version = sys.version_info
-    if (3, 10) <= (version.major, version.minor) < (3, 14):
-        _check("Python", f"{version.major}.{version.minor}.{version.micro}")
+    python_ok, python_detail = _python_detail(version)
+    if python_ok:
+        _check("Python", python_detail)
     else:
-        print(
-            f"[fail] Python: {version.major}.{version.minor}.{version.micro}; "
-            "supported versions are 3.10 through 3.13"
-        )
+        print(f"[fail] Python: {python_detail}")
         return 1
 
     try:
@@ -124,6 +136,8 @@ def main() -> int:
     print("  uv run python scripts/openutm_demo.py --simulator px4 --check")
     print("                                         # full GCS + Flight Blender preflight")
     print("  make demo-check                       # required + optional integration preflight")
+    print("  Browser console works on every platform; QGroundControl is optional")
+    print("  Mission Planner is an optional Windows GCS integration")
     return 0
 
 

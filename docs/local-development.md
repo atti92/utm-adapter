@@ -4,10 +4,33 @@ The repository contains a local connector based on the implementation plan. It r
 
 ## Requirements
 
-- Python 3.10 through 3.13
+- Python 3.11 through 3.13 (Python 3.10 remains transitional compatibility)
 - [uv](https://docs.astral.sh/uv/)
 
+For the full Flight Blender demo, also install Docker Desktop (or Docker
+Engine with Compose) and choose one simulator path:
+
+- ArduPilot SITL: Docker plus a built ArduPilot checkout beside this repository.
+- PX4 SITL: Docker only; the supervised launcher uses the official PX4 image and
+  does not require a PX4 or ArduPilot checkout.
+
+A native GCS is optional because the browser operator console is the
+cross-platform UTM workflow. QGroundControl is supported on macOS, Linux, and
+Windows. Mission Planner is a Windows-only optional integration. On a real
+vehicle, use one MAVLink link with a router fan-out; do not add a second
+aircraft port just for the connector.
+
 Python 3.10 is retained temporarily for compatibility, but is scheduled for removal after its upstream security-support window closes in October 2026. New development and CI should prefer Python 3.11–3.13. The CI matrix covers Linux, macOS, and Windows.
+
+To prepare a host without guessing which dependencies are missing, run:
+
+```sh
+make demo-check
+```
+
+The preflight prints the exact supervised-demo command for the selected
+simulator, reports missing sibling checkouts, and treats native GCS and router
+installations as optional unless that topology is explicitly requested.
 
 ## Fastest setup check
 

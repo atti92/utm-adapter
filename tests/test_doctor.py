@@ -1,5 +1,6 @@
 import socket
 import sys
+from types import SimpleNamespace
 from pathlib import Path
 
 import httpx
@@ -7,6 +8,24 @@ import httpx
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
 from utm_connector.diagnostics import port_is_reachable, probe_http_endpoint, udp_port_is_available
+
+
+def test_python_detail_marks_310_as_transitional() -> None:
+    from scripts import doctor
+
+    supported, detail = doctor._python_detail(SimpleNamespace(major=3, minor=10, micro=14))
+
+    assert supported is True
+    assert "transitional compatibility" in detail
+
+
+def test_python_detail_prefers_current_supported_versions() -> None:
+    from scripts import doctor
+
+    supported, detail = doctor._python_detail(SimpleNamespace(major=3, minor=13, micro=0))
+
+    assert supported is True
+    assert detail == "3.13.0"
 
 
 def test_doctor_detects_an_active_listen_port() -> None:
