@@ -61,6 +61,44 @@ def test_missing_checkout_clones_shallow_repository(tmp_path: Path, monkeypatch)
     assert observed == [["git", "clone", "--depth", "1", spec.url, str(root)]]
 
 
+def test_new_ardupilot_checkout_includes_recursive_shallow_submodules(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "ardupilot"
+    observed: list[list[str]] = []
+
+    def fake_run(command, **_kwargs):
+        observed.append(list(command))
+        root.mkdir()
+        (root / "waf").touch()
+        sim_vehicle = root / "Tools" / "autotest" / "sim_vehicle.py"
+        sim_vehicle.parent.mkdir(parents=True)
+        sim_vehicle.touch()
+        return type("Result", (), {"returncode": 0})()
+
+    monkeypatch.setattr(setup_demo, "_run", fake_run)
+    monkeypatch.setattr(setup_demo.shutil, "which", lambda name: "/usr/bin/git")
+    spec = setup_demo.CheckoutSpec(
+        "ArduPilot",
+        "https://example.test/ardupilot.git",
+        root,
+        ("waf", "Tools/autotest/sim_vehicle.py"),
+        ("--recurse-submodules", "--shallow-submodules"),
+    )
+
+    assert setup_demo.ensure_checkout(spec) == "cloned"
+    assert observed == [
+        [
+            "git",
+            "clone",
+            "--depth",
+            "1",
+            "--recurse-submodules",
+            "--shallow-submodules",
+            spec.url,
+            str(root),
+        ]
+    ]
+
+
 def test_setup_parser_can_select_px4_without_router() -> None:
     args = setup_demo._parser().parse_args(["--simulator", "px4", "--skip-uv-sync"])
 

@@ -39,6 +39,7 @@ class CheckoutSpec:
     url: str
     path: Path
     required_files: tuple[str, ...]
+    clone_flags: tuple[str, ...] = ()
 
 
 def _configured_path(env_name: str, default: Path) -> Path:
@@ -90,7 +91,9 @@ def ensure_checkout(spec: CheckoutSpec) -> str:
         )
 
     spec.path.parent.mkdir(parents=True, exist_ok=True)
-    result = _run(["git", "clone", "--depth", "1", spec.url, str(spec.path)])
+    result = _run(
+        ["git", "clone", "--depth", "1", *spec.clone_flags, spec.url, str(spec.path)]
+    )
     if result.returncode != 0:
         raise DemoSetupError(
             f"could not clone {spec.label} from {spec.url}; fix the repository/network "
@@ -208,6 +211,7 @@ def _specs(args: argparse.Namespace) -> list[CheckoutSpec]:
                 "https://github.com/ArduPilot/ardupilot.git",
                 args.ardupilot_root.expanduser().resolve(),
                 ("waf", "Tools/autotest/sim_vehicle.py"),
+                ("--recurse-submodules", "--shallow-submodules"),
             )
         )
     if args.topology == "router":

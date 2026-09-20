@@ -46,8 +46,9 @@ supplies explicit UTM metadata.
 For a full Flight Blender + SITL demonstration with the operator-facing GCS
 path, use the safe one-time bootstrap command below. It installs the locked
 Python environment and clones only missing dependencies beside this checkout;
-existing simulator directories are validated and reused without pulling,
-resetting, or overwriting local work:
+new ArduPilot clones include the recursive submodules needed by Waf. Existing
+simulator directories are validated and reused without pulling, resetting,
+updating submodules, or overwriting local work:
 
 ```sh
 uv run python scripts/setup_demo.py

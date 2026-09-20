@@ -14,9 +14,11 @@ uv run python scripts/check_demo.py
 ```
 
 The setup command installs the locked Python environment and clones only
-missing Flight Blender and ArduPilot checkouts beside this repository. It
-reuses existing directories without pulling, resetting, or overwriting local
-work. Add `--build-ardupilot` if the SITL binary has not been built yet. The
+missing Flight Blender and ArduPilot checkouts beside this repository. A newly
+cloned ArduPilot checkout includes its recursive submodules, as required by
+the Waf build. It reuses existing directories without pulling, resetting,
+updating submodules, or overwriting local work. Add `--build-ardupilot` if the
+SITL binary has not been built yet. The
 full demo also needs Docker Desktop (or Docker Engine with Compose). The
 browser-only demo needs only `uv`.
 
