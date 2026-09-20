@@ -193,6 +193,18 @@ def test_foreign_vehicle_frames_cannot_replace_or_contaminate_session() -> None:
     assert snapshot.telemetry is None
 
 
+def test_pre_heartbeat_frames_cannot_establish_vehicle_identity() -> None:
+    now = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+    normalizer = MavlinkMessageNormalizer("sitl-1")
+    normalizer.ingest(FakeMessage("STATUSTEXT", system_id=255, text="GCS ready"), now)
+
+    with pytest.raises(ValueError, match="before receiving MAVLink data"):
+        normalizer.snapshot(now)
+
+    normalizer.ingest(FakeMessage("HEARTBEAT", system_id=1, autopilot=3, type=2), now)
+    assert normalizer.snapshot(now).identity.mavlink_system_id == 1
+
+
 def test_message_timestamps_must_be_timezone_aware() -> None:
     normalizer = MavlinkMessageNormalizer("sitl-1")
     with pytest.raises(ValueError, match="timezone"):
@@ -206,10 +218,12 @@ def test_heading_sentinels_are_normalized_to_unknown() -> None:
 
 
 def test_empty_onboard_mission_does_not_interrupt_telemetry() -> None:
-    session = MavlinkVehicleSession("sitl-1", FakeConnection())
+    connection = PollingConnection(FakeMessage("HEARTBEAT"))
+    session = MavlinkVehicleSession("sitl-1", connection)
     now = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
 
     session.ingest(FakeMessage("HEARTBEAT"), now)
+    session.request_mission()
     session.ingest(FakeMessage("MISSION_COUNT", count=0), now)
 
     snapshot = session.snapshot(now)

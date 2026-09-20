@@ -129,8 +129,12 @@ class MavlinkMissionReader:
         if self._target_system is not None and source_system and source_system != self._target_system:
             return None
         if message_type == "MISSION_COUNT":
+            if not self._requested:
+                return None
             return self._ingest_count(message)
         if message_type in {"MISSION_ITEM", "MISSION_ITEM_INT"}:
+            if not self._requested:
+                return None
             return self._ingest_item(message, received_at, message_type)
         if message_type == "MISSION_ACK":
             self._last_ack = int(getattr(message, "type", -1))
@@ -172,6 +176,7 @@ class MavlinkMissionReader:
             mission_count=self._expected_count,
             received_at=received_at,
         )
+        self._requested = False
         self._ack()
         return self._completed
 

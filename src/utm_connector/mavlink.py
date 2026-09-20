@@ -110,7 +110,7 @@ class MavlinkMessageNormalizer:
             self._vehicle_type = str(getattr(message, "type", "UNKNOWN"))
             base_mode = int(getattr(message, "base_mode", 0))
             self._armed = bool(base_mode & int(mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED))
-        elif self._system_id is None or system_id == self._system_id:
+        elif self._system_id is not None and system_id == self._system_id:
             if system_id:
                 self._system_id = system_id
             if component_id:

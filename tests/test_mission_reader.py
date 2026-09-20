@@ -123,6 +123,18 @@ def test_reader_requests_items_in_order_and_builds_canonical_mission() -> None:
     assert completed.waypoints[1].altitude.datum == AltitudeDatum.AGL
 
 
+def test_reader_does_not_join_an_unsolicited_gcs_mission_transfer() -> None:
+    connection = FakeConnection()
+    reader = MavlinkMissionReader("sitl-1", connection)
+    reader.ingest(FakeMessage("HEARTBEAT"))
+
+    reader.ingest(FakeMessage("MISSION_COUNT", count=2))
+    reader.ingest(_item(0))
+
+    assert reader.completed is None
+    assert connection.mav.sent == []
+
+
 def test_reader_rejects_unknown_altitude_frame() -> None:
     connection = FakeConnection()
     reader = MavlinkMissionReader("sitl-1", connection)
