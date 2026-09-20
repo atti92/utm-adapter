@@ -47,6 +47,8 @@ make integration-demo-px4-check
 make integration-demo-px4
 # optional automated lifecycle verification (starts and stops its own stack)
 make integration-demo-px4-verify
+# the same verification against the native ArduPilot SITL checkout
+make integration-demo-verify
 ```
 
 The verification target is for demo preparation and regression checks. It

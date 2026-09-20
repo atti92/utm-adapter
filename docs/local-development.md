@@ -107,6 +107,15 @@ does not open a browser or GCS because it is a validation command; the normal
 demo remains `make integration-demo-px4`. The equivalent reusable verifier for
 an already-running demo is `make integration-verify`.
 
+The same automated check can use the native ArduPilot SITL checkout:
+
+```sh
+make integration-demo-verify
+```
+
+This is useful before a presentation when the target environment is the
+ArduPilot/QGroundControl path rather than the Docker-only PX4 path.
+
 Set `FLIGHT_BLENDER_ROOT` and `ARDUPILOT_ROOT` when the checkouts are not in
 the sibling directories next to this repository. The same Python launcher can
 be run from PowerShell; use `--gcs mission-planner` on Windows when Mission
