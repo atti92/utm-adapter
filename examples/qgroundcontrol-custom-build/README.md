@@ -2,7 +2,9 @@
 
 This example adds a small native UTM status card to QGroundControl's Fly View.
 It is intended for operators who want UTM readiness visible beside the normal
-flight controls while keeping all vehicle control inside QGroundControl.
+flight controls while keeping all vehicle control inside QGroundControl. The
+card shows connector health, vehicle telemetry quality, and the latest UTM
+operation state.
 
 This is a **custom-build integration**, not a loose plugin for the stock
 QGroundControl binary. QGroundControl's supported extension path is a custom
@@ -19,6 +21,7 @@ The overlay reads only:
 
 - `GET /v1/health`
 - `GET /v1/vehicles`
+- `GET /v1/vehicles/{vehicle_id}/status`
 
 The **Open UTM** button opens `/ui/` in the system browser. It does not send
 MAVLink commands, upload missions, arm, take off, or change flight modes.

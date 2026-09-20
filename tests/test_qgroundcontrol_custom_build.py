@@ -11,6 +11,9 @@ def test_qgroundcontrol_overlay_is_a_non_commanding_custom_build_layer() -> None
     assert "GET /v1/health" not in qml  # The path is passed to XMLHttpRequest.
     assert 'requestJson("/v1/health"' in qml
     assert 'requestJson("/v1/vehicles"' in qml
+    assert '"/v1/vehicles/" + encodeURIComponent(vehicle.vehicle_id) + "/status"' in qml
+    assert 'property string operationLabel: "No operation"' in qml
+    assert 'state.telemetry_publication' in qml
     assert 'Qt.openUrlExternally(root.connectorBaseUrl + "/ui/")' in qml
     assert "QGCButton" in qml
     assert "MAV_CMD" not in qml

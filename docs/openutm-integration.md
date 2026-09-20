@@ -146,7 +146,9 @@ instead of assigning multiple physical MAVLink ports on the aircraft.
 For Mission Planner, the optional thin plugin in
 [`examples/mission-planner-plugin/`](../examples/mission-planner-plugin/) adds
 an operator-console menu and a connector health check without sending vehicle
-control messages.
+control messages. It keeps the standalone connector default on port `8000`, and
+automatically discovers the full-stack demo connector on `8001` when Flight
+Blender occupies `8000`.
 
 ## Start the connector against Flight Blender
 

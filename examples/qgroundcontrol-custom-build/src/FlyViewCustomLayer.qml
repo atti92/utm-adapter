@@ -18,11 +18,13 @@ Item {
     property bool connectorOnline: false
     property string connectorLabel: "UTM offline"
     property string vehicleLabel: "No vehicle"
+    property string operationLabel: "No operation"
 
     function setOffline(label) {
         connectorOnline = false
         connectorLabel = label || "UTM offline"
         vehicleLabel = "No vehicle"
+        operationLabel = "No operation"
     }
 
     function requestJson(path, callback) {
@@ -55,10 +57,22 @@ Item {
             requestJson("/v1/vehicles", function(vehicles) {
                 if (vehicles.length === 0) {
                     vehicleLabel = "No vehicle telemetry"
+                    operationLabel = "No operation"
                     return
                 }
                 var vehicle = vehicles[0]
                 vehicleLabel = vehicle.vehicle_id + " · " + (vehicle.quality || "unknown")
+                requestJson("/v1/vehicles/" + encodeURIComponent(vehicle.vehicle_id) + "/status", function(status) {
+                    var operations = status.operations || []
+                    if (operations.length === 0) {
+                        operationLabel = "No operation"
+                        return
+                    }
+                    var operation = operations[operations.length - 1]
+                    var state = operation.state || {}
+                    operationLabel = (state.declaration || "UNKNOWN") + " · "
+                            + (state.telemetry_publication || "NOT_STARTED")
+                })
             })
         })
     }
@@ -95,7 +109,7 @@ Item {
         anchors.topMargin: 12
         anchors.rightMargin: 12
         width: 236
-        height: 104
+        height: 126
         radius: 6
         color: qgcPal.windowShade
         border.color: connectorOnline ? qgcPal.colorGreen : qgcPal.warningText
@@ -126,6 +140,14 @@ Item {
                 text: root.vehicleLabel
                 color: qgcPal.text
                 font.pixelSize: 11
+                elide: Text.ElideRight
+                width: parent.width
+            }
+
+            Text {
+                text: "Operation: " + root.operationLabel
+                color: qgcPal.text
+                font.pixelSize: 10
                 elide: Text.ElideRight
                 width: parent.width
             }

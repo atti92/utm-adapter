@@ -24,8 +24,11 @@ operator console.
 4. In Flight Data, open `UTM Connector` and choose `Open operator console`.
 
 The plugin starts with connector address `http://127.0.0.1:8000` and vehicle ID
-`sitl-1`. Use `Configure connector...` from the menu to change either value;
-the values are persisted in Mission Planner settings.
+`sitl-1`. For the full Flight Blender demo it automatically falls back to
+`http://127.0.0.1:8001` when the standalone port is not serving a connector, so
+the normal demo does not require a port edit. Use `Configure connector...` from
+the menu to change either value; the values are persisted in Mission Planner
+settings.
 
 ## Operator flow
 
@@ -34,7 +37,8 @@ the common UTM steps directly from its menu:
 
 1. Configure the connector URL and the connector vehicle ID once.
 2. Load or edit the mission in Mission Planner's Flight Planner view.
-3. Choose `Sync current mission`.
+3. Choose `Sync current mission`. The plugin gives the declaration a 15-second
+   lead time so the local demo can be started without a one-minute wait.
 4. Choose `Submit operation`, then `Start operation` when ready. `Cancel` and
    `Complete` are available for the same operation.
 5. Open the operator console when you want the richer authorization,

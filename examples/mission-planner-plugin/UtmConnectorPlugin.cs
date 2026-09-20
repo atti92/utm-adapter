@@ -24,7 +24,9 @@ using System.Windows.Forms;
 public class UtmConnectorPlugin : Plugin
 {
     private const string DefaultConnectorBaseUrl = "http://127.0.0.1:8000";
+    private const string FullStackConnectorBaseUrl = "http://127.0.0.1:8001";
     private const string DefaultVehicleId = "sitl-1";
+    private const int MissionValidityLeadSeconds = 15;
 
     private ToolStripMenuItem connectorMenu;
     private ToolStripMenuItem statusMenu;
@@ -33,7 +35,7 @@ public class UtmConnectorPlugin : Plugin
     private string operationId;
 
     public override string Name { get { return "UTM Connector"; } }
-    public override string Version { get { return "2.0"; } }
+    public override string Version { get { return "2.1"; } }
     public override string Author { get { return "utm-adapter"; } }
 
     public override bool Init()
@@ -54,7 +56,7 @@ public class UtmConnectorPlugin : Plugin
         connectorMenu.DropDownItems.Add(configure);
 
         var openConsole = new ToolStripMenuItem("Open operator console");
-        openConsole.Click += delegate { OpenUrl(connectorBaseUrl + "/ui/"); };
+        openConsole.Click += delegate { OpenUrl(ResolveConnectorBaseUrl() + "/ui/"); };
         connectorMenu.DropDownItems.Add(openConsole);
 
         var checkConnector = new ToolStripMenuItem("Check connector");
@@ -158,7 +160,8 @@ public class UtmConnectorPlugin : Plugin
             return;
         }
 
-        var validFrom = DateTime.UtcNow.AddMinutes(1).ToString("o", CultureInfo.InvariantCulture);
+        var validFrom = DateTime.UtcNow.AddSeconds(MissionValidityLeadSeconds)
+            .ToString("o", CultureInfo.InvariantCulture);
         var validUntil = DateTime.UtcNow.AddHours(2).ToString("o", CultureInfo.InvariantCulture);
         var body = "{\"valid_from\":\"" + JsonEscape(validFrom) +
                    "\",\"valid_until\":\"" + JsonEscape(validUntil) +
@@ -307,7 +310,7 @@ public class UtmConnectorPlugin : Plugin
 
     private string SendJson(string method, string path, string body)
     {
-        var request = (HttpWebRequest)WebRequest.Create(connectorBaseUrl + path);
+        var request = (HttpWebRequest)WebRequest.Create(ResolveConnectorBaseUrl() + path);
         request.Method = method;
         request.Timeout = 10000;
         request.ReadWriteTimeout = 10000;
@@ -338,6 +341,39 @@ public class UtmConnectorPlugin : Plugin
             }
             throw;
         }
+    }
+
+    private string ResolveConnectorBaseUrl()
+    {
+        var candidates = new List<string> { connectorBaseUrl };
+        // The full Flight Blender demo reserves port 8000 for the provider and
+        // exposes the connector on 8001. Keep the standalone default, but make
+        // the normal local Mission Planner workflow work without reconfiguration.
+        if (String.Equals(connectorBaseUrl, DefaultConnectorBaseUrl, StringComparison.OrdinalIgnoreCase))
+            candidates.Add(FullStackConnectorBaseUrl);
+
+        foreach (var candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var request = (HttpWebRequest)WebRequest.Create(candidate + "/v1/health");
+                request.Method = "GET";
+                request.Timeout = 1500;
+                request.ReadWriteTimeout = 1500;
+                using (var response = (HttpWebResponse)request.GetResponse())
+                {
+                    if ((int)response.StatusCode >= 200 && (int)response.StatusCode < 300)
+                        return candidate;
+                }
+            }
+            catch (WebException)
+            {
+                // Try the next local candidate. A configured remote URL is
+                // still returned below so its normal error is shown to the user.
+            }
+        }
+
+        return connectorBaseUrl;
     }
 
     private void RunRequest(string description, Func<string> action)
