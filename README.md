@@ -86,6 +86,21 @@ GCS, confirm that it stays running, and exercise the connector lifecycle before
 cleaning everything up. `make gcs-router-demo-verify` performs the same check
 with the single-link MAVLink Router topology used to model a physical vehicle.
 
+For a locally built QGroundControl with the UTM Fly View card, set its executable
+once and use the dedicated targets below. The value may include quoted arguments
+such as `--demo`:
+
+```sh
+export QGROUNDCONTROL_COMMAND="/path/to/Custom-QGroundControl"
+make gcs-custom-qgc-demo-check
+make gcs-custom-qgc-demo
+# automated start, process, MAVLink, and connector-lifecycle verification:
+make gcs-custom-qgc-demo-verify
+```
+
+These targets select only the custom QGroundControl binary; the simulator and
+connector workflow stays identical to the standard GCS demo.
+
 For a physical-drone-style single telemetry link, use the supervised fan-out
 demo. It prefers a host-installed `mavlink-routerd`; when that is unavailable,
 it can build and run the router in Docker (the default on macOS/Windows):

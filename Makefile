@@ -1,4 +1,4 @@
-.PHONY: setup doctor smoke test run demo demo-check gcs-demo gcs-demo-check gcs-demo-verify gcs-router-demo gcs-router-demo-check gcs-router-demo-verify integration-demo integration-demo-check integration-demo-verify integration-demo-router-check integration-demo-router-verify integration-demo-px4 integration-demo-px4-check integration-demo-px4-verify integration-verify mavlink-stream-check manifest-check qgc-check qgc-stage mp-check router-check
+.PHONY: setup doctor smoke test run demo demo-check gcs-demo gcs-demo-check gcs-demo-verify gcs-custom-qgc-demo gcs-custom-qgc-demo-check gcs-custom-qgc-demo-verify gcs-router-demo gcs-router-demo-check gcs-router-demo-verify integration-demo integration-demo-check integration-demo-verify integration-demo-router-check integration-demo-router-verify integration-demo-px4 integration-demo-px4-check integration-demo-px4-verify integration-verify mavlink-stream-check manifest-check qgc-check qgc-stage mp-check router-check
 
 setup:
 	uv sync
@@ -29,6 +29,18 @@ gcs-demo-check:
 
 gcs-demo-verify:
 	uv run python scripts/openutm_demo.py --gcs auto --no-browser --verify
+
+gcs-custom-qgc-demo:
+	@test -n "$${QGROUNDCONTROL_COMMAND:-}" || (echo "Set QGROUNDCONTROL_COMMAND to the custom QGroundControl executable before using this target."; exit 2)
+	uv run python scripts/openutm_demo.py --gcs qgroundcontrol --qgroundcontrol-command "$${QGROUNDCONTROL_COMMAND}"
+
+gcs-custom-qgc-demo-check:
+	@test -n "$${QGROUNDCONTROL_COMMAND:-}" || (echo "Set QGROUNDCONTROL_COMMAND to the custom QGroundControl executable before using this target."; exit 2)
+	uv run python scripts/openutm_demo.py --gcs qgroundcontrol --qgroundcontrol-command "$${QGROUNDCONTROL_COMMAND}" --check
+
+gcs-custom-qgc-demo-verify:
+	@test -n "$${QGROUNDCONTROL_COMMAND:-}" || (echo "Set QGROUNDCONTROL_COMMAND to the custom QGroundControl executable before using this target."; exit 2)
+	uv run python scripts/openutm_demo.py --gcs qgroundcontrol --qgroundcontrol-command "$${QGROUNDCONTROL_COMMAND}" --no-browser --verify
 
 gcs-router-demo:
 	uv run python scripts/openutm_demo.py --topology router --gcs auto

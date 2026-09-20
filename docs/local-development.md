@@ -87,6 +87,11 @@ uv run python scripts/openutm_demo.py
 make gcs-demo-check
 make gcs-demo
 make gcs-demo-verify
+# with a locally built QGroundControl UTM overlay:
+export QGROUNDCONTROL_COMMAND="/path/to/Custom-QGroundControl"
+make gcs-custom-qgc-demo-check
+make gcs-custom-qgc-demo
+make gcs-custom-qgc-demo-verify
 ```
 
 It starts the local Flight Blender Compose stack, the connector configured for
