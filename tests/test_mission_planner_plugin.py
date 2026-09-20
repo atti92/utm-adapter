@@ -2,6 +2,7 @@ from pathlib import Path
 
 
 PLUGIN = Path(__file__).parents[1] / "examples" / "mission-planner-plugin" / "UtmConnectorPlugin.cs"
+INSTALLER = PLUGIN.parent / "Install-UtmConnectorPlugin.ps1"
 
 
 def test_mission_planner_plugin_is_thin_non_commanding_and_supports_gcs_workflow() -> None:
@@ -44,6 +45,16 @@ def test_mission_planner_compatibility_check_has_an_explicit_runtime_boundary() 
     assert "Windows" in script
     assert "COMMAND_LONG" in script
     assert "MAV_CMD.LAND" in script
+
+
+def test_mission_planner_installer_is_explicit_and_recoverable() -> None:
+    source = INSTALLER.read_text()
+
+    assert "MissionPlannerRoot" in source
+    assert "-Force" in source
+    assert ".bak" in source
+    assert "UtmConnectorPlugin.cs" in source
+    assert "Copy-Item" in source
 
 
 def test_mission_planner_plugin_marshals_async_results_to_the_gcs_ui_thread() -> None:

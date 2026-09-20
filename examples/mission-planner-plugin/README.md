@@ -17,8 +17,20 @@ operator console.
 1. Start the connector locally. From the repository root, `make demo` is the
    quickest self-contained option; for a real vehicle use the configuration in
    [`docs/local-development.md`](../../docs/local-development.md).
-2. Copy [`UtmConnectorPlugin.cs`](UtmConnectorPlugin.cs) into Mission Planner's
-   `plugins` directory.
+2. From Windows PowerShell, run the included installer. It detects the common
+   Mission Planner install locations, creates the `plugins` directory, and
+   refuses to overwrite an existing plugin unless `-Force` is supplied:
+
+   ```powershell
+   .\examples\mission-planner-plugin\Install-UtmConnectorPlugin.ps1
+   # For a non-standard install:
+   .\examples\mission-planner-plugin\Install-UtmConnectorPlugin.ps1 `
+     -MissionPlannerRoot 'D:\Apps\Mission Planner'
+   ```
+
+   With `-Force`, the previous source is saved as `UtmConnectorPlugin.cs.bak`.
+   The manual fallback is to copy [`UtmConnectorPlugin.cs`](UtmConnectorPlugin.cs)
+   into Mission Planner's `plugins` directory.
 3. Restart Mission Planner. Its plugin loader compiles C# source files from
    that directory when Mission Planner starts.
 4. In Flight Data, open `UTM Connector` and choose `Open operator console`.

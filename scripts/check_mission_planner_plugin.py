@@ -42,6 +42,7 @@ def validate(source_root: Path, expected_version: str) -> list[str]:
         "Mission Planner plugin API": source_root / "Plugin" / "Plugin.cs",
         "Mission Planner project": source_root / "MissionPlanner.csproj",
         "plugin source": PLUGIN,
+        "PowerShell installer": PLUGIN.parent / "Install-UtmConnectorPlugin.ps1",
     }
     errors = [f"{label} missing: {path}" for label, path in required.items() if not path.is_file()]
     if errors:
@@ -50,6 +51,7 @@ def validate(source_root: Path, expected_version: str) -> list[str]:
     api = required["Mission Planner plugin API"].read_text(encoding="utf-8-sig")
     project = required["Mission Planner project"]
     plugin = PLUGIN.read_text(encoding="utf-8-sig")
+    installer = required["PowerShell installer"].read_text(encoding="utf-8-sig")
     source_csharp_files = source_root.rglob("*.cs")
     source_text = "\n".join(
         path.read_text(encoding="utf-8-sig", errors="ignore") for path in source_csharp_files
@@ -66,6 +68,9 @@ def validate(source_root: Path, expected_version: str) -> list[str]:
         ("Flight Data menu surface", "public ContextMenuStrip FDMenuMap" in api),
         ("settings string getter", has_settings_getter),
         ("connector plugin derives from Plugin", "class UtmConnectorPlugin : Plugin" in plugin),
+        ("installer accepts a Mission Planner root", "MissionPlannerRoot" in installer),
+        ("installer protects existing plugins", "-Force" in installer and ".bak" in installer),
+        ("installer copies the C# plugin", "Copy-Item" in installer and "UtmConnectorPlugin.cs" in installer),
         ("connector plugin uses the Flight Data menu", "Host.FDMenuMap.Items.Add" in plugin),
         ("connector plugin remains non-commanding", "Host.comPort." not in plugin),
         ("connector plugin has no MAVLink command path", "COMMAND_LONG" not in plugin and "sendPacket" not in plugin),
