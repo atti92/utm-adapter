@@ -29,7 +29,16 @@ with ConnectorClient("http://127.0.0.1:8000") as connector:
         valid_from=datetime.now(timezone.utc) + timedelta(minutes=1),
         valid_until=datetime.now(timezone.utc) + timedelta(minutes=31),
     )
+    connector.refresh_onboard_mission(vehicle_id)
+    onboard = connector.onboard_mission(vehicle_id)
 ```
+
+`refresh_onboard_mission()` only requests a read-only MAVLink mission
+download; it does not upload, alter, arm, or control the vehicle. The
+subsequent `onboard_mission()` call returns the connector's latest stored
+snapshot, which lets a GCS show mission drift consistently across
+QGroundControl and Mission Planner adapters. A vehicle that has not reported a
+mission yet returns HTTP 404.
 
 The client intentionally returns JSON dictionaries so the host GCS can map
 connector state into its own native UI models. Use

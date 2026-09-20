@@ -290,6 +290,13 @@ def create_app(
         except ConnectorError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
+    @app.get("/v1/vehicles/{vehicle_id}/onboard-mission", response_model=dict)
+    def get_onboard_mission(vehicle_id: str) -> dict:
+        snapshot = service.onboard_missions.get(vehicle_id)
+        if snapshot is None:
+            raise HTTPException(status_code=404, detail="onboard mission not found")
+        return snapshot.model_dump(mode="json")
+
     @app.post("/v1/vehicles/{vehicle_id}/onboard-mission/refresh", response_model=dict, status_code=202)
     def refresh_onboard_mission(vehicle_id: str) -> dict:
         try:

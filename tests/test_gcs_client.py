@@ -75,6 +75,14 @@ def test_client_exposes_discovery_audit_and_operation_reads() -> None:
     with _client(handler) as client:
         assert client.integration() == {"status": "ok"}
         assert client.events(limit=5) == [{"event_type": "CONNECTED"}]
+        assert client.onboard_mission("sitl/1") == {"status": "ok"}
+        assert client.refresh_onboard_mission("sitl/1") == {"status": "ok"}
         assert client.operation(operation_id) == {"status": "ok"}
 
-    assert paths == [b"/v1/integration", b"/v1/events?limit=5", b"/v1/operations/00000000-0000-0000-0000-000000000001"]
+    assert paths == [
+        b"/v1/integration",
+        b"/v1/events?limit=5",
+        b"/v1/vehicles/sitl%2F1/onboard-mission",
+        b"/v1/vehicles/sitl%2F1/onboard-mission/refresh",
+        b"/v1/operations/00000000-0000-0000-0000-000000000001",
+    ]

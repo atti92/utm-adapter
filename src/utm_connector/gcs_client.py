@@ -70,6 +70,20 @@ class ConnectorClient:
     def mission(self, vehicle_id: str) -> dict[str, Any]:
         return self._request("GET", f"/v1/missions/{self._path_value(vehicle_id)}")
 
+    def onboard_mission(self, vehicle_id: str) -> dict[str, Any]:
+        """Return the most recently observed mission stored on the vehicle."""
+
+        return self._request(
+            "GET", f"/v1/vehicles/{self._path_value(vehicle_id)}/onboard-mission"
+        )
+
+    def refresh_onboard_mission(self, vehicle_id: str) -> dict[str, Any]:
+        """Request a non-commanding MAVLink mission download for a vehicle."""
+
+        return self._request(
+            "POST", f"/v1/vehicles/{self._path_value(vehicle_id)}/onboard-mission/refresh"
+        )
+
     def upload_qgroundcontrol_plan(
         self,
         vehicle_id: str,

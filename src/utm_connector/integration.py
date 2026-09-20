@@ -41,6 +41,14 @@ INTEGRATION_MANIFEST = {
                 "method": "PUT",
                 "path": "/v1/missions/{vehicle_id}/mission-planner",
             },
+            "onboard": {
+                "method": "GET",
+                "path": "/v1/vehicles/{vehicle_id}/onboard-mission",
+            },
+            "onboard_refresh": {
+                "method": "POST",
+                "path": "/v1/vehicles/{vehicle_id}/onboard-mission/refresh",
+            },
         },
         "operations": {
             "intent": {

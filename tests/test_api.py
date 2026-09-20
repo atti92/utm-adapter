@@ -377,6 +377,17 @@ def test_onboard_mission_drift_is_reported_in_vehicle_status() -> None:
     assert response.status_code == 200
     assert response.json()["classification"] == "NON_OPERATIONAL_CHANGE"
     assert response.json()["submitted_mission_hash"] == response.json()["current_mission_hash"]
+    stored = client.get("/v1/vehicles/sitl-1/onboard-mission")
+    assert stored.status_code == 200
+    assert stored.json()["mission"]["source"] == "mavlink"
+
+
+def test_onboard_mission_get_reports_missing_snapshot() -> None:
+    client = TestClient(create_app(ConnectorService(InMemoryBackend())))
+
+    response = client.get("/v1/vehicles/sitl-1/onboard-mission")
+
+    assert response.status_code == 404
 
 
 def test_onboard_mission_refresh_requires_a_configured_session() -> None:
