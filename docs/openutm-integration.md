@@ -191,8 +191,9 @@ vehicle, use a MAVLink router instead of binding both directly to the same UDP
 port.
 
 QGroundControl or Mission Planner should show the SITL vehicle. The connector
-is non-commanding: it consumes telemetry and can issue mission-protocol
-requests for drift checking, but it does not send vehicle-control commands.
+is non-commanding: it consumes telemetry and can issue read-only
+mission-protocol requests for drift checking after an explicit operator/API
+refresh, but it does not send vehicle-control commands.
 Open `http://127.0.0.1:8001/ui/` after starting the connector and use that
 console for the operator-facing mission and operation flow.
 

@@ -40,8 +40,9 @@ with ConnectorClient("http://127.0.0.1:8000", correlation_id="<session-uuid>") a
     )
 ```
 
-`refresh_onboard_mission()` only requests a read-only MAVLink mission
-download; it does not upload, alter, arm, or control the vehicle. The
+`refresh_onboard_mission()` is the explicit trigger for a read-only MAVLink
+mission download; the connector does not start a mission transfer merely when
+it sees a heartbeat. It does not upload, alter, arm, or control the vehicle. The
 subsequent `onboard_mission()` call returns the connector's latest stored
 snapshot, which lets a GCS show mission drift consistently across
 QGroundControl and Mission Planner adapters. A vehicle that has not reported a

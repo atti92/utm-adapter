@@ -281,10 +281,11 @@ The recommended real-world topology is one vehicle link into a MAVLink router,
 with separate router endpoints for the GCS and connector. See
 [`examples/mavlink-router/README.md`](../examples/mavlink-router/README.md).
 The connector consumes telemetry and uses mission-protocol requests for drift
-checking; it does not send vehicle-control commands. The separate-output SITL
-shortcut below is still useful when a router is not installed. A vehicle link
-that is unavailable at startup or drops later is retried automatically; the
-operator console keeps the vehicle/link health visible while it reconnects.
+checking only after an operator explicitly asks it to check the onboard mission;
+it does not send vehicle-control commands. The separate-output SITL shortcut
+below is still useful when a router is not installed. A vehicle link that is
+unavailable at startup or drops later is retried automatically; the operator
+console keeps the vehicle/link health visible while it reconnects.
 
 Before a router-backed demo, validate the checked-in fan-out configuration:
 
@@ -381,9 +382,9 @@ systems with `make`).
 QGroundControl should show the SITL vehicle automatically. Then open
 `http://127.0.0.1:8000/ui/` and use the operator console to load or create a
 mission and run the operation lifecycle. The connector does not send vehicle
-commands; it only consumes telemetry and uses mission-protocol requests when
-onboard mission comparison is enabled. The connector state can also be
-checked with:
+commands; it only consumes telemetry and uses a read-only mission-protocol
+request when you select “Check vehicle mission” or call the refresh API. The
+connector state can also be checked with:
 
 ```sh
 curl http://127.0.0.1:8000/v1/vehicles/sitl-1/status

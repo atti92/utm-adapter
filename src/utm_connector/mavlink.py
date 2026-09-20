@@ -309,6 +309,9 @@ class MavlinkVehicleSession(MavlinkMessageNormalizer):
             self.ingest(message, received_at)
             if _message_type(message) == "HEARTBEAT":
                 self._request_telemetry_streams()
+            # Do not start a mission transfer from a heartbeat. QGroundControl
+            # or Mission Planner may be using the same routed vehicle link;
+            # mission reads are initiated only by the explicit refresh path.
         return message
 
     def _request_telemetry_streams(self) -> None:
