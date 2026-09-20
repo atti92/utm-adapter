@@ -35,3 +35,28 @@ jobs:
       - run: uv run pytest
       - run: uv run python -m py_compile scripts/ardupilot_sitl.py scripts/openutm_demo.py scripts/px4_sitl.py
       - run: node --check src/utm_connector/ui/app.js
+
+  mission-planner-contract:
+    name: Windows / Mission Planner plugin contract
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: ArduPilot/MissionPlanner
+          ref: efb080190de0bf091f9aab982c8848a124de7588
+          path: MissionPlanner
+          fetch-depth: 1
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: uv sync --locked
+      - run: >-
+          uv run python scripts/check_mission_planner_plugin.py
+          --mission-planner-source MissionPlanner
+          --expected-version 1.3.83
+          --strict

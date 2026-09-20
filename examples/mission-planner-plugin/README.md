@@ -84,6 +84,8 @@ uv run python scripts/check_mission_planner_plugin.py \
 
 This repository does not include a Windows Mission Planner runtime, so final
 plugin compilation and menu verification must still be performed on a Windows
-test machine with Mission Planner installed. The connector itself and its
-browser console remain cross-platform; this plugin is an optional Windows GCS
-adapter.
+test machine with Mission Planner installed. CI also runs the contract check
+against the pinned Mission Planner source on `windows-latest`; that catches
+host API drift, but it intentionally does not pretend to be a running desktop
+menu test. The connector itself and its browser console remain cross-platform;
+this plugin is an optional Windows GCS adapter.
