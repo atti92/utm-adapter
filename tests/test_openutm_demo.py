@@ -176,6 +176,21 @@ def test_check_prerequisites_rejects_invalid_or_duplicate_simulator_ports(tmp_pa
     assert "GCS UDP port and connector UDP port must be different" in failures
 
 
+def test_check_prerequisites_rejects_duplicate_http_ports(tmp_path: Path, monkeypatch) -> None:
+    config = openutm_demo.DemoConfig(
+        flight_blender_root=tmp_path / "missing-flight-blender",
+        provider_port=8100,
+        connector_port=8100,
+    )
+    monkeypatch.setattr(openutm_demo, "_command_available", lambda _command: (True, "ok"))
+    monkeypatch.setattr(openutm_demo, "_find_geoid_grid", lambda: tmp_path / "grid.tif")
+    monkeypatch.setattr(openutm_demo, "port_is_reachable", lambda _host, _port: False)
+
+    failures = openutm_demo.check_prerequisites(config)
+
+    assert "Flight Blender HTTP port and connector HTTP port must be different" in failures
+
+
 def test_compose_up_reuses_a_cached_provider_image(tmp_path: Path, monkeypatch) -> None:
     config = openutm_demo.DemoConfig(flight_blender_root=tmp_path)
     monkeypatch.setattr(openutm_demo, "_provider_image_is_available", lambda: True)

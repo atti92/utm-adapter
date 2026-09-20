@@ -492,6 +492,15 @@ def check_prerequisites(config: DemoConfig) -> list[str]:
 
     failures: list[str] = []
     for label, port in (
+        ("Flight Blender HTTP port", config.provider_port),
+        ("connector HTTP port", config.connector_port),
+    ):
+        if not 1 <= port <= 65535:
+            failures.append(f"{label} must be between 1 and 65535 (got {port})")
+    if config.provider_port == config.connector_port:
+        failures.append("Flight Blender HTTP port and connector HTTP port must be different")
+
+    for label, port in (
         ("GCS UDP port", config.gcs_udp_port),
         ("connector UDP port", config.connector_udp_port),
     ):
