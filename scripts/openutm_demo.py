@@ -35,7 +35,11 @@ from scripts.px4_sitl import (
     DEFAULT_GCS_PORT as DEFAULT_PX4_GCS_PORT,
     DEFAULT_CONNECTOR_PORT as DEFAULT_PX4_CONNECTOR_PORT,
 )
-from utm_connector.diagnostics import port_is_reachable, probe_http_endpoint
+from utm_connector.diagnostics import (
+    port_is_reachable,
+    probe_http_endpoint,
+    udp_port_is_available,
+)
 
 
 DEFAULT_VEHICLE_ID = "sitl-1"
@@ -487,6 +491,14 @@ def check_prerequisites(config: DemoConfig) -> list[str]:
             failures.append(f"{label} must be between 1 and 65535 (got {port})")
     if config.gcs_udp_port == config.connector_udp_port:
         failures.append("GCS UDP port and connector UDP port must be different")
+
+    if config.simulator == "px4":
+        for label, port in (
+            ("GCS UDP port", config.gcs_udp_port),
+            ("connector UDP port", config.connector_udp_port),
+        ):
+            if 1 <= port <= 65535 and not udp_port_is_available("127.0.0.1", port):
+                failures.append(f"{label} 127.0.0.1:{port} is already in use")
 
     if config.gcs == "qgroundcontrol" and _find_qgroundcontrol_command() is None:
         failures.append("QGroundControl was requested but is not installed or discoverable")

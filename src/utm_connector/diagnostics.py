@@ -19,6 +19,17 @@ def port_is_reachable(host: str, port: int) -> bool:
         return False
 
 
+def udp_port_is_available(host: str, port: int) -> bool:
+    """Return whether a local UDP socket can bind the configured port."""
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.bind((host, port))
+    except OSError:
+        return False
+    return True
+
+
 def probe_http_endpoint(
     base_url: str,
     path: str = "/ping",

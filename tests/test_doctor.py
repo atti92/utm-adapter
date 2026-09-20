@@ -6,7 +6,7 @@ import httpx
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from utm_connector.diagnostics import port_is_reachable, probe_http_endpoint
+from utm_connector.diagnostics import port_is_reachable, probe_http_endpoint, udp_port_is_available
 
 
 def test_doctor_detects_an_active_listen_port() -> None:
@@ -15,6 +15,15 @@ def test_doctor_detects_an_active_listen_port() -> None:
     listener.listen(1)
     try:
         assert port_is_reachable("127.0.0.1", listener.getsockname()[1]) is True
+    finally:
+        listener.close()
+
+
+def test_doctor_detects_an_active_udp_port() -> None:
+    listener = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    listener.bind(("127.0.0.1", 0))
+    try:
+        assert udp_port_is_available("127.0.0.1", listener.getsockname()[1]) is False
     finally:
         listener.close()
 
