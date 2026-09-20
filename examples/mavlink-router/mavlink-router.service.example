@@ -1,0 +1,17 @@
+[Unit]
+Description=MAVLink Router for UTM connector fan-out
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/mavlink-routerd --conf-file=/etc/mavlink-router/main.conf --syslog
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

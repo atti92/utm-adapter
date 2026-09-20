@@ -118,10 +118,30 @@ uv run python scripts/check_mavlink_router.py \
 
 On Windows, use a serial device such as `COM3`; the router itself is normally
 installed on a Linux companion computer, so the device path is the path on
-that companion. Install the reviewed file as the router configuration and
-start `mavlink-routerd --conf-file /path/to/mavlink-router.conf`. Allow UDP
-14550 from the companion to the GCS and UDP 14551 from the companion to the
-connector in the network/firewall policy. Keep the connector's
+that companion. Install the reviewed file as `/etc/mavlink-router/main.conf`.
+The checked-in `mavlink-router.service.example` is a systemd unit with
+restart-on-failure and conservative filesystem protections; review the binary
+path and copy it to `/etc/systemd/system/mavlink-router-utm.service`:
+
+```sh
+sudo install -d -m 0755 /etc/mavlink-router
+sudo install -m 0644 /tmp/mavlink-router.conf /etc/mavlink-router/main.conf
+sudo install -m 0644 examples/mavlink-router/mavlink-router.service.example \
+  /etc/systemd/system/mavlink-router-utm.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now mavlink-router-utm.service
+sudo systemctl --no-pager --full status mavlink-router-utm.service
+```
+
+Before starting it, ensure the service account can open the UART (on common
+Debian-based systems this means adding the service user to `dialout` and
+restarting its login session). If the distribution installs `mavlink-routerd`
+somewhere other than `/usr/bin/mavlink-routerd`, edit `ExecStart` in the unit
+before enabling it. To roll back safely, stop and disable only this unit, then
+restore the previous router config; the connector and GCS remain independent.
+
+Allow UDP 14550 from the companion to the GCS and UDP 14551 from the companion
+to the connector in the network/firewall policy. Keep the connector's
 `UTM_CONNECTOR_MAVLINK_CONNECTIONS` URI pointed at the connector address and
 port, for example `udpin:10.0.0.30:14551`.
 

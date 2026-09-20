@@ -105,6 +105,9 @@ make gcs-router-demo-check
 On macOS and Windows the supervised demo can run the router in Docker. On a
 real aircraft, install `mavlink-routerd` on the companion computer and point
 the connector at its UDP output rather than opening the serial device twice.
+For a Linux companion, the repository includes a reviewable service unit at
+[`examples/mavlink-router/mavlink-router.service.example`](../examples/mavlink-router/mavlink-router.service.example);
+install it only after reviewing the generated UART config and the binary path.
 
 ## Mission Planner flow on Windows
 

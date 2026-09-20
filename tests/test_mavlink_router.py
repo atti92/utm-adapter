@@ -9,8 +9,20 @@ from scripts import check_mavlink_router, generate_mavlink_router_config
 from scripts.check_mavlink_router import DEFAULT_CONFIG, validate
 
 
+SERVICE_UNIT = Path(__file__).parents[1] / "examples" / "mavlink-router" / "mavlink-router.service.example"
+
+
 def test_checked_in_router_config_matches_gcs_and_connector_fanout() -> None:
     assert validate(DEFAULT_CONFIG) == []
+
+
+def test_companion_service_unit_uses_reviewed_config_and_recovers() -> None:
+    unit = SERVICE_UNIT.read_text(encoding="utf-8")
+
+    assert "--conf-file=/etc/mavlink-router/main.conf" in unit
+    assert "Restart=on-failure" in unit
+    assert "After=network-online.target" in unit
+    assert "NoNewPrivileges=true" in unit
 
 
 def test_router_config_rejects_duplicate_consumer_port(tmp_path: Path) -> None:
