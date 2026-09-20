@@ -28,7 +28,19 @@ without using the CLI.
 
 For a full Flight Blender + SITL demonstration, use
 `uv run python scripts/openutm_demo.py` or `make integration-demo` after
-installing Docker, Flight Blender, and ArduPilot beside this checkout. The
+installing Docker, Flight Blender, and ArduPilot beside this checkout. A
+one-time checkout setup is:
+
+```sh
+git clone --depth 1 https://github.com/openutm/flight-blender.git ../flight-blender
+git clone --depth 1 https://github.com/ArduPilot/ardupilot.git ../ardupilot
+# Needed only for the physical-drone-style single-link router demo.
+git clone --depth 1 https://github.com/mavlink-router/mavlink-router.git ../mavlink-router
+```
+
+The PX4 Docker path needs no ArduPilot or PX4 checkout. The
+`openutm_demo.py --check` command reports any missing checkout before startup.
+The
 launcher prepares Flight Blender's local environment, starts the provider,
 connector, and simulator, opens the operator console, and detects an installed
 QGroundControl or Mission Planner (QGroundControl first, then Mission Planner
