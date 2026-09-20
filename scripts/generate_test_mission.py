@@ -8,6 +8,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
+NAVIGABLE_COMMANDS = (22, 21)
+
+
 def build_mission(
     *,
     vehicle_id: str,
@@ -43,6 +46,122 @@ def build_mission(
                 "altitude": {"meters": altitude_m + half_span, "datum": "WGS84"},
             },
         ],
+    }
+
+
+def _mission_points(payload: dict[str, object]) -> list[dict[str, float]]:
+    waypoints = payload.get("waypoints")
+    if not isinstance(waypoints, list) or len(waypoints) < 2:
+        raise ValueError("mission must contain at least two waypoints")
+
+    points: list[dict[str, float]] = []
+    for waypoint in waypoints:
+        if not isinstance(waypoint, dict):
+            raise ValueError("mission waypoints must be objects")
+        altitude = waypoint.get("altitude")
+        if not isinstance(altitude, dict):
+            raise ValueError("mission waypoint altitude must be an object")
+        points.append(
+            {
+                "latitude": float(waypoint["latitude"]),
+                "longitude": float(waypoint["longitude"]),
+                "altitude": float(altitude["meters"]),
+            }
+        )
+    return points
+
+
+def build_qgroundcontrol_plan(payload: dict[str, object]) -> dict[str, object]:
+    """Convert a canonical test mission to a simple QGroundControl Plan."""
+
+    points = _mission_points(payload)
+    items = []
+    for sequence, (command, point) in enumerate(zip(NAVIGABLE_COMMANDS, points)):
+        items.append(
+            {
+                "type": "SimpleItem",
+                "command": command,
+                "frame": 5,
+                "autoContinue": True,
+                "doJumpId": sequence + 1,
+                "params": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    point["latitude"],
+                    point["longitude"],
+                    point["altitude"],
+                ],
+            }
+        )
+    return {
+        "fileType": "Plan",
+        "geoFence": {"circles": [], "polygons": [], "version": 2},
+        "groundStation": "QGroundControl",
+        "mission": {
+            "cruiseSpeed": 15,
+            "firmwareType": 3,
+            "globalPlanAltitudeMode": 0,
+            "hoverSpeed": 5,
+            "items": items,
+            "plannedHomePosition": [
+                points[0]["latitude"],
+                points[0]["longitude"],
+                points[0]["altitude"],
+            ],
+            "vehicleType": 2,
+            "version": 2,
+        },
+        "rallyPoints": {"points": [], "version": 2},
+        "version": 1,
+    }
+
+
+def build_mission_planner_waypoints(payload: dict[str, object]) -> str:
+    """Convert a canonical test mission to Mission Planner's QGC WPL text."""
+
+    lines = ["QGC WPL 110"]
+    for sequence, (command, point) in enumerate(zip(NAVIGABLE_COMMANDS, _mission_points(payload))):
+        current = 1 if sequence == 0 else 0
+        lines.append(
+            "{sequence} {current} 5 {command} 0 0 0 0 {latitude} {longitude} {altitude} 1".format(
+                sequence=sequence,
+                current=current,
+                command=command,
+                latitude=point["latitude"],
+                longitude=point["longitude"],
+                altitude=point["altitude"],
+            )
+        )
+    return "\n".join(lines) + "\n"
+
+
+def write_demo_mission_files(output_dir: Path, *, vehicle_id: str = "sitl-1") -> dict[str, Path]:
+    """Write canonical, QGroundControl, and Mission Planner demo artifacts."""
+
+    payload = build_mission(
+        vehicle_id=vehicle_id,
+        latitude=47.4979,
+        longitude=19.0402,
+        altitude_m=120,
+        altitude_span_m=4,
+        duration_minutes=20,
+        start_offset_minutes=1,
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    canonical_path = output_dir / "mission.json"
+    qgroundcontrol_path = output_dir / "mission-qgroundcontrol.plan"
+    mission_planner_path = output_dir / "mission-planner.waypoints"
+    canonical_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    qgroundcontrol_path.write_text(
+        json.dumps(build_qgroundcontrol_plan(payload), indent=2) + "\n", encoding="utf-8"
+    )
+    mission_planner_path.write_text(build_mission_planner_waypoints(payload), encoding="utf-8")
+    return {
+        "canonical": canonical_path,
+        "qgroundcontrol": qgroundcontrol_path,
+        "mission-planner": mission_planner_path,
     }
 
 

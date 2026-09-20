@@ -1,7 +1,18 @@
 import json
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parents[1]))
+
+from scripts.generate_test_mission import (
+    build_mission,
+    build_mission_planner_waypoints,
+    build_qgroundcontrol_plan,
+    write_demo_mission_files,
+)
+from utm_connector.missions import parse_mission_planner_waypoints, parse_qgroundcontrol_plan
 
 
 def test_generated_mission_has_a_vertical_band(tmp_path: Path) -> None:
@@ -24,3 +35,40 @@ def test_generated_mission_has_a_vertical_band(tmp_path: Path) -> None:
     altitudes = [waypoint["altitude"]["meters"] for waypoint in mission["waypoints"]]
     assert altitudes == [179, 183]
     assert all(waypoint["altitude"]["datum"] == "WGS84" for waypoint in mission["waypoints"])
+
+
+def test_demo_mission_artifacts_round_trip_through_production_parsers(tmp_path: Path) -> None:
+    payload = build_mission(
+        vehicle_id="sitl-1",
+        latitude=47.4979,
+        longitude=19.0402,
+        altitude_m=120,
+        altitude_span_m=4,
+        duration_minutes=20,
+        start_offset_minutes=1,
+    )
+    valid_from = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    valid_until = datetime(2026, 1, 1, 1, tzinfo=timezone.utc)
+
+    qgc_mission = parse_qgroundcontrol_plan(
+        build_qgroundcontrol_plan(payload),
+        vehicle_id="sitl-1",
+        valid_from=valid_from,
+        valid_until=valid_until,
+    )
+    mp_mission = parse_mission_planner_waypoints(
+        build_mission_planner_waypoints(payload),
+        vehicle_id="sitl-1",
+        valid_from=valid_from,
+        valid_until=valid_until,
+    )
+
+    assert len(qgc_mission.waypoints) == 2
+    assert len(mp_mission.waypoints) == 2
+    assert qgc_mission.waypoints[1].longitude == mp_mission.waypoints[1].longitude
+
+    paths = write_demo_mission_files(tmp_path, vehicle_id="demo-vehicle")
+    assert set(paths) == {"canonical", "qgroundcontrol", "mission-planner"}
+    assert paths["canonical"].is_file()
+    assert paths["qgroundcontrol"].read_text(encoding="utf-8").startswith('{\n  "fileType": "Plan"')
+    assert paths["mission-planner"].read_text(encoding="utf-8").startswith("QGC WPL 110\n")

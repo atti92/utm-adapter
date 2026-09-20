@@ -664,6 +664,14 @@ def test_demo_run_dir_resets_only_managed_artifacts(tmp_path: Path) -> None:
     assert (run_dir / "notes.txt").read_text(encoding="utf-8") == "keep this"
 
 
+def test_demo_run_dir_manages_operator_mission_artifacts(tmp_path: Path) -> None:
+    openutm_demo._prepare_run_dir(tmp_path)
+
+    assert "mission.json" in openutm_demo.DEMO_ARTIFACTS
+    assert "mission-qgroundcontrol.plan" in openutm_demo.DEMO_ARTIFACTS
+    assert "mission-planner.waypoints" in openutm_demo.DEMO_ARTIFACTS
+
+
 def test_start_new_process_truncates_stale_log(tmp_path: Path, monkeypatch) -> None:
     log_path = tmp_path / "process.log"
     log_path.write_text("stale output", encoding="utf-8")

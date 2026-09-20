@@ -32,6 +32,7 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.ardupilot_sitl import DEFAULT_HOME, find_copter_binary
 from scripts import check_mavlink_router
 from scripts.generate_flight_blender_dev_token import generate_token
+from scripts.generate_test_mission import write_demo_mission_files
 from scripts.px4_sitl import (
     DEFAULT_DOCKER_IMAGE as DEFAULT_PX4_IMAGE,
     DEFAULT_GCS_PORT as DEFAULT_PX4_GCS_PORT,
@@ -187,7 +188,10 @@ class ManagedApplication:
 DEMO_ARTIFACTS = (
     "connector-events.jsonl",
     "connector.log",
+    "mission-planner.waypoints",
     "mavlink-router.log",
+    "mission-qgroundcontrol.plan",
+    "mission.json",
     "mission-planner.log",
     "qgroundcontrol.log",
     "sitl.log",
@@ -999,6 +1003,10 @@ class DemoRunner:
             raise DemoSetupError("\n".join(failures))
 
         _prepare_run_dir(self.config.run_dir)
+        mission_files = write_demo_mission_files(
+            self.config.run_dir,
+            vehicle_id=self.config.vehicle_id,
+        )
         if _provider_endpoint_is_ready(self.config):
             print(f"[info] reusing the healthy Flight Blender service at {self.config.provider_url}")
         else:
@@ -1113,6 +1121,7 @@ class DemoRunner:
                 f"connector UDP {self.config.connector_udp_port}"
             )
         print("  Workflow:         choose Sample route or open a GCS mission, Validate & save, Submit, Start")
+        print("  Mission files:     " + ", ".join(str(path) for path in mission_files.values()))
         if gcs_label:
             print(f"  GCS:              {gcs_label}")
         print("  Stop:             Ctrl+C (cleans up processes and the Docker stack started by this run)")

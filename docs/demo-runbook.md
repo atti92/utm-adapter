@@ -52,6 +52,14 @@ The launcher starts Flight Blender, the connector, and SITL, opens the browser
 operator console, and connects the detected GCS. Use `make demo` instead for a
 clean browser-only demo with no Docker or simulator.
 
+Each supervised run also writes ready-to-open mission files under
+`.local/openutm-demo/`: `mission-qgroundcontrol.plan` for QGroundControl,
+`mission-planner.waypoints` for Mission Planner, and `mission.json` for the
+connector API. In the GCS, open the corresponding file from its normal mission
+file picker, then use **Open mission file** in the operator console. The
+standard GCS files carry route geometry; enter or review the UTM validity window
+and corridor in the console before saving.
+
 Before the presentation, run the disposable verification once:
 
 ```sh
