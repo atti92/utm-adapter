@@ -24,10 +24,11 @@ from typing import Sequence
 
 DEFAULT_MODEL = "sihsim_quadx"
 DEFAULT_GCS_PORT = 14550
-# PX4's remote external-API endpoint is 14540 inside the container.  The
-# host-side default is intentionally different so the connector can bind its
-# receiving socket while Docker publishes the container endpoint.
-DEFAULT_CONNECTOR_PORT = 14541
+# PX4's remote external-API endpoint is 14540 inside the container. Preserve
+# that host/remote pairing because the stock image's default remote address is
+# localhost:14540; Docker forwards this stream reliably when the published
+# host port remains 14540 as well.
+DEFAULT_CONNECTOR_PORT = 14540
 PX4_EXTERNAL_API_PORT = 14540
 DEFAULT_DOCKER_IMAGE = "px4io/px4-sitl:latest"
 
@@ -127,6 +128,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit("MAVLink UDP ports must be between 1 and 65535.")
     if args.gcs_port == args.connector_port:
         raise SystemExit("GCS UDP port and connector UDP port must be different.")
+    if args.connector_port != PX4_EXTERNAL_API_PORT:
+        raise SystemExit(
+            "The stock PX4 SITL image sends its external-API stream to UDP "
+            f"{PX4_EXTERNAL_API_PORT}; keep --connector-port at that value or "
+            "use a MAVLink router for custom host ports."
+        )
 
     if args.local_binary:
         configured_root = args.px4_root or os.environ.get("PX4_ROOT")

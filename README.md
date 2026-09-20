@@ -34,8 +34,7 @@ connector, and simulator, opens the operator console, and detects an installed
 QGroundControl. Use `--simulator px4` to use the official cross-platform PX4
 SITL container instead; PX4's normal GCS stream stays on UDP 14550 and its
 external-API stream feeds the connector on UDP 14540. Use `--check` to validate
-external-API stream is published to the connector's host UDP 14541. Use
-`--check` to validate prerequisites without starting anything. Press Ctrl+C to stop the simulator,
+prerequisites without starting anything. Press Ctrl+C to stop the simulator,
 connector, and provider stack started by that run.
 
 The service root also opens the console directly at

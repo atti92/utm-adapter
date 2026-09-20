@@ -34,7 +34,7 @@ def test_px4_demo_uses_px4_external_api_port_by_default() -> None:
     config = openutm_demo._config_from_args(args)
 
     assert config.simulator == "px4"
-    assert config.connector_udp_port == 14541
+    assert config.connector_udp_port == 14540
     assert config.px4_image == openutm_demo.DEFAULT_PX4_IMAGE
 
 
@@ -58,6 +58,21 @@ def test_px4_prerequisites_do_not_require_an_ardupilot_checkout(tmp_path: Path, 
 
     assert any("Flight Blender checkout not found" in failure for failure in failures)
     assert not any("ArduPilot checkout not found" in failure for failure in failures)
+
+
+def test_px4_prerequisites_reject_custom_connector_port(tmp_path: Path, monkeypatch) -> None:
+    config = openutm_demo.DemoConfig(
+        simulator="px4",
+        connector_udp_port=14541,
+        flight_blender_root=tmp_path / "missing-flight-blender",
+    )
+    monkeypatch.setattr(openutm_demo, "_command_available", lambda _command: (True, "ok"))
+    monkeypatch.setattr(openutm_demo, "_find_geoid_grid", lambda: tmp_path / "grid.tif")
+    monkeypatch.setattr(openutm_demo, "port_is_reachable", lambda _host, _port: False)
+
+    failures = openutm_demo.check_prerequisites(config)
+
+    assert any("stock SITL image requires connector UDP port 14540" in failure for failure in failures)
 
 
 def test_check_prerequisites_rejects_invalid_or_duplicate_simulator_ports(tmp_path: Path, monkeypatch) -> None:

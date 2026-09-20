@@ -492,6 +492,12 @@ def check_prerequisites(config: DemoConfig) -> list[str]:
                 failures.append(str(exc))
     elif not config.px4_image.strip():
         failures.append("PX4 Docker image must not be empty")
+    elif config.connector_udp_port != DEFAULT_PX4_CONNECTOR_PORT:
+        failures.append(
+            "PX4's stock SITL image requires connector UDP port "
+            f"{DEFAULT_PX4_CONNECTOR_PORT}; use the default port or a MAVLink router "
+            "when a different host port is required"
+        )
 
     docker_ok, docker_detail = _command_available(["docker", "compose", "version"])
     if not docker_ok:

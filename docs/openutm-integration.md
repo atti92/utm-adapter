@@ -67,11 +67,10 @@ uv run python scripts/openutm_demo.py --simulator px4
 
 The first PX4 run pulls `px4io/px4-sitl:latest` if it is not already cached.
 The launcher maps PX4's documented remote GCS port 14550 to the host GCS port
-14550 and remote external-API port 14540 to the connector's host port 14541.
-The distinct host port lets Docker publish the container endpoint while the
-connector binds its own receiving socket deterministically. Pass
-`--px4-image IMAGE` to pin an approved image or `--connector-udp-port PORT`
-when another service already uses 14541.
+14550 and remote external-API port 14540 to the connector's host port 14540.
+PX4 is started before the connector so Docker can claim the published UDP
+endpoint first, after which the connector attaches to the same host/remote
+pairing. Pass `--px4-image IMAGE` to pin an approved image.
 
 ## Start Flight Blender
 
@@ -146,7 +145,7 @@ endpoints:
 
 ```text
 PX4 SITL remote 14550 -> host 14550 -> QGroundControl or Mission Planner
-PX4 SITL remote 14540 -> host 14541 -> UTM connector
+PX4 SITL remote 14540 -> host 14540 -> UTM connector
 ```
 
 Run it with:
