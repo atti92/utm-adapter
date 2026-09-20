@@ -234,6 +234,12 @@ function renderReadiness(capabilities, vehicles, health) {
   } else {
     setReadiness("altitude-readiness", "altitude-readiness-label", "neutral", "Not needed locally");
   }
+
+  if (capabilities.mavlink?.non_commanding && capabilities.mavlink?.read_only) {
+    setReadiness("control-readiness", "control-readiness-label", "ok", "GCS remains in control");
+  } else {
+    setReadiness("control-readiness", "control-readiness-label", "warning", "Review command boundary");
+  }
 }
 
 function renderVehicleDirectory(vehicles) {

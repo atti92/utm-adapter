@@ -24,7 +24,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
 
     for label in ("Open mission file", "Check vehicle mission", "Validate &amp; save", "Submit to UTM", "Start operation", "Cancel", "Integration readiness", "operation-next-action"):
         assert label in html
-    for element_id in ("backend-readiness", "mavlink-readiness", "recording-readiness", "altitude-readiness"):
+    for element_id in ("backend-readiness", "mavlink-readiness", "recording-readiness", "altitude-readiness", "control-readiness"):
         assert element_id in html
     for endpoint in (
         "/v1/health",
@@ -70,6 +70,8 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert 'vehicle.connection_state === "LOST"' in javascript
     assert '["LOST", "INVALID"].includes(telemetry.quality)' in javascript
     assert 'health?.status !== "ok"' in javascript
+    assert 'capabilities.mavlink?.non_commanding && capabilities.mavlink?.read_only' in javascript
+    assert "GCS remains in control" in javascript
     assert "function statusTone(value)" in javascript
     assert 'data-state="${statusTone(snapshot.connection_state)}"' in javascript
     assert 'data-state="${statusTone(snapshot.quality)}"' in javascript
