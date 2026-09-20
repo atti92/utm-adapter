@@ -33,3 +33,5 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: uv sync --locked
       - run: uv run pytest
+      - run: uv run python -m py_compile scripts/ardupilot_sitl.py scripts/openutm_demo.py scripts/px4_sitl.py
+      - run: node --check src/utm_connector/ui/app.js
