@@ -121,6 +121,8 @@ def main() -> int:
     print("\nNext steps:")
     print("  uv run python scripts/local_smoke.py  # exercise the API in-process")
     print("  uv run utm-connector                  # start the local API")
+    print("  uv run python scripts/openutm_demo.py --simulator px4 --check")
+    print("                                         # full GCS + Flight Blender preflight")
     return 0
 
 
