@@ -47,6 +47,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "battery_remaining_pct" in javascript
     assert "state.latestStatus?.latest_telemetry" in javascript
     assert "telemetry.altitude.datum" in javascript
+    assert javascript.count('<div><span>Altitude</span>') == 1
     assert "altitude - 2" in javascript
     assert "clearVehicleWorkspace" in javascript
     assert "Validate & save the current mission before submitting it to UTM." in javascript

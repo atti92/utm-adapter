@@ -38,6 +38,21 @@ def test_px4_demo_uses_px4_external_api_port_by_default() -> None:
     assert config.px4_image == openutm_demo.DEFAULT_PX4_IMAGE
 
 
+def test_check_run_hint_preserves_the_selected_px4_demo_path() -> None:
+    config = openutm_demo.DemoConfig(
+        simulator="px4",
+        connector_udp_port=openutm_demo.DEFAULT_PX4_CONNECTOR_PORT,
+        home="51.5074,-0.1278,11,90",
+        gcs="none",
+        open_browser=False,
+    )
+
+    assert openutm_demo._check_run_hint(config) == (
+        "uv run python scripts/openutm_demo.py --simulator px4 "
+        "--home 51.5074,-0.1278,11,90 --gcs none --no-browser"
+    )
+
+
 def test_px4_container_name_is_safe_for_docker_and_vehicle_specific() -> None:
     config = openutm_demo.DemoConfig(simulator="px4", vehicle_id="demo/vehicle 1")
 

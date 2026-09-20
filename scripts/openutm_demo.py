@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shlex
 import shutil
 import signal
 import subprocess
@@ -546,6 +547,36 @@ def check_prerequisites(config: DemoConfig) -> list[str]:
     return failures
 
 
+def _check_run_hint(config: DemoConfig) -> str:
+    """Render the matching start command for a successful prerequisite check."""
+
+    command = ["uv", "run", "python", "scripts/openutm_demo.py"]
+    if config.simulator != "ardupilot":
+        command.extend(["--simulator", config.simulator])
+    if config.px4_image != DEFAULT_PX4_IMAGE:
+        command.extend(["--px4-image", config.px4_image])
+    if config.home != DEFAULT_HOME:
+        command.extend(["--home", config.home])
+    if config.vehicle_id != DEFAULT_VEHICLE_ID:
+        command.extend(["--vehicle-id", config.vehicle_id])
+    if config.provider_port != DEFAULT_PROVIDER_PORT:
+        command.extend(["--provider-port", str(config.provider_port)])
+    if config.connector_port != DEFAULT_CONNECTOR_PORT:
+        command.extend(["--connector-port", str(config.connector_port)])
+    if config.gcs_udp_port != DEFAULT_GCS_UDP_PORT:
+        command.extend(["--gcs-udp-port", str(config.gcs_udp_port)])
+    expected_connector_port = (
+        DEFAULT_PX4_CONNECTOR_PORT if config.simulator == "px4" else DEFAULT_CONNECTOR_UDP_PORT
+    )
+    if config.connector_udp_port != expected_connector_port:
+        command.extend(["--connector-udp-port", str(config.connector_udp_port)])
+    if config.gcs != "auto":
+        command.extend(["--gcs", config.gcs])
+    if not config.open_browser:
+        command.append("--no-browser")
+    return shlex.join(command)
+
+
 @dataclass
 class DemoRunner:
     config: DemoConfig
@@ -760,7 +791,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 print(f"[fail] {failure}")
             return 1
         print("[ok] full-stack prerequisites are ready")
-        print("      run: uv run python scripts/openutm_demo.py")
+        print(f"      run: {_check_run_hint(config)}")
         return 0
 
     runner = DemoRunner(config)
