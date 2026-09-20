@@ -56,7 +56,9 @@ uv run python scripts/setup_demo.py
 ```
 
 Add `--build-ardupilot` when the ArduCopter SITL binary is not already built;
-the build is intentionally opt-in because it can take several minutes. The
+the build is intentionally opt-in because it can take several minutes. For an
+existing checkout, setup performs a read-only submodule preflight first and
+prints the exact initialization command if modules are missing. The
 PX4 Docker path needs no ArduPilot or PX4 checkout, and can be prepared with
 `uv run python scripts/setup_demo.py --simulator px4`. Add
 `--topology router` to also prepare the MAVLink Router source used by the

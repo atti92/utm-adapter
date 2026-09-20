@@ -18,7 +18,9 @@ missing Flight Blender and ArduPilot checkouts beside this repository. A newly
 cloned ArduPilot checkout includes its recursive submodules, as required by
 the Waf build. It reuses existing directories without pulling, resetting,
 updating submodules, or overwriting local work. Add `--build-ardupilot` if the
-SITL binary has not been built yet. The
+SITL binary has not been built yet; for an existing checkout, setup performs a
+read-only submodule preflight and prints the initialization command if modules
+are missing. The
 full demo also needs Docker Desktop (or Docker Engine with Compose). The
 browser-only demo needs only `uv`.
 

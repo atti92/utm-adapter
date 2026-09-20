@@ -99,6 +99,39 @@ def test_new_ardupilot_checkout_includes_recursive_shallow_submodules(tmp_path: 
     ]
 
 
+def test_ardupilot_submodule_preflight_rejects_uninitialized_modules(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "ardupilot"
+    root.mkdir()
+    (root / ".gitmodules").touch()
+
+    class Result:
+        returncode = 0
+        stdout = "-deadbeef libraries/some-dependency"
+        stderr = ""
+
+    monkeypatch.setattr(setup_demo.shutil, "which", lambda name: "/usr/bin/git")
+    monkeypatch.setattr(setup_demo.subprocess, "run", lambda *args, **kwargs: Result())
+
+    with pytest.raises(setup_demo.DemoSetupError, match="submodules are not initialized"):
+        setup_demo._check_ardupilot_submodules(root)
+
+
+def test_ardupilot_submodule_preflight_allows_initialized_modules(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "ardupilot"
+    root.mkdir()
+    (root / ".gitmodules").touch()
+
+    class Result:
+        returncode = 0
+        stdout = " abcdef12 libraries/some-dependency"
+        stderr = ""
+
+    monkeypatch.setattr(setup_demo.shutil, "which", lambda name: "/usr/bin/git")
+    monkeypatch.setattr(setup_demo.subprocess, "run", lambda *args, **kwargs: Result())
+
+    setup_demo._check_ardupilot_submodules(root)
+
+
 def test_setup_parser_can_select_px4_without_router() -> None:
     args = setup_demo._parser().parse_args(["--simulator", "px4", "--skip-uv-sync"])
 

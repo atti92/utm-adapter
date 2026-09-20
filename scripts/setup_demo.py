@@ -118,6 +118,51 @@ def _sync_python_environment() -> None:
         raise DemoSetupError("uv sync failed; see the output above for the dependency error")
 
 
+def _check_ardupilot_submodules(root: Path) -> None:
+    """Fail early when an existing ArduPilot checkout is not build-ready.
+
+    Setup deliberately never initializes or updates an existing checkout. A
+    clear preflight error is more useful than letting Waf fail much later with
+    a missing generated dependency.
+    """
+
+    git = shutil.which("git")
+    if git is None:
+        raise DemoSetupError(
+            "git is required to inspect the ArduPilot submodules; install Git and retry"
+        )
+    if not (root / ".gitmodules").is_file():
+        raise DemoSetupError(
+            f"ArduPilot checkout is missing .gitmodules: {root}; "
+            "provide a complete checkout or choose another path"
+        )
+    try:
+        result = subprocess.run(
+            [git, "-C", str(root), "submodule", "status", "--recursive"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        raise DemoSetupError(f"could not inspect ArduPilot submodules: {exc}") from exc
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        suffix = f": {detail}" if detail else ""
+        raise DemoSetupError(f"could not inspect ArduPilot submodules{suffix}")
+
+    incomplete = [
+        line.strip()
+        for line in result.stdout.splitlines()
+        if line[:1] in {"-", "U"}
+    ]
+    if incomplete:
+        raise DemoSetupError(
+            f"ArduPilot submodules are not initialized in {root}; run "
+            f"git -C \"{root}\" submodule update --init --recursive, then retry "
+            "(setup will not modify an existing checkout)"
+        )
+
+
 def _build_ardupilot(root: Path) -> None:
     try:
         binary = find_copter_binary(root)
@@ -255,6 +300,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"[ok] {spec.label} {state}: {spec.path}")
 
         if args.build_ardupilot:
+            _check_ardupilot_submodules(args.ardupilot_root.expanduser().resolve())
             _build_ardupilot(args.ardupilot_root.expanduser().resolve())
         elif args.simulator == "ardupilot":
             print(
