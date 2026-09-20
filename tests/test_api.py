@@ -524,6 +524,53 @@ def test_raw_onboard_mission_import_requires_a_downloaded_route() -> None:
     assert "request a mission download first" in response.json()["detail"]
 
 
+def test_raw_onboard_mission_import_is_rejected_for_an_active_operation() -> None:
+    service = ConnectorService(InMemoryBackend())
+    service.onboard_mission_reads["sitl-1"] = MavlinkMissionRead(
+        vehicle_id="sitl-1",
+        waypoints=(
+            Waypoint(
+                sequence=0,
+                latitude=47.5,
+                longitude=19.0,
+                altitude=Altitude(meters=20, datum="AGL"),
+            ),
+            Waypoint(
+                sequence=1,
+                latitude=47.501,
+                longitude=19.001,
+                altitude=Altitude(meters=25, datum="AGL"),
+            ),
+        ),
+        mission_count=2,
+        received_at=datetime.now(timezone.utc),
+    )
+    client = TestClient(create_app(service))
+    submitted = client.put("/v1/missions/sitl-1", json=_mission())
+    assert submitted.status_code == 200
+    operation = client.post(
+        "/v1/operator-intents?vehicle_id=sitl-1",
+        json={
+            "schema_version": "1.0",
+            "command": "SUBMIT_OPERATION",
+            "operation_id": str(uuid4()),
+        },
+    )
+    assert operation.status_code == 201
+
+    now = datetime.now(timezone.utc)
+    response = client.post(
+        "/v1/vehicles/sitl-1/onboard-mission/import",
+        json={
+            "valid_from": now.isoformat(),
+            "valid_until": (now + timedelta(minutes=30)).isoformat(),
+        },
+    )
+
+    assert response.status_code == 409
+    assert "operation is active" in response.json()["detail"]
+
+
 def test_operation_refresh_reconciles_provider_state() -> None:
     service = ConnectorService(InMemoryBackend())
     client = TestClient(create_app(service))

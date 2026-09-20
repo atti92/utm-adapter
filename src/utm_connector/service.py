@@ -196,6 +196,13 @@ class ConnectorService:
             raise ConnectorError(
                 "no onboard mission is available; request a mission download first"
             )
+        if any(
+            operation.vehicle_id == vehicle_id
+            and operation.state.declaration
+            in {DeclarationState.SUBMITTED, DeclarationState.ACCEPTED}
+            for operation in self.operations.values()
+        ):
+            raise ConnectorError("cannot import a mission while an operation is active")
         if len(onboard_read.waypoints) < 2:
             raise ConnectorError("the onboard mission must contain at least two waypoints")
         mission = Mission(

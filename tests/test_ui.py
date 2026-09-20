@@ -77,6 +77,7 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "missionReadInFlight" in javascript
     assert "missionImportInFlight" in javascript
     assert "function importVehicleMission()" in javascript
+    assert "Finish the active operation before importing a different vehicle mission." in javascript
     assert "const savedMission = Boolean(state.mission?.mission_hash" in javascript
     assert "Validate and save the mission before checking the vehicle's onboard route." in javascript
     assert "Validate & save the current mission before checking the vehicle mission." in javascript

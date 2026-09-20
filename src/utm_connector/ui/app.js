@@ -416,8 +416,10 @@ function updateMissionReadButton() {
   const savedMission = Boolean(state.mission?.mission_hash && state.mission.mission_hash !== "preview");
   const missionReady = savedMission && missionMatchesForm();
   const missionActionInFlight = missionReadInFlight || missionImportInFlight;
+  const declaration = state.operation?.state?.declaration;
+  const operationOpen = Boolean(declaration && !TERMINAL_DECLARATIONS.has(declaration));
   button.disabled = !state.vehicleId || !configured || !missionReady || missionActionInFlight;
-  importButton.disabled = !state.vehicleId || !configured || missionActionInFlight;
+  importButton.disabled = !state.vehicleId || !configured || operationOpen || missionActionInFlight;
   button.textContent = missionReadInFlight ? "Checking vehicle mission…" : "Check vehicle mission";
   importButton.textContent = missionImportInFlight ? "Reading vehicle mission…" : "Use vehicle mission";
   button.title = !configured
@@ -427,6 +429,8 @@ function updateMissionReadButton() {
       : "Request the current mission from the vehicle over the read-only MAVLink mission protocol.";
   importButton.title = !configured
     ? "Configure a MAVLink vehicle link to read the onboard mission."
+    : operationOpen
+      ? "Finish the active operation before importing a different vehicle mission."
     : "Read the current route from the vehicle and add explicit UTM metadata before submitting it.";
 }
 
