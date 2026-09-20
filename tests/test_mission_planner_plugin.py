@@ -35,3 +35,11 @@ def test_mission_planner_compatibility_check_has_an_explicit_runtime_boundary() 
     assert "1.3.83" in script
     assert "Windows" in script
     assert "COMMAND_LONG" in script
+
+
+def test_mission_planner_plugin_marshals_async_results_to_the_gcs_ui_thread() -> None:
+    source = PLUGIN.read_text()
+
+    assert "Task.Run" in source
+    assert "Host.MainForm.BeginInvoke" in source
+    assert 'RunRequest("Syncing mission"' in source

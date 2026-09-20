@@ -207,6 +207,19 @@ shortcut below is still useful when a router is not installed. A vehicle link
 that is unavailable at startup or drops later is retried automatically; the
 operator console keeps the vehicle/link health visible while it reconnects.
 
+Before a router-backed demo, validate the checked-in fan-out configuration:
+
+```sh
+make router-check
+# add --strict when mavlink-routerd must also be present on PATH
+uv run python scripts/check_mavlink_router.py --strict
+```
+
+The configuration check is cross-platform. Running the actual router requires
+the platform package for `mavlink-routerd`; it is not bundled with the Python
+connector. A live router test is only complete when the router forwards one
+vehicle stream to both the GCS endpoint and the connector endpoint.
+
 ### ArduPilot SITL and QGroundControl
 
 For the shortest SITL-only path, use two simulator outputs so the GCS and

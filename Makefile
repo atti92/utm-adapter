@@ -1,4 +1,4 @@
-.PHONY: setup doctor smoke test run demo integration-demo integration-demo-check integration-demo-verify integration-demo-px4 integration-demo-px4-check integration-demo-px4-verify integration-verify qgc-check mp-check
+.PHONY: setup doctor smoke test run demo integration-demo integration-demo-check integration-demo-verify integration-demo-px4 integration-demo-px4-check integration-demo-px4-verify integration-verify qgc-check mp-check router-check
 
 setup:
 	uv sync
@@ -44,3 +44,6 @@ qgc-check:
 
 mp-check:
 	uv run python scripts/check_mission_planner_plugin.py
+
+router-check:
+	uv run python scripts/check_mavlink_router.py

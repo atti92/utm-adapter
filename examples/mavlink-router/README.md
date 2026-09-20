@@ -29,6 +29,17 @@ two normal UDP output endpoints. Start the router with the configuration file:
 mavlink-routerd -c examples/mavlink-router/main.conf
 ```
 
+From the connector checkout, validate the fan-out contract before starting
+the live stack:
+
+```sh
+make router-check
+uv run python scripts/check_mavlink_router.py --strict
+```
+
+The first command validates the endpoint contract on every platform. The
+strict form also checks that `mavlink-routerd` is installed and on `PATH`.
+
 Start ArduPilot SITL with one output to the router:
 
 ```sh
