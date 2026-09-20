@@ -21,6 +21,8 @@ const DEFAULT_NAVIGABLE_MISSION_COMMANDS = new Set([16, 21, 22]);
 let refreshInFlight = false;
 let missionReadInFlight = false;
 let missionImportInFlight = false;
+let missionSaveInFlight = false;
+let operationRefreshInFlight = false;
 const intentInFlight = new Set();
 const correlationId = newOperationId();
 
@@ -153,8 +155,11 @@ function updateMissionActionState() {
   const dirty = saved && !missionMatchesForm();
   const declaration = state.operation?.state?.declaration;
   const operationOpen = Boolean(declaration && !TERMINAL_DECLARATIONS.has(declaration));
-  $("save-button").disabled = !state.vehicleId || !state.plan || operationOpen;
-  $("submit-button").disabled = !state.vehicleId || !saved || dirty || operationOpen || !providerReady();
+  const submitting = intentInFlight.has("SUBMIT_OPERATION");
+  $("save-button").disabled = !state.vehicleId || !state.plan || operationOpen || missionSaveInFlight;
+  $("save-button").textContent = missionSaveInFlight ? "Validating…" : "Validate & save";
+  $("submit-button").disabled = !state.vehicleId || !saved || dirty || operationOpen || !providerReady() || submitting;
+  $("submit-button").textContent = submitting ? "Submitting…" : "Submit to UTM";
   $("submit-button").title = !providerReady()
     ? providerBlockReason()
     : dirty
@@ -782,7 +787,7 @@ function updateOperationActionState() {
   const declaration = operation?.state?.declaration;
   const terminal = !declaration || TERMINAL_DECLARATIONS.has(declaration);
 
-  $("refresh-operation-button").disabled = !operation || busy;
+  $("refresh-operation-button").disabled = !operation || busy || operationRefreshInFlight;
   $("cancel-button").disabled = !operation || terminal || busy;
   $("complete-button").disabled = !operation || declaration !== "ACCEPTED" || busy;
   const startBlocked = !providerReady() || !vehicleLinkReady();
@@ -795,6 +800,8 @@ function updateOperationActionState() {
   $("start-button").textContent = busyCommand === "START_OPERATION" ? "Starting operation…" : "Start operation";
   $("cancel-button").textContent = busyCommand === "CANCEL_OPERATION" ? "Cancelling…" : "Cancel";
   $("complete-button").textContent = busyCommand === "COMPLETE_OPERATION" ? "Completing…" : "Complete";
+  $("refresh-operation-button").textContent = operationRefreshInFlight ? "Refreshing…" : "Refresh provider state";
+  updateMissionActionState();
 }
 
 function newOperationId() {
@@ -1063,7 +1070,7 @@ function samplePlan() {
 }
 
 async function saveMission() {
-  if (!state.vehicleId || !state.plan) return;
+  if (!state.vehicleId || !state.plan || missionSaveInFlight) return;
   try {
     validateMissionWindow();
   } catch (error) {
@@ -1075,39 +1082,43 @@ async function saveMission() {
     valid_until: inputAsIso("valid-until"),
     corridor_radius_m: Number($("corridor-radius").value),
   };
-  if (state.planFormat === "canonical") {
-    try {
+  missionSaveInFlight = true;
+  updateMissionActionState();
+  try {
+    if (state.planFormat === "canonical") {
       const response = await request("/v1/missions/" + encodeURIComponent(state.vehicleId), {
         method: "PUT",
         body: JSON.stringify({ ...state.plan, vehicle_id: state.vehicleId, ...metadata }),
       });
       renderMission(response);
       setMessage("Mission validated and saved locally.", "success");
-    } catch (error) { setMessage(error.message, "error"); }
-    return;
-  }
-  if (state.planFormat === "mission-planner") {
-    try {
+      return;
+    }
+    if (state.planFormat === "mission-planner") {
       const response = await request("/v1/missions/" + encodeURIComponent(state.vehicleId) + "/mission-planner", {
         method: "PUT",
         body: JSON.stringify({ ...metadata, text: state.plan }),
       });
       renderMission(response);
       setMessage("Mission validated and saved locally.", "success");
-    } catch (error) { setMessage(error.message, "error"); }
-    return;
-  }
-  try {
+      return;
+    }
     const response = await request(`/v1/missions/${encodeURIComponent(state.vehicleId)}/qgroundcontrol`, { method: "PUT", body: JSON.stringify({ valid_from: inputAsIso("valid-from"), valid_until: inputAsIso("valid-until"), corridor_radius_m: Number($("corridor-radius").value), plan: state.plan }) });
     renderMission(response);
     setMessage("Mission validated and saved locally.", "success");
-  } catch (error) { setMessage(error.message, "error"); }
+  } catch (error) {
+    setMessage(error.message, "error");
+  } finally {
+    missionSaveInFlight = false;
+    updateMissionActionState();
+  }
 }
 
 async function sendIntent(command) {
   if (!state.vehicleId) return;
   if (intentInFlight.has(command)) return;
   intentInFlight.add(command);
+  updateMissionActionState();
   updateOperationActionState();
   try {
     if (command === "SUBMIT_OPERATION") {
@@ -1138,6 +1149,7 @@ async function sendIntent(command) {
   } catch (error) { setMessage(error.message, "error"); }
   finally {
     intentInFlight.delete(command);
+    updateMissionActionState();
     updateOperationActionState();
   }
 }
@@ -1178,7 +1190,20 @@ $("submit-button").addEventListener("click", () => sendIntent("SUBMIT_OPERATION"
 $("start-button").addEventListener("click", () => sendIntent("START_OPERATION"));
 $("cancel-button").addEventListener("click", () => sendIntent("CANCEL_OPERATION"));
 $("complete-button").addEventListener("click", () => sendIntent("COMPLETE_OPERATION"));
-$("refresh-operation-button").addEventListener("click", async () => { if (!state.operation) return; try { renderOperation(await request(`/v1/operations/${state.operation.operation_id}/refresh`, { method: "POST" })); setMessage("Provider state refreshed.", "success"); } catch (error) { setMessage(error.message, "error"); } });
+$("refresh-operation-button").addEventListener("click", async () => {
+  if (!state.operation || operationRefreshInFlight) return;
+  operationRefreshInFlight = true;
+  updateOperationActionState();
+  try {
+    renderOperation(await request(`/v1/operations/${state.operation.operation_id}/refresh`, { method: "POST" }));
+    setMessage("Provider state refreshed.", "success");
+  } catch (error) {
+    setMessage(error.message, "error");
+  } finally {
+    operationRefreshInFlight = false;
+    updateOperationActionState();
+  }
+});
 $("retry-connection").addEventListener("click", async () => {
   const connected = await refresh();
   if (connected) {

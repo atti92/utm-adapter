@@ -108,6 +108,11 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "Validate & save the current mission before checking the vehicle mission." in javascript
     assert "intentInFlight" in javascript
     assert "function updateOperationActionState()" in javascript
+    assert "missionSaveInFlight" in javascript
+    assert "operationRefreshInFlight" in javascript
+    assert '$("save-button").textContent = missionSaveInFlight ? "Validating…" : "Validate & save"' in javascript
+    assert '$("submit-button").textContent = submitting ? "Submitting…" : "Submit to UTM"' in javascript
+    assert '$("refresh-operation-button").textContent = operationRefreshInFlight ? "Refreshing…" : "Refresh provider state"' in javascript
     assert 'busyCommand === "START_OPERATION"' in javascript
     assert 'busyCommand === "CANCEL_OPERATION"' in javascript
     assert 'busyCommand === "COMPLETE_OPERATION"' in javascript
