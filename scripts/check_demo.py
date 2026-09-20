@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shlex
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -196,12 +197,24 @@ def _print_optional(args: argparse.Namespace) -> bool:
 def _print_setup_guidance(config: openutm_demo.DemoConfig) -> None:
     """Print the shortest setup path for a host that is preparing a demo."""
 
+    setup_command = ["uv", "run", "python", "scripts/setup_demo.py"]
+    if config.simulator != "ardupilot":
+        setup_command.extend(["--simulator", config.simulator])
+    if config.topology != "split":
+        setup_command.extend(["--topology", config.topology])
+    if config.flight_blender_root != ROOT.parent / "flight-blender":
+        setup_command.extend(["--flight-blender-root", str(config.flight_blender_root)])
+    if config.simulator == "ardupilot" and config.ardupilot_root != ROOT.parent / "ardupilot":
+        setup_command.extend(["--ardupilot-root", str(config.ardupilot_root)])
+    if config.topology == "router" and config.router_source_root != ROOT.parent / "mavlink-router":
+        setup_command.extend(["--router-source-root", str(config.router_source_root)])
+
     print("\nSetup guidance")
     print("--------------")
     print("1. Install uv and Docker Desktop (or Docker Engine with Compose).")
     print("2. Use the browser operator console for the UTM workflow; a native GCS is optional.")
     print("   QGroundControl is supported on macOS, Linux, and Windows; Mission Planner is Windows-only.")
-    print("3. Prepare missing demo dependencies safely: uv run python scripts/setup_demo.py")
+    print(f"3. Prepare missing demo dependencies safely: {shlex.join(setup_command)}")
     print("   Add --build-ardupilot for a fresh ArduCopter SITL build, or --simulator px4 for Docker-only PX4.")
     if config.simulator == "ardupilot":
         print(f"4. ArduPilot SITL checkout/build: {config.ardupilot_root}")

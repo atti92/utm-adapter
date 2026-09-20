@@ -64,3 +64,11 @@ def test_setup_guidance_distinguishes_px4_from_ardupilot(capsys) -> None:
     output = capsys.readouterr().out
     assert "no PX4 or ArduPilot checkout is required" in output
     assert "browser operator console" in output
+
+
+def test_setup_guidance_preserves_router_selection(capsys) -> None:
+    config = check_demo.openutm_demo.DemoConfig(topology="router")
+
+    check_demo._print_setup_guidance(config)
+
+    assert "scripts/setup_demo.py --topology router" in capsys.readouterr().out
