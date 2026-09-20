@@ -116,6 +116,29 @@ def test_qgroundcontrol_detection_is_optional_for_auto_mode(monkeypatch) -> None
     assert openutm_demo._launch_gcs("auto") == (None, None)
 
 
+def test_qgroundcontrol_detection_accepts_linux_command_name(monkeypatch) -> None:
+    monkeypatch.setattr(openutm_demo.sys, "platform", "linux")
+    monkeypatch.setattr(openutm_demo.os, "name", "posix")
+    monkeypatch.setattr(
+        openutm_demo.shutil,
+        "which",
+        lambda name: "/opt/QGroundControl" if name == "QGroundControl" else None,
+    )
+
+    assert openutm_demo._find_qgroundcontrol_command() == ["/opt/QGroundControl"]
+
+
+def test_mission_planner_detection_finds_standard_windows_install(tmp_path: Path, monkeypatch) -> None:
+    executable = tmp_path / "Mission Planner" / "MissionPlanner.exe"
+    executable.parent.mkdir()
+    executable.touch()
+    monkeypatch.setenv("ProgramFiles(x86)", str(tmp_path))
+    monkeypatch.delenv("ProgramFiles", raising=False)
+    monkeypatch.delenv("LOCALAPPDATA", raising=False)
+
+    assert openutm_demo._find_windows_installed_command(("Mission Planner/MissionPlanner.exe",)) == [str(executable)]
+
+
 def test_requested_missing_qgroundcontrol_is_an_actionable_error(monkeypatch) -> None:
     monkeypatch.setattr(openutm_demo, "_find_qgroundcontrol_command", lambda: None)
 

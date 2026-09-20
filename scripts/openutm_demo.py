@@ -260,6 +260,30 @@ def _start_new_process(
     return ManagedProcess(name, process, log_file)
 
 
+def _find_path_command(names: Sequence[str]) -> list[str] | None:
+    for name in names:
+        executable = shutil.which(name)
+        if executable:
+            return [executable]
+    return None
+
+
+def _find_windows_installed_command(relative_paths: Sequence[str]) -> list[str] | None:
+    roots = (
+        os.environ.get("ProgramFiles"),
+        os.environ.get("ProgramFiles(x86)"),
+        os.environ.get("LOCALAPPDATA"),
+    )
+    for root in roots:
+        if not root:
+            continue
+        for relative_path in relative_paths:
+            executable = Path(root) / relative_path
+            if executable.is_file():
+                return [str(executable)]
+    return None
+
+
 def _find_qgroundcontrol_command() -> list[str] | None:
     if sys.platform == "darwin":
         for app_root in (Path("/Applications"), Path.home() / "Applications"):
@@ -268,15 +292,27 @@ def _find_qgroundcontrol_command() -> list[str] | None:
                 return [str(executable)]
         available, _detail = _command_available(["open", "-Ra", "QGroundControl"])
         return ["open", "-a", "QGroundControl"] if available else None
-    executable = shutil.which("QGroundControl.exe" if os.name == "nt" else "qgroundcontrol")
-    return [executable] if executable else None
+    if os.name == "nt":
+        installed = _find_windows_installed_command(
+            (
+                "QGroundControl/QGroundControl.exe",
+                "QGroundControl/qgroundcontrol.exe",
+            )
+        )
+        return installed or _find_path_command(("QGroundControl.exe", "qgroundcontrol.exe"))
+    return _find_path_command(("qgroundcontrol", "QGroundControl"))
 
 
 def _find_mission_planner_command() -> list[str] | None:
     if os.name != "nt":
         return None
-    executable = shutil.which("MissionPlanner.exe")
-    return [executable] if executable else None
+    installed = _find_windows_installed_command(
+        (
+            "Mission Planner/MissionPlanner.exe",
+            "MissionPlanner/MissionPlanner.exe",
+        )
+    )
+    return installed or _find_path_command(("MissionPlanner.exe", "missionplanner.exe"))
 
 
 def _launch_gcs(
