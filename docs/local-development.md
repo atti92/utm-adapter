@@ -617,6 +617,10 @@ curl -X PUT http://127.0.0.1:8000/v1/missions/sitl-1/qgroundcontrol \
 Replace the empty `items` list with the exported QGC `SimpleItem` entries. The
 endpoint rejects unsupported mission items and requires the caller to provide
 the validity window because a `.plan` file does not define the UTM declaration
-window. A final `MAV_CMD_NAV_RETURN_TO_LAUNCH` (command `20`) is accepted as a
-GCS/autopilot terminal behavior and excluded from the canonical route; it is
-not treated as a `(0, 0)` waypoint.
+window. QGC's MAVLink latitude/longitude/altitude fields are `params[4:7]`;
+when an export also contains a stale or repeated `coordinate` convenience
+field, the connector prefers the non-placeholder `params[4:7]` values so the
+route is not collapsed to one point. A final
+`MAV_CMD_NAV_RETURN_TO_LAUNCH` (command `20`) is accepted as a GCS/autopilot
+terminal behavior and excluded from the canonical route; it is not treated as
+a `(0, 0)` waypoint.

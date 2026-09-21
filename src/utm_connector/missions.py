@@ -45,10 +45,12 @@ def parse_qgroundcontrol_plan(
 ) -> Mission:
     """Parse basic QGroundControl SimpleItems into a canonical mission.
 
-    Current QGC Plans store geographic coordinates in ``coordinate``. Older
-    exports may store them in ``params[4:7]``; both representations are
-    accepted for compatibility. The MAVLink frame is used to determine
-    altitude semantics; the parser never guesses a datum.
+    QGC Plans encode MAVLink geographic coordinates in ``params[4:7]``. Some
+    exports also include a convenience ``coordinate`` field; both
+    representations are accepted for compatibility. When both are present,
+    non-placeholder MAVLink coordinates take precedence so a stale repeated
+    convenience value cannot collapse the route geometry. The MAVLink frame
+    is used to determine altitude semantics; the parser never guesses a datum.
     Complex items and unsupported command types are rejected so they cannot
     silently become a different operation. Waypoint, takeoff, and landing
     items are represented by their geographic route point; vehicle-control
