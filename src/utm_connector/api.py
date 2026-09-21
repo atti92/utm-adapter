@@ -235,6 +235,11 @@ def create_app(
                 "geoid_grid_path": settings.altitude_geoid_grid_path,
                 "source_mavlink_global_position": "AMSL",
                 "provider_requirement": "WGS84" if service.backend.required_altitude_datum else None,
+                "qgroundcontrol_relative_altitude": {
+                    "planned_home_supported": True,
+                    "planned_home_datum": "AMSL",
+                    "terrain_following_requires_terrain_data": True,
+                },
             },
             "mission_window": service.backend.mission_window_constraints(),
             "provider_authentication": {

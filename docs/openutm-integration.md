@@ -340,8 +340,12 @@ installed PROJ EGM96/EGM2008 grid for a real SITL or aircraft run. The
 connector converts mission and telemetry values using latitude/longitude and
 retains the source datum in local vehicle state. If the grid is absent,
 submission is rejected safely; the connector never guesses an altitude
-conversion. AGL still requires a terrain/home reference and is rejected until
-one is provided.
+conversion. QGroundControl relative-altitude missions are supported when the
+plan contains its explicit `mission.plannedHomePosition` AMSL reference. The
+connector uses that reference for the AGL-to-AMSL step and then applies the
+geoid conversion. Terrain-following missions without terrain data still
+require an explicit terrain/home reference and are rejected until one is
+supplied.
 The `181 m` center in the example matches the supplied Budapest SITL home after
 EGM96 conversion; choose a center and span appropriate for another simulator or
 vehicle home.

@@ -450,7 +450,7 @@ UTM_CONNECTOR_RECORD_PATH=connector-events.jsonl
 UTM_CONNECTOR_TELEMETRY_PUBLISH_INTERVAL_S=1.0
 ```
 
-The adapter calls Flight Blender's `set_flight_declaration` endpoint with the generated WGS84 corridor and stores the provider declaration ID in the local operation record. It calls `set_telemetry` with the provider ID for subsequent telemetry. A mission whose altitude datum is AGL or AMSL is converted only when an explicit geoid grid is configured; otherwise submission is rejected because the connector does not have enough information to convert it to WGS84 safely.
+The adapter calls Flight Blender's `set_flight_declaration` endpoint with the generated WGS84 corridor and stores the provider declaration ID in the local operation record. It calls `set_telemetry` with the provider ID for subsequent telemetry. A mission whose altitude datum is AMSL is converted when an explicit geoid grid is configured. QGroundControl relative-altitude missions (MAVLink frame 3/6) are also supported when the plan contains its `mission.plannedHomePosition`; the connector resolves the relative height from that explicit AMSL home reference before converting to WGS84. AGL missions without a home/terrain reference are rejected because the connector does not have enough information to convert them safely.
 
 For a real provider, set `UTM_CONNECTOR_FLIGHT_BLENDER_TOKEN_URL`,
 `UTM_CONNECTOR_FLIGHT_BLENDER_CLIENT_ID`, and
@@ -492,8 +492,11 @@ Blender expects WGS84 ellipsoidal height. Set
 `UTM_CONNECTOR_ALTITUDE_GEOID_GRID_PATH` to an explicitly installed PROJ
 EGM96/EGM2008 grid to enable the coordinate-aware conversion. Without that
 setting the connector preserves the source datum and refuses the provider
-operation rather than silently treating AMSL as WGS84. AGL missions still need
-a terrain/home reference and are rejected until one is supplied.
+operation rather than silently treating AMSL as WGS84. QGroundControl's
+relative-to-home missions are converted using the plan's explicit
+`plannedHomePosition`. Terrain-following missions and other AGL sources still
+need terrain data or an equivalent explicit home reference and are rejected
+until one is supplied.
 
 Inbound MAVLink remains event-driven, while provider telemetry is coalesced to
 one publication per second by default. Set

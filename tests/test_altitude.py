@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from utm_connector.altitude import AltitudeConversionError, AltitudeConverter
-from utm_connector.domain import Altitude, AltitudeDatum, Mission, VehicleTelemetry
+from utm_connector.domain import Altitude, AltitudeDatum, AltitudeReference, Mission, VehicleTelemetry
 
 
 def _mission(datum: AltitudeDatum = AltitudeDatum.AMSL) -> Mission:
@@ -99,3 +99,31 @@ def test_converter_keeps_same_datum_and_converts_models() -> None:
             longitude=19.0,
             target=AltitudeDatum.WGS84,
         )
+
+
+def test_converter_resolves_agl_from_an_explicit_home_reference() -> None:
+    converter = object.__new__(AltitudeConverter)
+    converter.geoid_grid_path = "test-grid"
+
+    class FakeTransformer:
+        def transform(self, _longitude, _latitude, meters):
+            return _longitude, _latitude, meters + 10
+
+    converter._amsl_to_wgs84 = FakeTransformer()
+    converter._wgs84_to_amsl = FakeTransformer()
+    reference = AltitudeReference(
+        latitude=47.5,
+        longitude=19.0,
+        altitude={"meters": 137, "datum": AltitudeDatum.AMSL},
+    )
+
+    converted = converter.convert_altitude(
+        Altitude(meters=20, datum=AltitudeDatum.AGL),
+        latitude=47.501,
+        longitude=19.001,
+        target=AltitudeDatum.WGS84,
+        reference=reference,
+    )
+
+    assert converted.datum == AltitudeDatum.WGS84
+    assert converted.meters == 167

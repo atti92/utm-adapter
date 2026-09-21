@@ -80,6 +80,23 @@ def test_qgroundcontrol_plan_accepts_standard_coordinate_items() -> None:
     assert mission.waypoints[0].altitude.datum == AltitudeDatum.AGL
 
 
+def test_qgroundcontrol_plan_keeps_planned_home_for_relative_altitude() -> None:
+    plan = _plan()
+    plan["mission"]["plannedHomePosition"] = [47.4979, 19.0402, 137]
+
+    mission = parse_qgroundcontrol_plan(
+        plan,
+        vehicle_id="sitl-1",
+        valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        valid_until=datetime(2026, 1, 1, 1, tzinfo=timezone.utc),
+    )
+
+    assert mission.altitude_reference is not None
+    assert mission.altitude_reference.latitude == 47.4979
+    assert mission.altitude_reference.altitude.datum == AltitudeDatum.AMSL
+    assert mission.altitude_reference.altitude.meters == 137
+
+
 def test_qgroundcontrol_plan_accepts_a_geographic_landing_endpoint() -> None:
     plan = _plan()
     plan["mission"]["items"].append(

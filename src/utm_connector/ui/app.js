@@ -319,7 +319,7 @@ function renderReadiness(capabilities, vehicles, health, metrics) {
   if (backend === "flight-blender" && !altitude.geoid_conversion_configured) {
     setReadiness("altitude-readiness", "altitude-readiness-label", "warning", "Geoid grid required");
   } else if (altitude.geoid_conversion_configured) {
-    setReadiness("altitude-readiness", "altitude-readiness-label", "ok", "AMSL ↔ WGS84 ready");
+    setReadiness("altitude-readiness", "altitude-readiness-label", "ok", "AMSL/AGL ↔ WGS84 ready");
   } else {
     setReadiness("altitude-readiness", "altitude-readiness-label", "neutral", "Not needed locally");
   }
@@ -397,7 +397,7 @@ function renderSetupGuide(capabilities, vehicles, health) {
   if (providerError) {
     setSetupStep(2, "warning", "Provider needs attention", String(providerError));
   } else if (backend === "flight-blender" && !capabilities.altitude?.geoid_conversion_configured) {
-    setSetupStep(2, "warning", "Add altitude reference", "Flight Blender needs an EGM96/EGM2008 geoid grid for AMSL telemetry.");
+    setSetupStep(2, "warning", "Add altitude reference", "Flight Blender needs an EGM96/EGM2008 geoid grid for AMSL/AGL missions and telemetry.");
   } else {
     setSetupStep(2, "ok", `${formatStatus(backend)} ready`, "UTM declarations and telemetry can use the operator workflow below.");
   }

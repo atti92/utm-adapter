@@ -392,6 +392,7 @@ def test_qgroundcontrol_plan_endpoint_normalizes_explicit_metadata() -> None:
             "plan": {
                 "fileType": "Plan",
                 "mission": {
+                    "plannedHomePosition": [47.5, 19.0, 137],
                     "items": [
                         {"type": "SimpleItem", "command": 22, "frame": 3, "params": [0, 0, 0, 0, 47.5, 19.0, 20]},
                         {"type": "SimpleItem", "command": 16, "frame": 3, "params": [0, 0, 0, 0, 47.501, 19.001, 25]},
@@ -406,6 +407,11 @@ def test_qgroundcontrol_plan_endpoint_normalizes_explicit_metadata() -> None:
     assert response.json()["mission"]["source"] == "qgroundcontrol"
     assert response.json()["mission"]["corridor_radius_m"] == 40
     assert len(response.json()["mission"]["waypoints"]) == 2
+    assert response.json()["mission"]["altitude_reference"] == {
+        "latitude": 47.5,
+        "longitude": 19.0,
+        "altitude": {"meters": 137.0, "datum": "AMSL"},
+    }
 
 
 def test_qgroundcontrol_plan_endpoint_rejects_missing_metadata() -> None:

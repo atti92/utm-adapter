@@ -98,6 +98,14 @@ class Waypoint(StrictModel):
     sequence: int = Field(ge=0)
 
 
+class AltitudeReference(StrictModel):
+    """Explicit geographic reference used to resolve relative altitudes."""
+
+    latitude: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    longitude: float = Field(ge=-180, le=180, allow_inf_nan=False)
+    altitude: Altitude
+
+
 class Mission(StrictModel):
     mission_id: UUID = Field(default_factory=uuid4)
     vehicle_id: str = Field(min_length=1, max_length=128)
@@ -105,6 +113,7 @@ class Mission(StrictModel):
     corridor_radius_m: float = Field(default=30, gt=0, le=10000, allow_inf_nan=False)
     valid_from: datetime
     valid_until: datetime
+    altitude_reference: Optional[AltitudeReference] = None
     source: str = Field(default="unknown", min_length=1, max_length=64)
 
     @field_validator("valid_from", "valid_until")

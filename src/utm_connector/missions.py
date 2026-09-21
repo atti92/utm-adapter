@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Mapping
 
-from .domain import AltitudeDatum, Mission, Waypoint
+from .domain import Altitude, AltitudeDatum, AltitudeReference, Mission, Waypoint
 
 
 class MissionParseError(ValueError):
@@ -64,6 +64,7 @@ def parse_qgroundcontrol_plan(
         raise MissionParseError("QGroundControl Plan mission.items must be a list")
 
     waypoints = []
+    uses_relative_altitude = False
     for item_index, item in enumerate(items):
         if not isinstance(item, Mapping) or item.get("type") != "SimpleItem":
             raise MissionParseError("only QGroundControl SimpleItem missions are supported")
@@ -80,6 +81,7 @@ def parse_qgroundcontrol_plan(
             raise MissionParseError(f"unsupported QGroundControl mission command: {command}")
         frame = _integer(item.get("frame"), "frame")
         datum = _altitude_datum(frame)
+        uses_relative_altitude = uses_relative_altitude or datum == AltitudeDatum.AGL
         coordinate = item.get("coordinate")
         if coordinate is not None:
             if not isinstance(coordinate, (list, tuple)) or len(coordinate) < 3:
@@ -117,6 +119,11 @@ def parse_qgroundcontrol_plan(
         corridor_radius_m=corridor_radius_m,
         valid_from=valid_from,
         valid_until=valid_until,
+        altitude_reference=(
+            _qgroundcontrol_altitude_reference(mission_section)
+            if uses_relative_altitude
+            else None
+        ),
         source="qgroundcontrol",
     )
 
@@ -237,6 +244,40 @@ def _altitude_datum(frame: int) -> AltitudeDatum:
     if frame in (3, 6):  # MAV_FRAME_GLOBAL_RELATIVE_ALT(_INT)
         return AltitudeDatum.AGL
     raise MissionParseError(f"unsupported QGroundControl altitude frame: {frame}")
+
+
+def _qgroundcontrol_altitude_reference(
+    mission_section: Mapping[str, Any],
+) -> AltitudeReference | None:
+    """Read QGC's planned home, which is the reference for relative altitudes.
+
+    QGroundControl stores the planned home altitude as AMSL. Keeping that
+    datum explicit lets the provider boundary convert AGL -> AMSL -> WGS84
+    without treating a relative altitude as an absolute height.
+    """
+
+    planned_home = mission_section.get("plannedHomePosition")
+    if planned_home is None:
+        return None
+    if not isinstance(planned_home, (list, tuple)) or len(planned_home) < 3:
+        raise MissionParseError(
+            "QGroundControl relative-altitude mission plannedHomePosition "
+            "must contain latitude, longitude, and AMSL altitude"
+        )
+    try:
+        latitude = float(planned_home[0])
+        longitude = float(planned_home[1])
+        altitude = float(planned_home[2])
+        return AltitudeReference(
+            latitude=latitude,
+            longitude=longitude,
+            altitude=Altitude(meters=altitude, datum=AltitudeDatum.AMSL),
+        )
+    except (TypeError, ValueError) as exc:
+        raise MissionParseError(
+            "QGroundControl relative-altitude mission plannedHomePosition "
+            "must contain numeric latitude, longitude, and AMSL altitude"
+        ) from exc
 
 
 def mavlink_altitude_datum(frame: int) -> AltitudeDatum:

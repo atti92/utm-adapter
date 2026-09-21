@@ -13,7 +13,7 @@ from pathlib import Path
 
 from pyproj import Transformer
 
-from .domain import Altitude, AltitudeDatum, Mission, VehicleTelemetry, Waypoint
+from .domain import Altitude, AltitudeDatum, AltitudeReference, Mission, VehicleTelemetry, Waypoint
 
 
 class AltitudeConversionError(ValueError):
@@ -49,9 +49,18 @@ class AltitudeConverter:
         latitude: float,
         longitude: float,
         target: AltitudeDatum,
+        reference: AltitudeReference | None = None,
     ) -> Altitude:
         if altitude.datum == target:
             return altitude
+        if altitude.datum == AltitudeDatum.AGL:
+            return self._convert_agl_altitude(
+                altitude,
+                latitude=latitude,
+                longitude=longitude,
+                target=target,
+                reference=reference,
+            )
         if altitude.datum not in {AltitudeDatum.AMSL, AltitudeDatum.WGS84}:
             raise AltitudeConversionError(
                 f"cannot convert {altitude.datum.value} altitude to {target.value}; "
@@ -76,6 +85,46 @@ class AltitudeConverter:
             ) from exc
         return Altitude(meters=float(meters), datum=target)
 
+    def _convert_agl_altitude(
+        self,
+        altitude: Altitude,
+        *,
+        latitude: float,
+        longitude: float,
+        target: AltitudeDatum,
+        reference: AltitudeReference | None,
+    ) -> Altitude:
+        if target not in {AltitudeDatum.AMSL, AltitudeDatum.WGS84}:
+            raise AltitudeConversionError(f"unsupported target altitude datum: {target.value}")
+        if reference is None:
+            raise AltitudeConversionError(
+                f"cannot convert {altitude.datum.value} altitude to {target.value}; "
+                "AGL requires a terrain/home reference"
+            )
+        if reference.altitude.datum not in {AltitudeDatum.AMSL, AltitudeDatum.WGS84}:
+            raise AltitudeConversionError(
+                "AGL terrain/home reference must use AMSL or WGS84 altitude"
+            )
+
+        reference_amsl = self.convert_altitude(
+            reference.altitude,
+            latitude=reference.latitude,
+            longitude=reference.longitude,
+            target=AltitudeDatum.AMSL,
+        )
+        relative_amsl = Altitude(
+            meters=reference_amsl.meters + altitude.meters,
+            datum=AltitudeDatum.AMSL,
+        )
+        if target == AltitudeDatum.AMSL:
+            return relative_amsl
+        return self.convert_altitude(
+            relative_amsl,
+            latitude=latitude,
+            longitude=longitude,
+            target=target,
+        )
+
     def convert_mission(self, mission: Mission, *, target: AltitudeDatum) -> Mission:
         waypoints = [
             Waypoint(
@@ -86,6 +135,7 @@ class AltitudeConverter:
                     latitude=waypoint.latitude,
                     longitude=waypoint.longitude,
                     target=target,
+                    reference=mission.altitude_reference,
                 ),
                 sequence=waypoint.sequence,
             )
