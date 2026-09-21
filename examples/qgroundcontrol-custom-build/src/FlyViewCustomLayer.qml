@@ -1,5 +1,6 @@
 // UTM connector Fly View overlay for a QGroundControl custom build.
-// This layer is deliberately non-commanding: it only reads connector status.
+// It submits UTM data and operation intents, but never sends flight-control
+// commands. QGroundControl/autopilot remain the flight-control authority.
 
 import QtQuick
 import QtQuick.Controls
@@ -7,6 +8,7 @@ import QGroundControl
 import QGroundControl.Controls
 import QGroundControl.FlyView
 import QGroundControl.FlightMap
+import Custom.Widgets
 
 Item {
     id: root
@@ -22,7 +24,16 @@ Item {
     property string vehicleLabel: "No vehicle"
     property string missionLabel: "Mission not checked"
     property string operationLabel: "No operation"
+    property string selectedVehicleId: ""
+    property string operationId: ""
+    property string declarationState: ""
+    property string telemetryPublicationState: "NOT_STARTED"
+    property string actionMessage: ""
+    property bool missionSubmitted: false
+    property bool actionBusy: false
     property var _activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
+    property var _planController: globals.planMasterControllerFlyView
+    property var _utmConnector: QGroundControl.corePlugin.utmConnector
 
     function setOffline(label) {
         connectorOnline = false
@@ -30,6 +41,57 @@ Item {
         vehicleLabel = "No vehicle"
         missionLabel = "Mission not checked"
         operationLabel = "No operation"
+        selectedVehicleId = ""
+        operationId = ""
+        declarationState = ""
+        telemetryPublicationState = "NOT_STARTED"
+    }
+
+    function futureWindowStart() {
+        return new Date(Math.ceil((Date.now() + 2 * 60 * 1000) / 60000) * 60000).toISOString()
+    }
+
+    function futureWindowEnd() {
+        return new Date(Date.parse(root.futureWindowStart()) + 35 * 60 * 1000).toISOString()
+    }
+
+    function submitCurrentPlan() {
+        if (!root._utmConnector || !root._planController || !root.selectedVehicleId) {
+            actionMessage = "Connect a vehicle and the UTM connector first."
+            return
+        }
+        actionBusy = true
+        actionMessage = "Uploading current QGC plan…"
+        root._utmConnector.submitCurrentPlan(root.resolvedConnectorBaseUrl,
+                                             root._planController,
+                                             root.selectedVehicleId,
+                                             root.futureWindowStart(),
+                                             root.futureWindowEnd(),
+                                             30.0)
+    }
+
+    function sendIntent(command) {
+        if (!root._utmConnector || !root.selectedVehicleId) {
+            actionMessage = "Connect a vehicle and the UTM connector first."
+            return
+        }
+        if (command === "SUBMIT_OPERATION" && !root.operationId) {
+            root.operationId = root._utmConnector.newOperationId()
+        }
+        if (!root.operationId) {
+            actionMessage = "Submit the mission to UTM first."
+            return
+        }
+        actionBusy = true
+        actionMessage = command.replace("_", " ") + "…"
+        root._utmConnector.sendOperationIntent(root.resolvedConnectorBaseUrl,
+                                               root.selectedVehicleId,
+                                               root.operationId,
+                                               command)
+    }
+
+    function operationIsTerminal() {
+        return ["COMPLETED", "CANCELLED", "REJECTED"].indexOf(root.declarationState) >= 0
     }
 
     function requestJson(path, callback, baseUrl) {
@@ -104,6 +166,7 @@ Item {
                     operationLabel = "No operation"
                     return
                 }
+                selectedVehicleId = vehicle.vehicle_id
                 vehicleLabel = vehicle.vehicle_id + " · " + (vehicle.quality || "unknown")
                 requestJson("/v1/vehicles/" + encodeURIComponent(vehicle.vehicle_id) + "/status", function(status) {
                     var drift = status.mission_drift || null
@@ -121,6 +184,10 @@ Item {
                     }
                     var operation = operations[operations.length - 1]
                     var state = operation.state || {}
+                    missionSubmitted = true
+                    operationId = operation.operation_id || ""
+                    declarationState = state.declaration || ""
+                    telemetryPublicationState = state.telemetry_publication || "NOT_STARTED"
                     operationLabel = (state.declaration || "UNKNOWN") + " · "
                             + (state.telemetry_publication || "NOT_STARTED")
                 }, endpoint)
@@ -136,6 +203,18 @@ Item {
     }
 
     Component.onCompleted: refreshStatus()
+
+    Connections {
+        target: root._utmConnector
+        function onRequestFinished(success, message) {
+            root.actionBusy = false
+            root.actionMessage = message
+            if (success) {
+                root.missionSubmitted = root.missionSubmitted || message.indexOf("Mission upload") >= 0
+                root.refreshStatus()
+            }
+        }
+    }
 
     QGCToolInsets {
         id: toolInsets
@@ -160,7 +239,7 @@ Item {
         anchors.topMargin: 12
         anchors.rightMargin: 12
         width: 236
-        height: 144
+        height: 296
         radius: 6
         color: qgcPal.windowShade
         border.color: connectorOnline ? qgcPal.colorGreen : qgcPal.warningText
@@ -211,9 +290,67 @@ Item {
                 width: parent.width
             }
 
+            Text {
+                text: root.actionMessage
+                color: root.actionMessage.indexOf("failed") >= 0 || root.actionMessage.indexOf("required") >= 0
+                       ? qgcPal.warningText : qgcPal.colorGreen
+                font.pixelSize: 10
+                elide: Text.ElideRight
+                width: parent.width
+                visible: text.length > 0
+            }
+
+            QGCButton {
+                text: root.actionBusy ? "Working…" : (root.missionSubmitted ? "Plan submitted" : "Submit current plan")
+                enabled: !root.actionBusy && root.connectorOnline && !!root.selectedVehicleId
+                         && !!root._planController && root._planController.containsItems && !root.missionSubmitted
+                height: 26
+                width: parent.width
+                onClicked: root.submitCurrentPlan()
+            }
+
+            QGCButton {
+                text: "Request UTM approval"
+                visible: root.missionSubmitted && !root.operationId
+                enabled: !root.actionBusy && root.connectorOnline
+                height: 26
+                width: parent.width
+                onClicked: root.sendIntent("SUBMIT_OPERATION")
+            }
+
+            QGCButton {
+                text: "Start UTM telemetry"
+                visible: !!root.operationId && root.declarationState === "ACCEPTED"
+                         && root.telemetryPublicationState === "NOT_STARTED"
+                enabled: !root.actionBusy && root.connectorOnline
+                height: 26
+                width: parent.width
+                onClicked: root.sendIntent("START_OPERATION")
+            }
+
+            QGCButton {
+                text: "Complete operation"
+                visible: !!root.operationId && root.declarationState === "ACCEPTED"
+                         && root.telemetryPublicationState === "ACTIVE"
+                enabled: !root.actionBusy && root.connectorOnline
+                height: 26
+                width: parent.width
+                onClicked: root.sendIntent("COMPLETE_OPERATION")
+            }
+
+            QGCButton {
+                text: "Cancel operation"
+                visible: !!root.operationId && !root.operationIsTerminal()
+                enabled: !root.actionBusy && root.connectorOnline
+                height: 26
+                width: parent.width
+                onClicked: root.sendIntent("CANCEL_OPERATION")
+            }
+
             QGCButton {
                 text: "Open UTM console"
                 height: 26
+                width: parent.width
                 onClicked: Qt.openUrlExternally(root.resolvedConnectorBaseUrl + "/ui/")
             }
         }

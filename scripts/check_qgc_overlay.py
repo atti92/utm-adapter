@@ -36,6 +36,8 @@ def validate(qgc_root: Path, expected_tag: str) -> list[str]:
         "QGC resource override example": qgc_root / "custom-example" / "custom.qrc",
         "QGC override interceptor": qgc_root / "custom-example" / "src" / "CustomPlugin.cc",
         "connector overlay": OVERLAY / "src" / "FlyViewCustomLayer.qml",
+        "connector QGC bridge header": OVERLAY / "src" / "UtmConnectorBridge.h",
+        "connector QGC bridge source": OVERLAY / "src" / "UtmConnectorBridge.cc",
         "connector overlay resource": OVERLAY / "utm_connector.qrc",
         "connector CMake fragment": OVERLAY / "CMakeLists.fragment.cmake",
     }
@@ -53,6 +55,8 @@ def validate(qgc_root: Path, expected_tag: str) -> list[str]:
     connector_qrc = checks["connector overlay resource"].read_text()
     fragment = checks["connector CMake fragment"].read_text()
     overlay = checks["connector overlay"].read_text()
+    bridge_header = checks["connector QGC bridge header"].read_text()
+    bridge_source = checks["connector QGC bridge source"].read_text()
 
     expectations = (
         ("QGC loads FlyViewCustomLayer", "FlyViewCustomLayer" in qgc_layer),
@@ -66,7 +70,10 @@ def validate(qgc_root: Path, expected_tag: str) -> list[str]:
         ("connector QRC uses the /Custom prefix", 'prefix="/Custom/qml"' in connector_qrc),
         ("fragment registers CUSTOM_RESOURCES", "CUSTOM_RESOURCES" in fragment),
         ("overlay imports the Fly View module", "QGroundControl.FlyView" in overlay),
-        ("overlay stays non-commanding", "COMMAND_LONG" not in overlay and "sendMavlink" not in overlay),
+        ("overlay submits the current QGC plan", "submitCurrentPlan" in overlay),
+        ("overlay sends UTM operation intents", "sendOperationIntent" in overlay),
+        ("bridge serializes QGC plans", "saveToJson" in bridge_source),
+        ("bridge has no MAVLink control path", "sendMavlink" not in bridge_header and "COMMAND_LONG" not in bridge_source),
     )
     for label, passed in expectations:
         if not passed:

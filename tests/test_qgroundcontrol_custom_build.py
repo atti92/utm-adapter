@@ -10,7 +10,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
-def test_qgroundcontrol_overlay_is_a_non_commanding_custom_build_layer() -> None:
+def test_qgroundcontrol_overlay_submits_utm_actions_without_commanding_the_vehicle() -> None:
     qml = (QGC_EXAMPLE / "src" / "FlyViewCustomLayer.qml").read_text()
 
     assert "GET /v1/health" not in qml  # The path is passed to XMLHttpRequest.
@@ -30,11 +30,21 @@ def test_qgroundcontrol_overlay_is_a_non_commanding_custom_build_layer() -> None
     assert "root.fallbackConnectorBaseUrl" in qml
     assert 'state.telemetry_publication' in qml
     assert 'Qt.openUrlExternally(root.resolvedConnectorBaseUrl + "/ui/")' in qml
+    assert "submitCurrentPlan" in qml
+    assert "sendOperationIntent" in qml
     assert "QGCButton" in qml
     assert "MAV_CMD" not in qml
     assert "sendMavlink" not in qml
     assert "COMMAND_LONG" not in qml
     assert "vehicleControl" not in qml
+
+    bridge_header = (QGC_EXAMPLE / "src" / "UtmConnectorBridge.h").read_text()
+    bridge_source = (QGC_EXAMPLE / "src" / "UtmConnectorBridge.cc").read_text()
+    assert "saveToJson" in bridge_source
+    assert "QNetworkAccessManager" in bridge_source
+    assert "sendMavlink" not in bridge_source
+    assert "COMMAND_LONG" not in bridge_source
+    assert "sendMavlink" not in bridge_header
 
 
 def test_qgroundcontrol_overlay_uses_the_official_fly_view_resource_alias() -> None:
@@ -70,6 +80,28 @@ def test_qgroundcontrol_stager_preserves_upstream_and_replaces_only_fly_view_lay
     upstream_layer = qgc_source / "custom-example" / "src" / "FlyViewCustomLayer.qml"
     upstream_layer.parent.mkdir(parents=True)
     upstream_layer.write_text("// upstream sample\n", encoding="utf-8")
+    (qgc_source / "custom-example" / "CMakeLists.txt").write_text(
+        "set(CUSTOM_SOURCES\n"
+        "    ${CMAKE_CURRENT_SOURCE_DIR}/src/MissionManager/PerimeterScanPlanCreator.h\n"
+        ")\n",
+        encoding="utf-8",
+    )
+    (qgc_source / "custom-example" / "src" / "CustomPlugin.h").write_text(
+        '#include "QGCCorePlugin.h"\n'
+        "class CustomPlugin : public QGCCorePlugin\n"
+        "{\n    Q_OBJECT\n"
+        "public:\n    static QGCCorePlugin *instance();\n"
+        "private:\n    CustomOptions *_options = nullptr;\n};\n",
+        encoding="utf-8",
+    )
+    (qgc_source / "custom-example" / "src" / "CustomPlugin.cc").write_text(
+        '#include "CustomPlugin.h"\n'
+        "CustomPlugin::CustomPlugin(QObject *parent)\n"
+        "    : QGCCorePlugin(parent)\n"
+        "    , _options(new CustomOptions(this, this))\n"
+        "{}\n",
+        encoding="utf-8",
+    )
     (qgc_source / "custom-example" / "custom.qrc").write_text(
         "<qresource prefix=\"/Custom/qml\" />\n", encoding="utf-8"
     )
@@ -85,6 +117,17 @@ def test_qgroundcontrol_stager_preserves_upstream_and_replaces_only_fly_view_lay
     assert staged == output.resolve()
     assert staged.joinpath("custom.qrc").is_file()
     assert staged.joinpath(".utm-connector-overlay.json").is_file()
+    assert staged.joinpath("src", "UtmConnectorBridge.h").is_file()
+    assert staged.joinpath("src", "UtmConnectorBridge.cc").is_file()
+    staged_cmake = staged.joinpath("CMakeLists.txt").read_text()
+    assert "src/UtmConnectorBridge.cc" in staged_cmake
+    assert "src/UtmConnectorBridge.h" in staged_cmake
+    staged_plugin_header = staged.joinpath("src", "CustomPlugin.h").read_text()
+    assert 'Q_PROPERTY(UtmConnectorBridge* utmConnector READ utmConnector CONSTANT)' in staged_plugin_header
+    assert 'UtmConnectorBridge *utmConnector() const' in staged_plugin_header
+    assert '"UtmConnectorBridge.h"' in staged_plugin_header
+    assert 'UtmConnectorBridge *_utmConnector = nullptr;' in staged_plugin_header
+    assert 'new UtmConnectorBridge(this)' in staged.joinpath("src", "CustomPlugin.cc").read_text()
     assert 'QGC_DISABLE_APM_PLUGIN_FACTORY OFF' in staged.joinpath(
         "cmake", "CustomOverrides.cmake"
     ).read_text()
@@ -144,3 +187,4 @@ def test_qgroundcontrol_stager_has_a_safe_cli_contract() -> None:
     assert "--force" in script
     assert "shutil.move" in script
     assert ".utm-connector-overlay.json" in script
+    assert "native_utm_actions" in script

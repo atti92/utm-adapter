@@ -1,10 +1,11 @@
 # QGroundControl custom-build overlay
 
-This example adds a small native UTM status card to QGroundControl's Fly View.
-It is intended for operators who want UTM readiness visible beside the normal
-flight controls while keeping all vehicle control inside QGroundControl. The
-card shows connector health, vehicle telemetry quality, onboard mission drift
-status, and the latest UTM operation state.
+This example adds a native UTM workflow card to QGroundControl's Fly View. It
+is intended for operators who want UTM readiness and approval actions visible
+beside the normal flight controls while keeping all vehicle control inside
+QGroundControl. The card shows connector health, vehicle telemetry quality,
+onboard mission drift status, the latest UTM operation state, and buttons to
+submit the current QGC plan and send UTM operation intents.
 
 This is a **custom-build integration**, not a loose plugin for the stock
 QGroundControl binary. QGroundControl's supported extension path is a custom
@@ -13,20 +14,32 @@ directory are designed to be copied into a QGroundControl custom build (or
 merged into an existing custom build):
 
 - `src/FlyViewCustomLayer.qml` provides the status card and opens the connector
-  console.
+  console, uploads the active QGC plan, and sends UTM operation intents.
+- `src/UtmConnectorBridge.h/.cc` provides the Qt HTTP bridge used by the card.
 - `utm_connector.qrc` registers the resource override under QGC's `/Custom`
   prefix.
 - `CMakeLists.fragment.cmake` adds that resource to the executable through
   QGC's `CUSTOM_RESOURCES`/`QGC_RESOURCES` mechanism.
 
-The overlay reads only:
+The overlay reads:
 
 - `GET /v1/health`
 - `GET /v1/vehicles`
 - `GET /v1/vehicles/{vehicle_id}/status`
 
-The **Open UTM** button opens `/ui/` in the system browser. It does not send
-MAVLink commands, upload missions, arm, take off, or change flight modes.
+The **Submit current plan** button sends the plan produced by QGC's active
+`PlanMasterController` to:
+
+- `PUT /v1/missions/{vehicle_id}/qgroundcontrol`
+- `POST /v1/operator-intents?vehicle_id={vehicle_id}` for submit, start,
+  cancel, and complete actions
+
+The **Open UTM** button opens `/ui/` in the system browser. The custom build
+does not send MAVLink commands, upload the mission to the aircraft, arm, take
+off, or change flight modes. QGroundControl/autopilot remain the flight-control
+authority. The card uses a future 30-minute UTM validity window and a 30 m
+corridor; operators can use the full web console when they need to edit those
+values.
 With the default URL it probes the standalone connector on port `8000` and
 automatically falls back to the supervised full-stack connector on `8001`.
 
@@ -52,9 +65,12 @@ manual resource merge is needed. If you already maintain a different custom
 build, use the manual overlay merge below instead.
 
 1. Start the connector, for example with `uv run utm-connector --demo`.
-2. Copy `src/FlyViewCustomLayer.qml` and `utm_connector.qrc` into the
-   QGroundControl custom-build source tree, then merge
-   `CMakeLists.fragment.cmake` into that build's `CMakeLists.txt`.
+2. Copy `src/FlyViewCustomLayer.qml`, `src/UtmConnectorBridge.h`, and
+   `src/UtmConnectorBridge.cc` into the QGroundControl custom-build source
+   tree. Add the bridge files to `CUSTOM_SOURCES`, add the
+   `UtmConnectorBridge* utmConnector` property/getter to the custom plugin,
+   construct it in the plugin, and merge `CMakeLists.fragment.cmake` into that
+   build's `CMakeLists.txt`. The staging script automates these edits.
 3. Keep the stock `CustomOverrideInterceptor` from QGC's custom-example (it
    installs the `/Custom` URL interceptor). If an existing custom build has
    replaced it, retain the equivalent `addUrlInterceptor` mapping.
