@@ -85,6 +85,13 @@
       "role": "route_point"
     }
   ],
+  "ignored_terminal_mission_commands": [
+    {
+      "command": 20,
+      "name": "RETURN_TO_LAUNCH",
+      "role": "terminal_behavior_ignored"
+    }
+  ],
   "recording": {
     "configuration": "UTM_CONNECTOR_RECORD_PATH",
     "raw_mavlink_record_type": "mavlink_frame",

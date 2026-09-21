@@ -10,9 +10,11 @@ from pymavlink import mavutil
 
 from .domain import Altitude, Mission, Waypoint
 from .missions import (
+    IGNORED_TERMINAL_MISSION_COMMANDS,
     NAVIGABLE_MISSION_COMMANDS,
     MissionParseError,
     mavlink_altitude_datum,
+    validate_terminal_mission_command_position,
 )
 
 
@@ -68,6 +70,7 @@ class MavlinkMissionReader:
         self._target_component: Optional[int] = None
         self._expected_count: Optional[int] = None
         self._items: Dict[int, Waypoint] = {}
+        self._received_sequences: set[int] = set()
         self._requested = False
         self._completed: Optional[MavlinkMissionRead] = None
         self._last_ack: Optional[int] = None
@@ -100,6 +103,7 @@ class MavlinkMissionReader:
             raise MissionParseError("MAVLink connection cannot request a mission list")
         self._expected_count = None
         self._items = {}
+        self._received_sequences = set()
         self._completed = None
         self._last_ack = None
         sender(self._target_system, self._target_component)
@@ -147,6 +151,7 @@ class MavlinkMissionReader:
         self.set_target(_source_id(message, "get_srcSystem"), _source_id(message, "get_srcComponent", 1))
         self._expected_count = count
         self._items = {}
+        self._received_sequences = set()
         self._completed = None
         if count == 0:
             raise MissionParseError("MAVLink vehicle reported an empty mission")
@@ -161,18 +166,35 @@ class MavlinkMissionReader:
         sequence = int(getattr(message, "seq", -1))
         if sequence < 0 or sequence >= self._expected_count:
             raise MissionParseError(f"MAVLink mission item sequence is invalid: {sequence}")
-        if sequence in self._items:
+        if sequence in self._received_sequences:
             return self._completed
-        self._items[sequence] = _waypoint_from_item(message, message_type)
-        if len(self._items) < self._expected_count:
-            self._request_item(_next_missing_sequence(self._items, self._expected_count))
+        self._received_sequences.add(sequence)
+        command = int(getattr(message, "command", -1))
+        if command in IGNORED_TERMINAL_MISSION_COMMANDS:
+            validate_terminal_mission_command_position(
+                command,
+                sequence,
+                self._expected_count,
+                source="MAVLink",
+            )
+        else:
+            waypoint = _waypoint_from_item(message, message_type)
+            self._items[len(self._items)] = waypoint.model_copy(
+                update={"sequence": len(self._items)}
+            )
+        if len(self._received_sequences) < self._expected_count:
+            self._request_item(
+                _next_missing_sequence(self._received_sequences, self._expected_count)
+            )
             return None
 
-        if sorted(self._items) != list(range(self._expected_count)):
+        if self._received_sequences != set(range(self._expected_count)):
             raise MissionParseError("MAVLink mission items are incomplete")
+        if len(self._items) < 2:
+            raise MissionParseError("MAVLink mission must contain at least two navigable items")
         self._completed = MavlinkMissionRead(
             vehicle_id=self.vehicle_id,
-            waypoints=tuple(self._items[index] for index in range(self._expected_count)),
+            waypoints=tuple(self._items[index] for index in range(len(self._items))),
             mission_count=self._expected_count,
             received_at=received_at,
         )
@@ -236,7 +258,7 @@ def _waypoint_from_item(message: Any, message_type: str = "MISSION_ITEM_INT") ->
     )
 
 
-def _next_missing_sequence(items: Dict[int, Waypoint], count: int) -> int:
+def _next_missing_sequence(items: set[int], count: int) -> int:
     for sequence in range(count):
         if sequence not in items:
             return sequence

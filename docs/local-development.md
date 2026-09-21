@@ -214,11 +214,12 @@ and Windows in the same way as the API.
 
 The mission picker accepts QGroundControl `.plan` files and Mission Planner
 `.waypoints`/WPL 110 exports. Both are normalized into the same canonical
-mission model. Geographic WAYPOINT, TAKEOFF, and LAND items are supported;
-other mission actions are rejected rather than silently dropped because the
-connector's corridor model cannot represent their behavior. The UTM validity
-window and corridor are entered once in the connector because neither GCS file
-format carries that provider metadata.
+mission model. Geographic WAYPOINT, TAKEOFF, and LAND items are supported. A
+final RETURN_TO_LAUNCH item (command `20`) is accepted as terminal GCS/autopilot
+behavior and excluded from the route; other mission actions are rejected rather
+than silently dropped because the connector's corridor model cannot represent
+their behavior. The UTM validity window and corridor are entered once in the
+connector because neither GCS file format carries that provider metadata.
 
 For GCS integration, start with the discovery endpoints:
 
@@ -613,4 +614,6 @@ curl -X PUT http://127.0.0.1:8000/v1/missions/sitl-1/qgroundcontrol \
 Replace the empty `items` list with the exported QGC `SimpleItem` entries. The
 endpoint rejects unsupported mission items and requires the caller to provide
 the validity window because a `.plan` file does not define the UTM declaration
-window.
+window. A final `MAV_CMD_NAV_RETURN_TO_LAUNCH` (command `20`) is accepted as a
+GCS/autopilot terminal behavior and excluded from the canonical route; it is
+not treated as a `(0, 0)` waypoint.

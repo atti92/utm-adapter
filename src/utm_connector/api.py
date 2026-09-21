@@ -31,6 +31,7 @@ from .mavlink import MavlinkVehicleSession
 from .observability import RuntimeMetrics
 from .runtime import MavlinkSessionManager
 from .missions import (
+    IGNORED_TERMINAL_MISSION_COMMANDS_INFO,
     NAVIGABLE_MISSION_COMMANDS_INFO,
     MissionParseError,
     parse_mission_planner_waypoints,
@@ -206,6 +207,7 @@ def create_app(
             "demo_route": DemoVehiclePublisher.route_coordinates() if settings.demo_mode else None,
             "mission_formats": ["canonical", "qgroundcontrol", "mission-planner"],
             "mission_commands": list(NAVIGABLE_MISSION_COMMANDS_INFO),
+            "ignored_terminal_mission_commands": list(IGNORED_TERMINAL_MISSION_COMMANDS_INFO),
             "integration_manifest": "/v1/integration",
             "recording": {
                 "configured": recorder is not None,

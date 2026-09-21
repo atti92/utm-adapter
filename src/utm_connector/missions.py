@@ -23,6 +23,16 @@ NAVIGABLE_MISSION_COMMANDS_INFO = (
     {"command": 22, "name": "TAKEOFF", "role": "route_point"},
 )
 
+# QGroundControl and Mission Planner commonly append RTL to an otherwise
+# geographic mission. RTL has no route coordinate: it is an autopilot action
+# that must remain with the GCS/autopilot, not become a fake (0, 0) waypoint.
+# It is therefore accepted only as the final item and intentionally omitted
+# from the canonical UTM route.
+IGNORED_TERMINAL_MISSION_COMMANDS = frozenset({20})
+IGNORED_TERMINAL_MISSION_COMMANDS_INFO = (
+    {"command": 20, "name": "RETURN_TO_LAUNCH", "role": "terminal_behavior_ignored"},
+)
+
 
 def parse_qgroundcontrol_plan(
     payload: Mapping[str, Any],
@@ -54,10 +64,18 @@ def parse_qgroundcontrol_plan(
         raise MissionParseError("QGroundControl Plan mission.items must be a list")
 
     waypoints = []
-    for item in items:
+    for item_index, item in enumerate(items):
         if not isinstance(item, Mapping) or item.get("type") != "SimpleItem":
             raise MissionParseError("only QGroundControl SimpleItem missions are supported")
         command = _integer(item.get("command"), "command")
+        if command in IGNORED_TERMINAL_MISSION_COMMANDS:
+            validate_terminal_mission_command_position(
+                command,
+                item_index,
+                len(items),
+                source="QGroundControl",
+            )
+            continue
         if command not in NAVIGABLE_MISSION_COMMANDS:
             raise MissionParseError(f"unsupported QGroundControl mission command: {command}")
         frame = _integer(item.get("frame"), "frame")
@@ -125,7 +143,8 @@ def parse_mission_planner_waypoints(
 
     waypoints = []
     expected_index = 0
-    for line_number, line in enumerate(lines[1:], start=2):
+    mission_item_count = len(lines) - 1
+    for item_index, (line_number, line) in enumerate(zip(range(2, len(lines) + 1), lines[1:])):
         fields = line.split()
         if len(fields) != 12:
             raise MissionParseError(
@@ -146,6 +165,15 @@ def parse_mission_planner_waypoints(
             raise MissionParseError(
                 f"Mission Planner waypoint indexes must be contiguous; expected {expected_index}"
             )
+        if command in IGNORED_TERMINAL_MISSION_COMMANDS:
+            validate_terminal_mission_command_position(
+                command,
+                item_index,
+                mission_item_count,
+                source="Mission Planner",
+            )
+            expected_index += 1
+            continue
         if command not in NAVIGABLE_MISSION_COMMANDS:
             raise MissionParseError(
                 f"unsupported Mission Planner mission command on line {line_number}: {command}"
@@ -178,6 +206,29 @@ def _integer(value: Any, field_name: str) -> int:
         return int(value)
     except (TypeError, ValueError) as exc:
         raise MissionParseError(f"QGroundControl {field_name} must be an integer") from exc
+
+
+def validate_terminal_mission_command_position(
+    command: int,
+    item_index: int,
+    item_count: int,
+    *,
+    source: str,
+) -> None:
+    """Ensure an ignored terminal behavior cannot interrupt the route."""
+
+    if command not in IGNORED_TERMINAL_MISSION_COMMANDS:
+        return
+    if item_index != item_count - 1:
+        name = next(
+            item["name"]
+            for item in IGNORED_TERMINAL_MISSION_COMMANDS_INFO
+            if item["command"] == command
+        )
+        raise MissionParseError(
+            f"{source} {name} must be the final mission item; "
+            "terminal behavior is not part of the UTM route"
+        )
 
 
 def _altitude_datum(frame: int) -> AltitudeDatum:

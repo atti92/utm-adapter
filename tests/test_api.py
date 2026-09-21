@@ -171,6 +171,13 @@ def test_capabilities_and_vehicle_directory_are_gcs_friendly() -> None:
         {"command": 21, "name": "LAND", "role": "route_endpoint"},
         {"command": 22, "name": "TAKEOFF", "role": "route_point"},
     ]
+    assert capabilities.json()["ignored_terminal_mission_commands"] == [
+        {
+            "command": 20,
+            "name": "RETURN_TO_LAUNCH",
+            "role": "terminal_behavior_ignored",
+        }
+    ]
     assert "qgroundcontrol" in capabilities.json()["mission_formats"]
 
     telemetry = {
@@ -388,6 +395,7 @@ def test_qgroundcontrol_plan_endpoint_normalizes_explicit_metadata() -> None:
                     "items": [
                         {"type": "SimpleItem", "command": 22, "frame": 3, "params": [0, 0, 0, 0, 47.5, 19.0, 20]},
                         {"type": "SimpleItem", "command": 16, "frame": 3, "params": [0, 0, 0, 0, 47.501, 19.001, 25]},
+                        {"type": "SimpleItem", "command": 20, "frame": 2, "params": [0, 0, 0, 0, 0, 0, 0]},
                     ]
                 },
             },
@@ -397,6 +405,7 @@ def test_qgroundcontrol_plan_endpoint_normalizes_explicit_metadata() -> None:
     assert response.status_code == 200
     assert response.json()["mission"]["source"] == "qgroundcontrol"
     assert response.json()["mission"]["corridor_radius_m"] == 40
+    assert len(response.json()["mission"]["waypoints"]) == 2
 
 
 def test_qgroundcontrol_plan_endpoint_rejects_missing_metadata() -> None:

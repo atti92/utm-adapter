@@ -103,6 +103,49 @@ def test_qgroundcontrol_plan_accepts_a_geographic_landing_endpoint() -> None:
     assert mission.waypoints[-1].altitude.meters == 0
 
 
+def test_qgroundcontrol_plan_ignores_a_final_return_to_launch_item() -> None:
+    plan = _plan()
+    plan["mission"]["items"].append(
+        {
+            "type": "SimpleItem",
+            "command": 20,
+            "frame": 2,
+            "params": [0, 0, 0, 0, 0, 0, 0],
+        }
+    )
+
+    mission = parse_qgroundcontrol_plan(
+        plan,
+        vehicle_id="sitl-1",
+        valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        valid_until=datetime(2026, 1, 1, 1, tzinfo=timezone.utc),
+    )
+
+    assert len(mission.waypoints) == 2
+    assert [waypoint.sequence for waypoint in mission.waypoints] == [0, 1]
+
+
+def test_qgroundcontrol_plan_rejects_return_to_launch_before_the_final_item() -> None:
+    plan = _plan()
+    plan["mission"]["items"].insert(
+        1,
+        {
+            "type": "SimpleItem",
+            "command": 20,
+            "frame": 2,
+            "params": [0, 0, 0, 0, 0, 0, 0],
+        },
+    )
+
+    with pytest.raises(MissionParseError, match="must be the final mission item"):
+        parse_qgroundcontrol_plan(
+            plan,
+            vehicle_id="sitl-1",
+            valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            valid_until=datetime(2026, 1, 1, 1, tzinfo=timezone.utc),
+        )
+
+
 def test_qgroundcontrol_plan_rejects_unsupported_altitude_frame() -> None:
     with pytest.raises(MissionParseError, match="altitude frame"):
         parse_qgroundcontrol_plan(
@@ -151,6 +194,22 @@ def test_mission_planner_wpl_accepts_a_geographic_landing_endpoint() -> None:
 
     assert len(mission.waypoints) == 3
     assert mission.waypoints[-1].longitude == 19.053
+
+
+def test_mission_planner_wpl_ignores_a_final_return_to_launch_item() -> None:
+    payload = _mission_planner_file() + (
+        "\n2\t0\t2\t20\t0\t0\t0\t0\t0\t0\t0\t1"
+    )
+
+    mission = parse_mission_planner_waypoints(
+        payload,
+        vehicle_id="sitl-1",
+        valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        valid_until=datetime(2026, 1, 1, 1, tzinfo=timezone.utc),
+    )
+
+    assert len(mission.waypoints) == 2
+    assert [waypoint.sequence for waypoint in mission.waypoints] == [0, 1]
 
 
 def test_mission_planner_wpl_rejects_non_route_commands() -> None:

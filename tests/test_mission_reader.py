@@ -210,3 +210,19 @@ def test_reader_accepts_a_geographic_landing_item() -> None:
 
     assert completed is not None
     assert completed.waypoints[1].latitude == pytest.approx(47.501)
+
+
+def test_reader_ignores_a_final_return_to_launch_item() -> None:
+    connection = FakeConnection()
+    reader = MavlinkMissionReader("sitl-1", connection)
+    reader.ingest(FakeMessage("HEARTBEAT"))
+    reader.request_list()
+    reader.ingest(FakeMessage("MISSION_COUNT", count=3))
+    reader.ingest(_item(0))
+    reader.ingest(_item(1))
+    completed = reader.ingest(_item(2, command=20), datetime(2026, 1, 1, tzinfo=timezone.utc))
+
+    assert completed is not None
+    assert completed.mission_count == 3
+    assert len(completed.waypoints) == 2
+    assert [waypoint.sequence for waypoint in completed.waypoints] == [0, 1]
