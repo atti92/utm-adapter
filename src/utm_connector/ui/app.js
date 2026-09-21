@@ -15,7 +15,9 @@ const state = {
   missionLookupVehicleId: "",
 };
 
-const DEMO_LEAD_TIME_MS = 15_000;
+// datetime-local fields have minute precision. Round the default start up to
+// the next minute and leave enough lead time for a provider round-trip.
+const DEMO_LEAD_TIME_MS = 2 * 60_000;
 const TERMINAL_DECLARATIONS = new Set(["COMPLETED", "CANCELLED", "REJECTED"]);
 const DEFAULT_NAVIGABLE_MISSION_COMMANDS = new Set([16, 21, 22]);
 let refreshInFlight = false;
@@ -76,12 +78,29 @@ function localInputValue(date) {
   return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
 }
 
+function defaultMissionWindow() {
+  const now = Date.now();
+  const start = new Date(Math.ceil((now + DEMO_LEAD_TIME_MS) / 60_000) * 60_000);
+  return { validFrom: start, validUntil: new Date(start.getTime() + 35 * 60_000) };
+}
+
 function setDefaultWindow() {
-  const start = new Date(Date.now() + DEMO_LEAD_TIME_MS);
-  const end = new Date(Date.now() + 35 * 60_000);
-  $("valid-from").value = localInputValue(start);
-  $("valid-until").value = localInputValue(end);
+  const { validFrom, validUntil } = defaultMissionWindow();
+  $("valid-from").value = localInputValue(validFrom);
+  $("valid-until").value = localInputValue(validUntil);
   state.windowCustomized = false;
+}
+
+function missionWindowIsUsable(validFrom, validUntil) {
+  if (!(validFrom instanceof Date) || !(validUntil instanceof Date)) return false;
+  if (!Number.isFinite(validFrom.getTime()) || !Number.isFinite(validUntil.getTime())) return false;
+  if (validUntil <= validFrom || validFrom.getTime() <= Date.now()) return false;
+  const constraints = state.capabilities?.mission_window || {};
+  if (Number.isFinite(constraints.max_future_seconds)) {
+    const latest = Date.now() + Number(constraints.max_future_seconds) * 1000;
+    if (validFrom.getTime() > latest || validUntil.getTime() > latest) return false;
+  }
+  return true;
 }
 
 function inputAsIso(id) {
@@ -724,8 +743,15 @@ function renderMission(snapshot) {
   $("mission-title").textContent = `${mission.waypoints.length} waypoint route`;
   $("mission-meta").textContent = `${mission.source} · ${mission.corridor_radius_m} m corridor · hash ${snapshot.mission_hash.slice(0, 12)}…`;
   if (!state.windowCustomized) {
-    $("valid-from").value = localInputValue(new Date(mission.valid_from));
-    $("valid-until").value = localInputValue(new Date(mission.valid_until));
+    const validFrom = new Date(mission.valid_from);
+    const validUntil = new Date(mission.valid_until);
+    if (missionWindowIsUsable(validFrom, validUntil)) {
+      $("valid-from").value = localInputValue(validFrom);
+      $("valid-until").value = localInputValue(validUntil);
+    } else {
+      setDefaultWindow();
+      setMessage("The saved mission window has expired; a new future window was selected. Validate & save before submitting.", "warning");
+    }
     $("corridor-radius").value = mission.corridor_radius_m;
   }
   $("save-button").disabled = !state.plan;
@@ -1068,9 +1094,10 @@ function samplePlan() {
       { sequence: 1, latitude: latitude + 0.0012, longitude: longitude + 0.0018, altitude: { meters: altitude + 2, datum } },
       { sequence: 2, latitude: latitude + 0.0021, longitude: longitude - 0.0011, altitude: { meters: altitude - 2, datum } },
     ];
+  const { validFrom, validUntil } = defaultMissionWindow();
   return {
-    valid_from: new Date(Date.now() + DEMO_LEAD_TIME_MS).toISOString(),
-    valid_until: new Date(Date.now() + 35 * 60_000).toISOString(),
+    valid_from: validFrom.toISOString(),
+    valid_until: validUntil.toISOString(),
     source: "operator-console-demo",
     waypoints,
   };

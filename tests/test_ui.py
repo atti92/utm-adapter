@@ -92,8 +92,12 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "Mission settings changed. Validate & save before submitting." in javascript
     assert "windowCustomized" in javascript
     assert "if (!state.windowCustomized) setDefaultWindow()" in javascript
-    assert '$("valid-from").value = localInputValue(new Date(mission.valid_from))' in javascript
-    assert '$("valid-until").value = localInputValue(new Date(mission.valid_until))' in javascript
+    assert "const validFrom = new Date(mission.valid_from)" in javascript
+    assert "const validUntil = new Date(mission.valid_until)" in javascript
+    assert "function defaultMissionWindow()" in javascript
+    assert "Math.ceil((now + DEMO_LEAD_TIME_MS) / 60_000)" in javascript
+    assert "function missionWindowIsUsable(validFrom, validUntil)" in javascript
+    assert "The saved mission window has expired; a new future window was selected" in javascript
     assert '$("corridor-radius").value = mission.corridor_radius_m' in javascript
     assert 'state.windowCustomized = true;' in javascript
     assert 'command === "SUBMIT_OPERATION"' in javascript
