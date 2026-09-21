@@ -47,6 +47,9 @@ def test_qgroundcontrol_overlay_submits_utm_actions_without_commanding_the_vehic
     bridge_source = (QGC_EXAMPLE / "src" / "UtmConnectorBridge.cc").read_text()
     assert "saveToJson" in bridge_source
     assert "QNetworkAccessManager" in bridge_source
+    assert "void UtmConnectorBridge::putJson" in bridge_source
+    assert "reply = _network->put(request, payload)" in bridge_source
+    assert "putJson(endpoint(connectorBaseUrl" in bridge_source
     assert "sendMavlink" not in bridge_source
     assert "COMMAND_LONG" not in bridge_source
     assert "sendMavlink" not in bridge_header

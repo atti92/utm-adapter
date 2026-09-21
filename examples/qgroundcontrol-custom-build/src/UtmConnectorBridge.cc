@@ -87,7 +87,10 @@ void UtmConnectorBridge::setError(const QString &message)
     emit lastErrorChanged();
 }
 
-void UtmConnectorBridge::postJson(const QUrl &url, const QJsonObject &body, const QString &action)
+void UtmConnectorBridge::sendJson(const QByteArray &method,
+                                  const QUrl &url,
+                                  const QJsonObject &body,
+                                  const QString &action)
 {
     if (_busy) {
         const QString message = QStringLiteral("Another UTM request is still in progress.");
@@ -107,7 +110,13 @@ void UtmConnectorBridge::postJson(const QUrl &url, const QJsonObject &body, cons
     setError(QString());
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
-    QNetworkReply *reply = _network->post(request, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    const QByteArray payload = QJsonDocument(body).toJson(QJsonDocument::Compact);
+    QNetworkReply *reply = nullptr;
+    if (method == QByteArrayLiteral("PUT")) {
+        reply = _network->put(request, payload);
+    } else {
+        reply = _network->post(request, payload);
+    }
     connect(reply, &QNetworkReply::finished, this, [this, reply, action]() {
         const int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const bool success = reply->error() == QNetworkReply::NoError && statusCode >= 200 && statusCode < 300;
@@ -126,6 +135,16 @@ void UtmConnectorBridge::postJson(const QUrl &url, const QJsonObject &body, cons
         emit requestFinished(success, message);
         reply->deleteLater();
     });
+}
+
+void UtmConnectorBridge::postJson(const QUrl &url, const QJsonObject &body, const QString &action)
+{
+    sendJson(QByteArrayLiteral("POST"), url, body, action);
+}
+
+void UtmConnectorBridge::putJson(const QUrl &url, const QJsonObject &body, const QString &action)
+{
+    sendJson(QByteArrayLiteral("PUT"), url, body, action);
 }
 
 void UtmConnectorBridge::submitCurrentPlan(const QString &connectorBaseUrl,
@@ -170,10 +189,10 @@ void UtmConnectorBridge::submitCurrentPlan(const QString &connectorBaseUrl,
         {QStringLiteral("plan"), plan.object()},
     };
     const QString encodedVehicle = QString::fromUtf8(QUrl::toPercentEncoding(vehicleId.trimmed()));
-    postJson(endpoint(connectorBaseUrl,
-                      QStringLiteral("/v1/missions/") + encodedVehicle + QStringLiteral("/qgroundcontrol")),
-             body,
-             QStringLiteral("Mission upload"));
+    putJson(endpoint(connectorBaseUrl,
+                     QStringLiteral("/v1/missions/") + encodedVehicle + QStringLiteral("/qgroundcontrol")),
+            body,
+            QStringLiteral("Mission upload"));
 }
 
 void UtmConnectorBridge::sendOperationIntent(const QString &connectorBaseUrl,

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtCore/QByteArray>
 #include <QtCore/QJsonObject>
 #include <QtCore/QObject>
 #include <QtCore/QString>
@@ -46,7 +47,9 @@ signals:
     void requestFinished(bool success, const QString &message);
 
 private:
+    void sendJson(const QByteArray &method, const QUrl &url, const QJsonObject &body, const QString &action);
     void postJson(const QUrl &url, const QJsonObject &body, const QString &action);
+    void putJson(const QUrl &url, const QJsonObject &body, const QString &action);
     void setBusy(bool busy);
     void setMessage(const QString &message);
     void setError(const QString &message);
