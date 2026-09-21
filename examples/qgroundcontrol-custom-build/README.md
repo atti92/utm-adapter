@@ -39,7 +39,10 @@ does not send MAVLink commands, upload the mission to the aircraft, arm, take
 off, or change flight modes. QGroundControl/autopilot remain the flight-control
 authority. The card uses a future 30-minute UTM validity window and a 30 m
 corridor; operators can use the full web console when they need to edit those
-values.
+values. After an operation is completed or cancelled, the same card changes to
+**Submit new plan** so the operator can replace the mission and start a new
+UTM operation. Replacing a plan is disabled while an operation is active; the
+operator must complete or cancel it first.
 With the default URL it probes the standalone connector on port `8000` and
 automatically falls back to the supervised full-stack connector on `8001`.
 

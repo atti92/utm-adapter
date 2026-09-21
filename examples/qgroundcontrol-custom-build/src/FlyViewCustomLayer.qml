@@ -94,6 +94,10 @@ Item {
         return ["COMPLETED", "CANCELLED", "REJECTED"].indexOf(root.declarationState) >= 0
     }
 
+    function operationIsActive() {
+        return ["SUBMITTED", "ACCEPTED"].indexOf(root.declarationState) >= 0
+    }
+
     function requestJson(path, callback, baseUrl) {
         var endpoint = baseUrl || root.connectorBaseUrl
         var request = new XMLHttpRequest()
@@ -180,19 +184,34 @@ Item {
                     var operations = status.operations || []
                     if (operations.length === 0) {
                         operationLabel = "No operation"
+                        operationId = ""
+                        declarationState = ""
+                        telemetryPublicationState = "NOT_STARTED"
                         return
                     }
                     var operation = operations[operations.length - 1]
                     var state = operation.state || {}
-                    missionSubmitted = true
-                    operationId = operation.operation_id || ""
-                    declarationState = state.declaration || ""
-                    telemetryPublicationState = state.telemetry_publication || "NOT_STARTED"
                     operationLabel = (state.declaration || "UNKNOWN") + " · "
                             + (state.telemetry_publication || "NOT_STARTED")
+                    if (root.operationIsActiveState(state.declaration)) {
+                        missionSubmitted = true
+                        operationId = operation.operation_id || ""
+                        declarationState = state.declaration || ""
+                        telemetryPublicationState = state.telemetry_publication || "NOT_STARTED"
+                    } else {
+                        // Terminal operations are history. Keep the label for context,
+                        // but allow this QGC plan to be submitted as a new operation.
+                        operationId = ""
+                        declarationState = ""
+                        telemetryPublicationState = "NOT_STARTED"
+                    }
                 }, endpoint)
             }, endpoint)
         }, root.connectorBaseUrl)
+    }
+
+    function operationIsActiveState(declaration) {
+        return ["SUBMITTED", "ACCEPTED"].indexOf(declaration) >= 0
     }
 
     Timer {
@@ -301,9 +320,11 @@ Item {
             }
 
             QGCButton {
-                text: root.actionBusy ? "Working…" : (root.missionSubmitted ? "Plan submitted" : "Submit current plan")
+                text: root.actionBusy ? "Working…"
+                                      : (root.operationIsActive() ? "Finish active operation first"
+                                      : (root.missionSubmitted ? "Submit new plan" : "Submit current plan"))
                 enabled: !root.actionBusy && root.connectorOnline && !!root.selectedVehicleId
-                         && !!root._planController && root._planController.containsItems && !root.missionSubmitted
+                         && !!root._planController && root._planController.containsItems && !root.operationIsActive()
                 height: 26
                 width: parent.width
                 onClicked: root.submitCurrentPlan()
@@ -311,7 +332,7 @@ Item {
 
             QGCButton {
                 text: "Request UTM approval"
-                visible: root.missionSubmitted && !root.operationId
+                visible: root.missionSubmitted && !root.operationId && !root.operationIsActive()
                 enabled: !root.actionBusy && root.connectorOnline
                 height: 26
                 width: parent.width

@@ -32,6 +32,11 @@ def test_qgroundcontrol_overlay_submits_utm_actions_without_commanding_the_vehic
     assert 'Qt.openUrlExternally(root.resolvedConnectorBaseUrl + "/ui/")' in qml
     assert "submitCurrentPlan" in qml
     assert "sendOperationIntent" in qml
+    assert '"Submit new plan"' in qml
+    assert '"Finish active operation first"' in qml
+    assert "function operationIsActive()" in qml
+    assert "function operationIsActiveState(declaration)" in qml
+    assert "allow this QGC plan to be submitted as a new operation" in qml
     assert "QGCButton" in qml
     assert "MAV_CMD" not in qml
     assert "sendMavlink" not in qml
