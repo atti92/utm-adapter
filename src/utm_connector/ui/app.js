@@ -627,13 +627,20 @@ function previewWaypoint(latitude, longitude, altitude, datum, sequence) {
 }
 
 function qgroundcontrolItemCoordinates(item) {
-  if (Array.isArray(item.coordinate) && item.coordinate.length >= 3) {
-    return item.coordinate.slice(0, 3);
-  }
-  if (Array.isArray(item.params) && item.params.length >= 7) {
-    return item.params.slice(4, 7);
-  }
-  return null;
+  const coordinate = numericMissionCoordinate(item.coordinate);
+  const params = Array.isArray(item.params) && item.params.length >= 7
+    ? numericMissionCoordinate(item.params.slice(4, 7))
+    : null;
+  if (params && (Math.abs(params[0]) > 1e-12 || Math.abs(params[1]) > 1e-12)) return params;
+  return coordinate || params;
+}
+
+function numericMissionCoordinate(value) {
+  if (!Array.isArray(value) || value.length < 3) return null;
+  const coordinate = value.slice(0, 3).map(Number);
+  if (!coordinate.every(Number.isFinite)) return null;
+  if (coordinate[0] < -90 || coordinate[0] > 90 || coordinate[1] < -180 || coordinate[1] > 180) return null;
+  return coordinate;
 }
 
 function qgroundcontrolAltitudeDatum(frame) {

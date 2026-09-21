@@ -57,7 +57,9 @@ def test_operator_console_contains_the_complete_gcs_workflow() -> None:
     assert "DEFAULT_NAVIGABLE_MISSION_COMMANDS" in javascript
     assert "function qgroundcontrolItemCoordinates(item)" in javascript
     assert "item.coordinate" in javascript
-    assert "return item.params.slice(4, 7)" in javascript
+    assert "item.params.slice(4, 7)" in javascript
+    assert "function numericMissionCoordinate(value)" in javascript
+    assert "Math.abs(params[0]) > 1e-12" in javascript
     assert "function qgroundcontrolAltitudeDatum(frame)" in javascript
     assert "operator-console-preview" in javascript
     assert "renderMissionDrift" in javascript

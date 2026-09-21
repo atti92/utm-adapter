@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from math import isfinite
 from typing import Any, Mapping
 
 from .domain import Altitude, AltitudeDatum, AltitudeReference, Mission, Waypoint
@@ -82,20 +83,7 @@ def parse_qgroundcontrol_plan(
         frame = _integer(item.get("frame"), "frame")
         datum = _altitude_datum(frame)
         uses_relative_altitude = uses_relative_altitude or datum == AltitudeDatum.AGL
-        coordinate = item.get("coordinate")
-        if coordinate is not None:
-            if not isinstance(coordinate, (list, tuple)) or len(coordinate) < 3:
-                raise MissionParseError(
-                    "QGroundControl SimpleItem coordinate must contain latitude, longitude, and altitude"
-                )
-            coordinate_values = coordinate[:3]
-        else:
-            params = item.get("params")
-            if not isinstance(params, list) or len(params) < 7:
-                raise MissionParseError(
-                    "QGroundControl SimpleItem must contain coordinate or seven params"
-                )
-            coordinate_values = params[4:7]
+        coordinate_values = _qgroundcontrol_item_coordinates(item)
         try:
             latitude = float(coordinate_values[0])
             longitude = float(coordinate_values[1])
@@ -213,6 +201,59 @@ def _integer(value: Any, field_name: str) -> int:
         return int(value)
     except (TypeError, ValueError) as exc:
         raise MissionParseError(f"QGroundControl {field_name} must be an integer") from exc
+
+
+def _qgroundcontrol_item_coordinates(item: Mapping[str, Any]) -> tuple[Any, Any, Any]:
+    """Return the most reliable geographic coordinates from a QGC item.
+
+    QGroundControl exports have used both a convenience ``coordinate`` field
+    and the MAVLink ``params[4:7]`` fields.  Some generated plans retain a
+    stale home coordinate in the former while carrying the actual route point
+    in the latter.  Prefer non-placeholder MAVLink coordinates when both are
+    available, while still accepting older coordinate-only exports.
+    """
+
+    coordinate_values = _numeric_coordinate_candidate(item.get("coordinate"))
+    params = item.get("params")
+    params_values = (
+        _numeric_coordinate_candidate(params[4:7])
+        if isinstance(params, list) and len(params) >= 7
+        else None
+    )
+
+    if params_values is not None and _has_geographic_position(params_values):
+        return params_values
+    if coordinate_values is not None:
+        return coordinate_values
+    if params_values is not None:
+        return params_values
+    if item.get("coordinate") is not None:
+        raise MissionParseError(
+            "QGroundControl SimpleItem coordinate must contain latitude, longitude, and altitude"
+        )
+    raise MissionParseError("QGroundControl SimpleItem must contain coordinate or seven params")
+
+
+def _numeric_coordinate_candidate(value: Any) -> tuple[float, float, float] | None:
+    if not isinstance(value, (list, tuple)) or len(value) < 3:
+        return None
+    try:
+        latitude = float(value[0])
+        longitude = float(value[1])
+        altitude = float(value[2])
+    except (TypeError, ValueError):
+        return None
+    if not all(isfinite(number) for number in (latitude, longitude, altitude)):
+        return None
+    if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+        return None
+    return latitude, longitude, altitude
+
+
+def _has_geographic_position(value: tuple[float, float, float]) -> bool:
+    """Identify the all-zero coordinate often used as a QGC placeholder."""
+
+    return abs(value[0]) > 1e-12 or abs(value[1]) > 1e-12
 
 
 def validate_terminal_mission_command_position(

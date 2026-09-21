@@ -80,6 +80,29 @@ def test_qgroundcontrol_plan_accepts_standard_coordinate_items() -> None:
     assert mission.waypoints[0].altitude.datum == AltitudeDatum.AGL
 
 
+def test_qgroundcontrol_plan_prefers_mavlink_coordinates_over_stale_coordinate_field() -> None:
+    plan = _plan()
+    for item, latitude, longitude in zip(
+        plan["mission"]["items"],
+        (47.5, 47.501),
+        (19.05, 19.052),
+    ):
+        item["coordinate"] = [47.4979, 19.0402, 20]
+        item["params"] = [0, 0, 0, 0, latitude, longitude, 20]
+
+    mission = parse_qgroundcontrol_plan(
+        plan,
+        vehicle_id="sitl-1",
+        valid_from=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        valid_until=datetime(2026, 1, 1, 1, tzinfo=timezone.utc),
+    )
+
+    assert [(waypoint.latitude, waypoint.longitude) for waypoint in mission.waypoints] == [
+        (47.5, 19.05),
+        (47.501, 19.052),
+    ]
+
+
 def test_qgroundcontrol_plan_keeps_planned_home_for_relative_altitude() -> None:
     plan = _plan()
     plan["mission"]["plannedHomePosition"] = [47.4979, 19.0402, 137]
