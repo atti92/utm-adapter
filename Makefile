@@ -1,4 +1,4 @@
-.PHONY: setup demo-setup doctor smoke test run demo demo-check gcs-demo gcs-demo-check gcs-demo-verify gcs-custom-qgc-demo gcs-custom-qgc-demo-check gcs-custom-qgc-demo-verify gcs-router-demo gcs-router-demo-check gcs-router-demo-verify integration-demo integration-demo-check integration-demo-verify integration-demo-router-check integration-demo-router-verify integration-demo-px4 integration-demo-px4-check integration-demo-px4-verify integration-qgroundcontrol-mission-verify integration-mission-planner-mission-verify integration-verify mavlink-stream-check manifest-check qgc-check qgc-stage mp-check mp-compile-check router-check
+.PHONY: setup demo-setup doctor smoke test run demo binary demo-check gcs-demo gcs-demo-check gcs-demo-verify gcs-custom-qgc-demo gcs-custom-qgc-demo-check gcs-custom-qgc-demo-verify gcs-router-demo gcs-router-demo-check gcs-router-demo-verify integration-demo integration-demo-check integration-demo-verify integration-demo-router-check integration-demo-router-verify integration-demo-px4 integration-demo-px4-check integration-demo-px4-verify integration-qgroundcontrol-mission-verify integration-mission-planner-mission-verify integration-verify mavlink-stream-check manifest-check qgc-check qgc-stage mp-check mp-compile-check router-check
 
 setup:
 	uv sync
@@ -20,6 +20,9 @@ run:
 
 demo:
 	uv run utm-connector --demo --open-browser
+
+binary:
+	uv run --no-default-groups --group build python scripts/package_binary.py
 
 demo-check:
 	uv run python scripts/check_demo.py

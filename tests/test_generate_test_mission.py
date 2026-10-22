@@ -64,8 +64,8 @@ def test_demo_mission_artifacts_round_trip_through_production_parsers(tmp_path: 
     )
 
     assert len(qgc_mission.waypoints) == 2
-    assert len(mp_mission.waypoints) == 2
-    assert qgc_mission.waypoints[1].longitude == mp_mission.waypoints[1].longitude
+    assert len(mp_mission.waypoints) == 3
+    assert qgc_mission.waypoints[1].longitude == mp_mission.waypoints[2].longitude
 
     paths = write_demo_mission_files(
         tmp_path,
@@ -83,3 +83,13 @@ def test_demo_mission_artifacts_round_trip_through_production_parsers(tmp_path: 
     assert generated_item["params"] == [0, 0, 0, None]
     assert paths["mission-planner"].read_text(encoding="utf-8").startswith("QGC WPL 110\n")
     assert "51.5074" in paths["mission-planner"].read_text(encoding="utf-8")
+
+
+def test_supervised_demo_uses_simulator_amsl_datum(tmp_path: Path) -> None:
+    paths = write_demo_mission_files(tmp_path, altitude_m=137)
+    mission = json.loads(paths["canonical"].read_text())
+    assert {point["altitude"]["datum"] for point in mission["waypoints"]} == {"AMSL"}
+    rows = paths["mission-planner"].read_text().splitlines()
+    assert rows[1].startswith("0 1 0 16 ")
+    assert rows[2].startswith("1 0 5 22 ")
+    assert rows[3].startswith("2 0 5 21 ")

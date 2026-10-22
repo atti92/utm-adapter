@@ -43,6 +43,32 @@ without using the CLI. It can also read a route already uploaded from the
 vehicle by QGroundControl or Mission Planner and import it after the operator
 supplies explicit UTM metadata.
 
+### JSON configuration and desktop releases
+
+The connector reads `utm-connector.json` from the current directory when that
+file exists. Start with the tracked
+[`config/utm-connector.example.json`](config/utm-connector.example.json), then
+run `utm-connector --config PATH` or set `UTM_CONNECTOR_CONFIG_FILE`. JSON
+settings are defaults: `UTM_CONNECTOR_` environment variables and `.env`
+values override them, which keeps credentials out of shared configuration
+files. Use `enabled_gcs` to select the supported GCS mission adapters for an
+installation. Both QGroundControl (`.plan`) and Mission Planner (`.waypoints`)
+are enabled by default. One config may list multiple `mavlink_connections`.
+
+Linux and Windows standalone archives are published for each `vMAJOR.MINOR.PATCH`
+tag in the [GitHub releases](https://github.com/Dronecode/utm-adapter/releases).
+Each archive contains the executable, a JSON config example, and this guide;
+the matching SHA-256 file is published alongside it. Extract the archive,
+copy the example to `utm-connector.json`, set provider authentication with
+environment variables, then run `utm-connector` (or
+`utm-connector.exe --config PATH` on Windows). `utm-connector --version` and
+`GET /v1/version` report the same release version and supported GCS list.
+The packaged instructions are also tracked in
+[`docs/standalone-package.md`](docs/standalone-package.md).
+Maintainers can build an archive for the current Linux or Windows host with
+`make binary`; publishing a release requires a matching `vMAJOR.MINOR.PATCH`
+tag.
+
 For a full Flight Blender + SITL demonstration with the operator-facing GCS
 path, use the safe one-time bootstrap command below. It installs the locked
 Python environment and clones only missing dependencies beside this checkout;

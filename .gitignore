@@ -1,10 +1,14 @@
 .venv/
+build/
+dist/
+*.spec
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .coverage
 coverage.xml
 .env
+utm-connector.json
 .local/
 *.sqlite3
 connector-state.sqlite3-shm

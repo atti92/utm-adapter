@@ -94,7 +94,10 @@ function setDefaultWindow() {
 function missionWindowIsUsable(validFrom, validUntil) {
   if (!(validFrom instanceof Date) || !(validUntil instanceof Date)) return false;
   if (!Number.isFinite(validFrom.getTime()) || !Number.isFinite(validUntil.getTime())) return false;
-  if (validUntil <= validFrom || validFrom.getTime() <= Date.now()) return false;
+  if (validUntil <= validFrom) return false;
+  const declaration = state.operation?.state?.declaration;
+  if (declaration && !TERMINAL_DECLARATIONS.has(declaration)) return true;
+  if (validFrom.getTime() <= Date.now()) return false;
   const constraints = state.capabilities?.mission_window || {};
   if (Number.isFinite(constraints.max_future_seconds)) {
     const latest = Date.now() + Number(constraints.max_future_seconds) * 1000;
@@ -132,7 +135,10 @@ function missionMatchesForm() {
   const mission = state.mission?.mission;
   if (!mission) return false;
   try {
-    const { validFrom, validUntil } = validateMissionWindow();
+    // Matching saved values is independent of whether a new declaration may
+    // start now. Submission still validates its required future start.
+    const validFrom = new Date(inputAsIso("valid-from"));
+    const validUntil = new Date(inputAsIso("valid-until"));
     return Math.abs(validFrom.getTime() - new Date(mission.valid_from).getTime()) < 1000
       && Math.abs(validUntil.getTime() - new Date(mission.valid_until).getTime()) < 1000
       && Math.abs(Number($("corridor-radius").value) - Number(mission.corridor_radius_m)) < 0.001;
@@ -287,12 +293,13 @@ function clearVehicleWorkspace(message = "") {
 
 function renderReadiness(capabilities, vehicles, health, metrics) {
   const backend = capabilities.backend || "unknown";
-  if (health?.backend_error) {
-    setReadiness("backend-readiness", "backend-readiness-label", "warning", "Provider error");
-  } else if (health?.status !== "ok") {
-    setReadiness("backend-readiness", "backend-readiness-label", "warning", "Connector degraded");
+  if (health?.backend_reachable === false || health?.backend_error) {
+    setReadiness("backend-readiness", "backend-readiness-label", "warning", "UTM provider unreachable");
   } else {
-    setReadiness("backend-readiness", "backend-readiness-label", "ok", formatStatus(backend));
+    const providerLabel = backend === "flight-blender"
+      ? "Flight Blender reachable"
+      : backend === "in-memory" ? "Local test backend ready" : formatStatus(backend);
+    setReadiness("backend-readiness", "backend-readiness-label", "ok", providerLabel);
   }
 
   const lostVehicles = vehicles.filter((vehicle) => vehicle.connection_state === "LOST");
@@ -348,6 +355,25 @@ function renderReadiness(capabilities, vehicles, health, metrics) {
   } else {
     setReadiness("control-readiness", "control-readiness-label", "warning", "Review command boundary");
   }
+}
+
+function renderRuntimeMetadata(capabilities) {
+  $("runtime-version").textContent = capabilities.version
+    ? "v" + capabilities.version
+    : "Version unavailable";
+  const enabled = new Set(capabilities.enabled_gcs || []);
+  const supported = (capabilities.supported_gcs || []).map((gcs) => {
+    const formats = (gcs.mission_formats || []).join(", ");
+    return gcs.name + (formats ? " (" + formats + ")" : "")
+      + (enabled.has(gcs.id) ? "" : " · disabled");
+  });
+  $("gcs-support-list").textContent = supported.length
+    ? supported.join(" · ")
+    : "No GCS integrations";
+  const acceptedFormats = [];
+  if (enabled.has("qgroundcontrol")) acceptedFormats.push(".plan", "application/json");
+  if (enabled.has("mission-planner")) acceptedFormats.push(".waypoints", ".txt", "text/plain");
+  $("plan-file").accept = acceptedFormats.join(",");
 }
 
 function setSetupStep(index, stateName, title, detail) {
@@ -925,6 +951,7 @@ async function refresh() {
     state.metrics = metrics;
     state.latestHealth = health;
     state.vehicles = vehicles;
+    renderRuntimeMetadata(capabilities);
     setConnection(health.status === "ok" ? "ok" : "degraded", health.status === "ok" ? "Connector online" : "Connector degraded");
     $("backend-badge").textContent = capabilities.backend;
     $("backend-badge").title = integration.connector?.name || "UTM connector";

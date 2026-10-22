@@ -8,31 +8,40 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from scripts.verify_running_demo import _mission_upload, verify_running_demo
+from scripts.verify_running_demo import DemoVerificationError, _mission_upload, verify_running_demo
 from utm_connector.missions import parse_mission_planner_waypoints, parse_qgroundcontrol_plan
 
 
-def test_running_demo_verifier_exercises_operator_console_lifecycle() -> None:
+@pytest.mark.parametrize("publishes", [True, False])
+def test_running_demo_verifier_exercises_operator_console_lifecycle(publishes: bool) -> None:
     calls: list[tuple[str, str]] = []
 
+    metrics_calls = 0
+    vehicle_calls = 0
+
     def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal metrics_calls, vehicle_calls
         path = request.url.path
         calls.append((request.method, path))
         if path == "/v1/health":
             return httpx.Response(200, json={"status": "ok", "backend_error": None})
         if path == "/v1/metrics":
+            metrics_calls += 1
             return httpx.Response(
                 200,
                 json={
-                    "telemetry": {"received_total": 1},
+                    "telemetry": {"received_total": 1, "published_total": 10 + (2 if publishes and metrics_calls > 2 else 0)},
                     "vehicles": {"active": 1},
                 },
             )
         if path == "/v1/vehicles/sitl-1/status":
+            vehicle_calls += 1
             return httpx.Response(
                 200,
                 json={
+                    "vehicle_state": {"health": {"gps_fix_type": 1 if vehicle_calls == 1 else 6}},
                     "latest_telemetry": {
+                        "quality": "DEGRADED" if vehicle_calls == 1 else "GOOD",
                         "latitude": 47.4979,
                         "longitude": 19.0402,
                         "altitude": {"meters": 137.0, "datum": "AMSL"},
@@ -61,6 +70,7 @@ def test_running_demo_verifier_exercises_operator_console_lifecycle() -> None:
                     "conformance": "UNKNOWN",
                     "telemetry_publication": "ACTIVE",
                 },
+                "CANCEL_OPERATION": {"declaration": "CANCELLED"},
                 "COMPLETE_OPERATION": {
                     "declaration": "COMPLETED",
                     "authorization": "AUTHORIZED",
@@ -84,6 +94,11 @@ def test_running_demo_verifier_exercises_operator_console_lifecycle() -> None:
         raise AssertionError(f"unexpected request: {request.method} {request.url}")
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        if not publishes:
+            with pytest.raises(DemoVerificationError, match="two provider publications"):
+                verify_running_demo("http://demo", "sitl-1", timeout_s=0.01, poll_interval_s=0, client=client)
+            assert calls[-1] == ("POST", "/v1/operator-intents")
+            return
         result = verify_running_demo(
             "http://demo",
             "sitl-1",
@@ -91,15 +106,21 @@ def test_running_demo_verifier_exercises_operator_console_lifecycle() -> None:
             client=client,
         )
 
+    assert result.published_samples == 2
     assert result.vehicle_id == "sitl-1"
     assert result.operation_id
     assert calls == [
         ("GET", "/v1/health"),
         ("GET", "/v1/vehicles/sitl-1/status"),
+        ("GET", "/v1/vehicles/sitl-1/status"),
         ("PUT", "/v1/missions/sitl-1"),
         ("POST", "/v1/operator-intents"),
+        ("GET", "/v1/metrics"),
         ("POST", "/v1/operator-intents"),
         ("GET", f"/v1/operations/{result.operation_id}"),
+        ("GET", "/v1/metrics"),
+        ("GET", f"/v1/operations/{result.operation_id}"),
+        ("GET", "/v1/metrics"),
         ("POST", "/v1/operator-intents"),
         ("GET", "/v1/health"),
         ("GET", "/v1/metrics"),
@@ -155,5 +176,7 @@ def test_running_demo_verifier_builds_a_real_mission_planner_wpl_upload() -> Non
         corridor_radius_m=payload["corridor_radius_m"],
     )
     assert mission.source == "mission-planner"
-    assert len(mission.waypoints) == 3
-    assert mission.waypoints[2].latitude == 47.4979
+    assert len(mission.waypoints) == 4
+    assert payload["text"].splitlines()[1].startswith("0 1 0 16 ")
+    assert payload["text"].splitlines()[2].startswith("1 0 5 22 ")
+    assert mission.waypoints[3].latitude == 47.4979

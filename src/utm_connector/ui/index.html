@@ -24,23 +24,11 @@
       <section class="readiness-strip" aria-label="Integration readiness">
         <div class="readiness-item" id="backend-readiness" data-state="unknown">
           <span class="status-dot"></span>
-          <div><strong>Backend</strong><small id="backend-readiness-label">Connecting…</small></div>
+          <div><strong>UTM provider</strong><small id="backend-readiness-label">Connecting…</small></div>
         </div>
         <div class="readiness-item" id="mavlink-readiness" data-state="unknown">
           <span class="status-dot"></span>
-          <div><strong>Vehicle link</strong><small id="mavlink-readiness-label">Checking…</small></div>
-        </div>
-        <div class="readiness-item" id="recording-readiness" data-state="unknown">
-          <span class="status-dot"></span>
-          <div><strong>Recording</strong><small id="recording-readiness-label">Checking…</small></div>
-        </div>
-        <div class="readiness-item" id="metrics-readiness" data-state="unknown">
-          <span class="status-dot"></span>
-          <div><strong>Telemetry</strong><small id="metrics-readiness-label">Checking…</small></div>
-        </div>
-        <div class="readiness-item" id="altitude-readiness" data-state="unknown">
-          <span class="status-dot"></span>
-          <div><strong>Altitude reference</strong><small id="altitude-readiness-label">Checking…</small></div>
+          <div><strong>MAVLink</strong><small id="mavlink-readiness-label">Checking…</small></div>
         </div>
         <div class="readiness-item" id="control-readiness" data-state="unknown">
           <span class="status-dot"></span>
@@ -48,6 +36,31 @@
         </div>
       </section>
 
+      <details class="readiness-details">
+        <summary>Detailed system checks</summary>
+        <section class="readiness-strip readiness-secondary" aria-label="Detailed integration checks">
+          <div class="readiness-item" id="recording-readiness" data-state="unknown">
+            <span class="status-dot"></span>
+            <div><strong>Recording</strong><small id="recording-readiness-label">Checking…</small></div>
+          </div>
+          <div class="readiness-item" id="metrics-readiness" data-state="unknown">
+            <span class="status-dot"></span>
+            <div><strong>Telemetry</strong><small id="metrics-readiness-label">Checking…</small></div>
+          </div>
+          <div class="readiness-item" id="altitude-readiness" data-state="unknown">
+            <span class="status-dot"></span>
+            <div><strong>Altitude reference</strong><small id="altitude-readiness-label">Checking…</small></div>
+          </div>
+        </section>
+      </details>
+
+      <section class="runtime-meta" aria-label="Connector release and GCS support">
+        <div><strong>Version</strong><span id="runtime-version">Loading…</span></div>
+        <div><strong>Supported GCS</strong><span id="gcs-support-list">Checking…</span></div>
+      </section>
+
+      <details class="operator-workspace">
+        <summary class="workspace-summary">Open operator workspace</summary>
       <section class="panel setup-panel" aria-labelledby="setup-title">
         <div class="panel-heading setup-heading">
           <div>
@@ -214,6 +227,7 @@
       <footer class="footer-note">
         This local console uses the connector API. QGroundControl and Mission Planner remain the primary vehicle-control applications; the connector does not send vehicle-control commands.
       </footer>
+      </details>
     </main>
     <script src="/ui/app.js" defer></script>
   </body>

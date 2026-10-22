@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "utm-operations-connector"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Provider-neutral local UTM operations connector"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
@@ -43,6 +43,12 @@ test = [
     "hypothesis==6.119.0",
     "pytest==8.3.4",
 ]
+build = [
+    "pyinstaller>=6.15,<7",
+]
 
 [tool.uv]
 default-groups = ["test"]
+
+[tool.hatch.version]
+path = "src/utm_connector/__init__.py"

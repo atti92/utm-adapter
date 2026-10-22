@@ -40,7 +40,8 @@ from .missions import (
 from .service import ConnectorError, ConnectorService
 from .persistence import SQLiteStateStore
 from .recording import JsonlRecorder
-from .integration import integration_manifest
+from . import __version__
+from .integration import SUPPORTED_GCS, integration_manifest
 
 
 class OperatorConsoleStaticFiles(StaticFiles):
@@ -180,7 +181,7 @@ def create_app(
                 if close_state_store is not None:
                     close_state_store()
 
-    app = FastAPI(title="UTM Operations Connector", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="UTM Operations Connector", version=__version__, lifespan=lifespan)
     app.state.connector_service = service
     app.state.mavlink_session_manager = manager
 
@@ -202,10 +203,18 @@ def create_app(
     @app.get("/v1/capabilities", response_model=dict)
     def capabilities() -> dict:
         return {
+            "version": __version__,
+            "supported_gcs": integration_manifest()["supported_gcs"],
+            "enabled_gcs": settings.enabled_gcs,
             "backend": service.backend.name,
             "demo_mode": settings.demo_mode,
             "demo_route": DemoVehiclePublisher.route_coordinates() if settings.demo_mode else None,
-            "mission_formats": ["canonical", "qgroundcontrol", "mission-planner"],
+            "mission_formats": ["canonical"]
+            + [
+                gcs["id"]
+                for gcs in SUPPORTED_GCS
+                if gcs["id"] in settings.enabled_gcs
+            ],
             "mission_commands": list(NAVIGABLE_MISSION_COMMANDS_INFO),
             "ignored_terminal_mission_commands": list(IGNORED_TERMINAL_MISSION_COMMANDS_INFO),
             "integration_manifest": "/v1/integration",
@@ -253,7 +262,19 @@ def create_app(
     def integration() -> dict:
         """Expose the zero-fork GCS/connector boundary for local discovery."""
 
-        return integration_manifest()
+        manifest = integration_manifest()
+        manifest["enabled_gcs"] = list(settings.enabled_gcs)
+        return manifest
+
+    @app.get("/v1/version", response_model=dict)
+    def version() -> dict:
+        """Return release identity and the GCS integrations shipped in this build."""
+
+        return {
+            "name": "UTM Operations Connector",
+            "version": __version__,
+            "supported_gcs": integration_manifest()["supported_gcs"],
+        }
 
     @app.get("/v1/metrics", response_model=dict)
     def metrics_endpoint() -> dict:
@@ -348,6 +369,13 @@ def create_app(
 
     @app.get("/v1/health", response_model=HealthResponse)
     def health() -> HealthResponse:
+        backend_reachable = True
+        try:
+            service.backend.check_health()
+            service.mark_backend_healthy()
+        except BackendError as exc:
+            backend_reachable = False
+            service.record_backend_error(exc)
         return HealthResponse(
             status="degraded" if manager.last_errors or service.last_backend_error else "ok",
             active_vehicles=len(set(service.vehicles) | set(service.vehicle_snapshots)),
@@ -359,6 +387,7 @@ def create_app(
                 for operation in service.operations.values()
             ),
             backend=service.backend.name,
+            backend_reachable=backend_reachable,
             backend_error=service.last_backend_error,
         )
 
@@ -425,6 +454,10 @@ def create_app(
     ) -> dict:
         """Normalize a QGroundControl Plan with explicit UTM metadata."""
 
+        if "qgroundcontrol" not in settings.enabled_gcs:
+            raise HTTPException(
+                status_code=404, detail="QGroundControl integration is disabled"
+            )
         try:
             mission = parse_qgroundcontrol_plan(
                 request.plan,
@@ -443,6 +476,10 @@ def create_app(
     ) -> dict:
         """Normalize a Mission Planner QGC WPL export with explicit UTM metadata."""
 
+        if "mission-planner" not in settings.enabled_gcs:
+            raise HTTPException(
+                status_code=404, detail="Mission Planner integration is disabled"
+            )
         try:
             mission = parse_mission_planner_waypoints(
                 request.text,

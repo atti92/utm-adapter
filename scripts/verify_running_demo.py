@@ -32,6 +32,7 @@ class DemoVerificationResult:
     operation_id: UUID
     elapsed_s: float
     mission_format: str
+    published_samples: int
 
 
 def _json(response: httpx.Response, *, expected: int, action: str) -> dict[str, Any]:
@@ -55,6 +56,14 @@ def _state(operation: dict[str, Any], key: str, *, action: str) -> str:
     if not isinstance(value, str):
         raise DemoVerificationError(f"{action} did not include operation state {key!r}")
     return value
+
+
+def _published_total(metrics: dict[str, Any]) -> int:
+    telemetry = metrics.get("telemetry")
+    total = telemetry.get("published_total") if isinstance(telemetry, dict) else None
+    if not isinstance(total, int) or isinstance(total, bool) or total < 0:
+        raise DemoVerificationError("metrics did not report a valid published_total counter")
+    return total
 
 
 def _mission_upload(
@@ -140,11 +149,15 @@ def _mission_upload(
             },
         )
 
-    lines = ["QGC WPL 110"]
+    # Match Mission Planner exports: row zero is home, followed by commands.
+    lines = [
+        "QGC WPL 110",
+        f"0 1 0 16 0 0 0 0 {latitude} {longitude} {altitude_m - 2} 1",
+    ]
     for sequence, (command, (point_latitude, point_longitude, point_altitude)) in enumerate(
-        zip((22, 16, 21), route)
+        zip((22, 16, 21), route), start=1
     ):
-        current = 1 if sequence == 0 else 0
+        current = 0
         lines.append(
             f"{sequence} {current} {frame} {command} 0 0 0 0 "
             f"{point_latitude} {point_longitude} {point_altitude} 1"
@@ -195,13 +208,21 @@ def verify_running_demo(
                 action=f"vehicle {vehicle_id} discovery",
             )
             candidate = vehicle_status.get("latest_telemetry")
-            if isinstance(candidate, dict):
+            vehicle_state = vehicle_status.get("vehicle_state") or {}
+            gps_fix = (vehicle_state.get("health") or {}).get("gps_fix_type", 0)
+            if (
+                isinstance(candidate, dict)
+                and candidate.get("quality") == "GOOD"
+                and isinstance(gps_fix, int)
+                and gps_fix >= 3
+            ):
                 telemetry = candidate
                 break
             time.sleep(poll_interval_s)
         if telemetry is None:
             raise DemoVerificationError(
-                f"vehicle {vehicle_id} did not publish live telemetry within {timeout_s:.0f}s"
+                f"vehicle {vehicle_id} did not publish GOOD telemetry with a 3D GPS fix "
+                f"within {timeout_s:.0f}s"
             )
         try:
             latitude = float(telemetry["latitude"])
@@ -251,6 +272,13 @@ def verify_running_demo(
         if _state(submit, "authorization", action="operation submission") != "AUTHORIZED":
             raise DemoVerificationError("operation submission was not authorized")
 
+        baseline = _json(
+            http.get(f"{base_url}/v1/metrics"), expected=200, action="publication baseline"
+        )
+        if baseline.get("operations", {}).get("active", 1) != 1:
+            raise DemoVerificationError("verification requires a dedicated connector with no other active operations")
+        baseline_published = _published_total(baseline)
+
         start = _json(
             http.post(
                 f"{base_url}/v1/operator-intents",
@@ -269,6 +297,8 @@ def verify_running_demo(
 
         deadline = time.monotonic() + timeout_s
         last_conformance = "UNKNOWN"
+        last_publication = "UNKNOWN"
+        published_samples = 0
         while time.monotonic() < deadline:
             operation = _json(
                 http.get(f"{base_url}/v1/operations/{operation_id}"),
@@ -278,13 +308,27 @@ def verify_running_demo(
             last_conformance = _state(
                 operation, "conformance", action="operation status"
             )
-            if last_conformance == "CONFORMING":
+            last_publication = _state(
+                operation, "telemetry_publication", action="operation status"
+            )
+            publication_metrics = _json(
+                http.get(f"{base_url}/v1/metrics"), expected=200, action="publication check"
+            )
+            published_samples = _published_total(publication_metrics) - baseline_published
+            # Local conformance can be CONFORMING before the validity window
+            # opens. Require actual provider acknowledgements during this run.
+            if (
+                last_conformance == "CONFORMING"
+                and last_publication == "ACTIVE"
+                and published_samples >= 2
+            ):
                 break
             time.sleep(poll_interval_s)
         else:
             raise DemoVerificationError(
-                f"live telemetry did not reach CONFORMING within {timeout_s:.0f}s "
-                f"(last state: {last_conformance})"
+                f"live telemetry did not reach CONFORMING with two provider publications "
+                f"within {timeout_s:.0f}s (conformance={last_conformance}, "
+                f"publication={last_publication}, published_samples={published_samples})"
             )
 
         complete = _json(
@@ -329,6 +373,7 @@ def verify_running_demo(
             operation_id=operation_id,
             elapsed_s=time.monotonic() - started_at,
             mission_format=mission_format,
+            published_samples=published_samples,
         )
     finally:
         if not completed:
@@ -378,7 +423,8 @@ def main() -> int:
     print(
         "[ok] full-stack verification passed: "
         f"vehicle={result.vehicle_id} operation={result.operation_id} "
-        f"mission_format={result.mission_format} elapsed={result.elapsed_s:.1f}s"
+        f"mission_format={result.mission_format} published_samples={result.published_samples} "
+        f"elapsed={result.elapsed_s:.1f}s"
     )
     return 0
 

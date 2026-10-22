@@ -1,0 +1,17 @@
+{
+  "host": "127.0.0.1",
+  "port": 8000,
+  "backend": "flight-blender",
+  "flight_blender_base_url": "http://127.0.0.1:8989",
+  "enabled_gcs": [
+    "qgroundcontrol",
+    "mission-planner"
+  ],
+  "mavlink_connections": [
+    {
+      "vehicle_id": "vehicle-1",
+      "connection_uri": "udpin:127.0.0.1:14551"
+    }
+  ],
+  "telemetry_publish_interval_s": 1.0
+}

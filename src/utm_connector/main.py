@@ -8,6 +8,7 @@ import webbrowser
 
 import uvicorn
 
+from . import __version__
 from .config import ConnectorSettings
 
 
@@ -23,11 +24,23 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="run a self-contained moving-vehicle demo with the in-memory backend",
     )
+    parser.add_argument(
+        "--config",
+        metavar="PATH",
+        help="load connector defaults from a JSON configuration file",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"utm-connector {__version__}",
+    )
     return parser
 
 
 def run() -> None:
     args, _unknown = _parser().parse_known_args()
+    if args.config:
+        os.environ["UTM_CONNECTOR_CONFIG_FILE"] = args.config
     if args.demo:
         # The app is loaded by Uvicorn's factory in a separate import step, so
         # pass this explicit CLI override through the same environment-backed

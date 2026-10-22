@@ -20,6 +20,7 @@ def build_mission(
     altitude_span_m: float,
     duration_minutes: int,
     start_offset_minutes: float,
+    altitude_datum: str = "WGS84",
 ) -> dict[str, object]:
     if altitude_span_m <= 0:
         raise ValueError("altitude_span_m must be greater than zero")
@@ -37,13 +38,13 @@ def build_mission(
                 "sequence": 0,
                 "latitude": latitude,
                 "longitude": longitude,
-                "altitude": {"meters": altitude_m - half_span, "datum": "WGS84"},
+                "altitude": {"meters": altitude_m - half_span, "datum": altitude_datum},
             },
             {
                 "sequence": 1,
                 "latitude": latitude + 0.0005,
                 "longitude": longitude + 0.0005,
-                "altitude": {"meters": altitude_m + half_span, "datum": "WGS84"},
+                "altitude": {"meters": altitude_m + half_span, "datum": altitude_datum},
             },
         ],
     }
@@ -114,9 +115,15 @@ def build_qgroundcontrol_plan(payload: dict[str, object]) -> dict[str, object]:
 def build_mission_planner_waypoints(payload: dict[str, object]) -> str:
     """Convert a canonical test mission to Mission Planner's QGC WPL text."""
 
-    lines = ["QGC WPL 110"]
-    for sequence, (command, point) in enumerate(zip(NAVIGABLE_COMMANDS, _mission_points(payload))):
-        current = 1 if sequence == 0 else 0
+    points = _mission_points(payload)
+    home = points[0]
+    # Mission Planner removes row zero from its mission grid as planned home.
+    lines = [
+        "QGC WPL 110",
+        f"0 1 0 16 0 0 0 0 {home['latitude']} {home['longitude']} {home['altitude']} 1",
+    ]
+    for sequence, (command, point) in enumerate(zip(NAVIGABLE_COMMANDS, points), start=1):
+        current = 0
         lines.append(
             "{sequence} {current} 5 {command} 0 0 0 0 {latitude} {longitude} {altitude} 1".format(
                 sequence=sequence,
@@ -148,6 +155,7 @@ def write_demo_mission_files(
         altitude_span_m=4,
         duration_minutes=20,
         start_offset_minutes=1,
+        altitude_datum="AMSL",
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     canonical_path = output_dir / "mission.json"

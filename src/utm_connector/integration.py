@@ -13,6 +13,24 @@ from .missions import (
     NAVIGABLE_MISSION_COMMANDS_INFO,
 )
 
+SUPPORTED_GCS = [
+    {
+        "id": "qgroundcontrol",
+        "name": "QGroundControl",
+        "platforms": ["windows", "linux", "macos"],
+        "mission_formats": [".plan"],
+        "integration_modes": ["browser_console", "optional_native_fly_view_overlay"],
+    },
+    {
+        "id": "mission-planner",
+        "name": "Mission Planner",
+        "platforms": ["windows"],
+        "mission_formats": [".waypoints"],
+        "integration_modes": ["browser_console", "optional_menu_plugin"],
+        "validated_source_version": "1.3.83",
+    },
+]
+
 
 INTEGRATION_MANIFEST = {
     "schema_version": "1.0",
@@ -30,6 +48,7 @@ INTEGRATION_MANIFEST = {
         "discovery_path": "/v1/integration",
         "capabilities_path": "/v1/capabilities",
         "health_path": "/v1/health",
+        "version_path": "/v1/version",
         "metrics_path": "/v1/metrics",
         "vehicles_path": "/v1/vehicles",
         "telemetry_path": "/v1/vehicles/{vehicle_id}",
@@ -80,6 +99,7 @@ INTEGRATION_MANIFEST = {
         },
     },
     "mission_formats": ["canonical", "qgroundcontrol", "mission-planner"],
+    "supported_gcs": SUPPORTED_GCS,
     "mission_commands": list(NAVIGABLE_MISSION_COMMANDS_INFO),
     "ignored_terminal_mission_commands": list(IGNORED_TERMINAL_MISSION_COMMANDS_INFO),
     "recording": {

@@ -1,11 +1,20 @@
-"""Environment-backed connector configuration."""
+"""JSON- and environment-backed connector configuration."""
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import List
 
 from pydantic import BaseModel, Field, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
+from pydantic_settings.sources import JsonConfigSettingsSource
+
+from .integration import SUPPORTED_GCS
 
 
 class MavlinkConnectionConfig(BaseModel):
@@ -19,6 +28,37 @@ class ConnectorSettings(BaseSettings):
         env_file=".env",
         extra="ignore",
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        """Load JSON defaults while allowing environment overrides for secrets."""
+
+        configured_path = os.environ.get("UTM_CONNECTOR_CONFIG_FILE")
+        config_path = (
+            Path(configured_path).expanduser()
+            if configured_path
+            else Path("utm-connector.json")
+        )
+        if configured_path and not config_path.is_file():
+            raise FileNotFoundError(f"connector config file does not exist: {config_path}")
+        json_settings = JsonConfigSettingsSource(
+            settings_cls,
+            json_file=config_path if config_path.is_file() else None,
+        )
+        return (
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            json_settings,
+            file_secret_settings,
+        )
 
     host: str = "127.0.0.1"
     port: int = Field(default=8000, ge=1, le=65535)
@@ -50,6 +90,21 @@ class ConnectorSettings(BaseSettings):
     mavlink_reconnect_interval_s: float = Field(default=5.0, gt=0, le=60)
     telemetry_publish_interval_s: float = Field(default=1.0, ge=0, le=60)
     event_coalesce_interval_s: float = Field(default=5.0, ge=0, le=300)
+    enabled_gcs: list[str] = Field(
+        default_factory=lambda: [gcs["id"] for gcs in SUPPORTED_GCS]
+    )
+
+    @model_validator(mode="after")
+    def validate_enabled_gcs(self) -> "ConnectorSettings":
+        known_ids = {gcs["id"] for gcs in SUPPORTED_GCS}
+        if len(self.enabled_gcs) != len(set(self.enabled_gcs)):
+            raise ValueError("enabled_gcs values must be unique")
+        unknown_ids = sorted(set(self.enabled_gcs) - known_ids)
+        if unknown_ids:
+            raise ValueError(
+                "unsupported enabled_gcs value(s): " + ", ".join(unknown_ids)
+            )
+        return self
 
     @model_validator(mode="after")
     def validate_unique_vehicle_ids(self) -> "ConnectorSettings":

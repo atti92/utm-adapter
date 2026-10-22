@@ -1,0 +1,63 @@
+name: standalone releases
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: ${{ matrix.platform }} binary
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: windows-latest
+            platform: windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install Linux binary inspection tools
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install --yes binutils
+      - run: uv sync --locked --no-default-groups --group build
+      - name: Confirm tag matches connector version
+        shell: bash
+        run: |
+          VERSION="$(uv run python -c 'from utm_connector import __version__; print(__version__)')"
+          test "${GITHUB_REF_NAME}" = "v${VERSION}"
+      - run: uv run --no-sync python scripts/package_binary.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: dist/release/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist/release
+          pattern: release-*
+          merge-multiple: true
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/release/* --title "${GITHUB_REF_NAME}" --generate-notes

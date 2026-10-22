@@ -26,6 +26,9 @@ class UTMBackend(ABC):
     name = "backend"
     required_altitude_datum: Optional[AltitudeDatum] = None
 
+    def check_health(self) -> None:
+        """Check provider reachability when this backend has a remote service."""
+
     def mission_window_constraints(self) -> dict:
         """Return provider rules the operator console can validate locally."""
 
@@ -110,6 +113,15 @@ class FlightBlenderBackend(UTMBackend):
             "requires_future_start": True,
             "max_future_seconds": self.max_declaration_horizon_s,
         }
+
+    def check_health(self) -> None:
+        """Ping Flight Blender's public liveness endpoint without credentials."""
+
+        try:
+            response = self.client.get(f"{self.base_url}/ping", timeout=2.0)
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise BackendError(f"Flight Blender is unreachable: {exc}") from exc
 
     def __init__(
         self,

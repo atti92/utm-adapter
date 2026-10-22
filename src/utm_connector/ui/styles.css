@@ -20,7 +20,16 @@ body { margin: 0; min-width: 320px; background: radial-gradient(circle at 90% -1
 button, input, select { font: inherit; }
 .topbar { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; padding: 34px max(24px, calc((100vw - 1320px) / 2)); border-bottom: 1px solid var(--border); background: rgba(6, 18, 30, 0.75); }
 .shell { width: min(1320px, calc(100% - 48px)); margin: 28px auto 40px; }
-.readiness-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 18px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: rgba(15, 32, 48, 0.72); }
+.readiness-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: rgba(15, 32, 48, 0.72); }
+.readiness-details { margin: 0 0 16px; color: var(--muted); font-size: 0.73rem; }
+.readiness-details > summary { cursor: pointer; width: fit-content; color: var(--muted); }
+.readiness-details .readiness-strip { margin: 10px 0 0; }
+.runtime-meta { display: grid; grid-template-columns: auto 1fr; gap: 8px 22px; align-items: baseline; margin: 0 2px 20px; color: var(--muted); font-size: 0.74rem; }
+.runtime-meta div { display: flex; flex-wrap: wrap; gap: 9px; }
+.runtime-meta strong { color: var(--text); font-size: 0.7rem; }
+.operator-workspace { border-top: 1px solid var(--border); padding-top: 14px; }
+.workspace-summary { cursor: pointer; width: fit-content; color: var(--cyan); font-size: 0.85rem; font-weight: 800; }
+.operator-workspace[open] > .workspace-summary { margin-bottom: 16px; }
 .readiness-item { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 3px 8px; color: var(--muted); }
 .readiness-item .status-dot { flex: 0 0 auto; width: 7px; height: 7px; color: var(--muted); box-shadow: 0 0 9px currentColor; }
 .readiness-item[data-state="ok"] { color: var(--green); }
@@ -155,6 +164,7 @@ h3 { margin-bottom: 3px; font-size: 1rem; }
   .topbar { flex-direction: column; padding: 26px 20px; }
   .shell { width: min(100% - 28px, 1320px); margin-top: 16px; }
   .readiness-strip { grid-template-columns: 1fr; }
+  .runtime-meta { grid-template-columns: 1fr; gap: 7px; }
   .setup-grid { grid-template-columns: 1fr; }
   .panel { padding: 18px; }
   .mission-actions { align-items: flex-start; flex-direction: column; }

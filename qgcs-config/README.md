@@ -9,12 +9,17 @@ contract used by a GCS integration.
   connector API and browser operator console. It is intentionally
   provider-neutral and can be consumed by a thin QGroundControl or other GCS
   adapter without modifying the stock flight-control application.
+- [`product.json`](product.json) is QGroundControl product/provider metadata;
+  it is not the connector's runtime settings file. Configure the standalone
+  connector with [`../config/utm-connector.example.json`](../config/utm-connector.example.json).
 - [`../examples/qgroundcontrol-custom-build/`](../examples/qgroundcontrol-custom-build/)
   contains an optional native Fly View status overlay for a QGroundControl
   custom build. A stock QGroundControl binary cannot load this resource as a
   loose runtime plugin.
 
-The live service exposes the same contract at `GET /v1/integration`. The
+The live service exposes the same contract at `GET /v1/integration`, release
+version and support data at `GET /v1/version`, and the active GCS selection at
+`GET /v1/capabilities`. The
 relative paths in the manifest are resolved against the connector origin, for
 example `http://127.0.0.1:8000/v1/integration`. Opening the service root
 (`http://127.0.0.1:8000/`) redirects to the operator console.

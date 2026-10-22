@@ -1383,7 +1383,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(
                 "[ok] full-stack verification passed: "
                 f"vehicle={result.vehicle_id} operation={result.operation_id} "
-                f"mission_format={result.mission_format} elapsed={result.elapsed_s:.1f}s"
+                f"mission_format={result.mission_format} published_samples={result.published_samples} "
+                f"elapsed={result.elapsed_s:.1f}s"
             )
             return 0
         while True:
